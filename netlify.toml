@@ -1,0 +1,7 @@
+# Netlify 배포 설정 (빌드 없음 · 폴더 그대로 공개 · API 는 Functions)
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
