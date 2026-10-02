@@ -2351,7 +2351,7 @@ function searchHTML() {
     <main class="content">
       <form class="search-bar" id="search-form">
         <input id="search-input" class="input" type="search" enterkeyhint="search" autocomplete="off"
-          placeholder="${byName ? '장소·주소 검색 · 건물·초성도 돼요 (예: ㄱㄴㅇ)' : '도로명 주소 (예: 세종대로 110)'}" value="${esc(s.query)}">
+          placeholder="${byName ? '장소·주소 검색 초성도 돼요 (예: ㄱㄴㅇ)' : '도로명 주소 (예: 세종대로 110)'}" value="${esc(s.query)}">
         <button type="submit" class="btn primary small">검색</button>
       </form>
       ${s.which === 'from' ? '<button type="button" class="mine" data-act="mine">◎ 현재 위치에서 출발</button>' : ''}
