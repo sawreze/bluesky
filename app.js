@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.02-maprty';
+const APP_VERSION = '2026.10.02-safari';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -2280,6 +2280,19 @@ function logout() {
   go('login', 'back');
 }
 
+// 앱 코드에서 난 오류를 화면 아래에 잠깐 보여줘요 (캡처해서 보내 주면 원인을 바로 알 수 있어요)
+function reportError(err) {
+  const msg = (err && (err.message || err.reason && err.reason.message)) || String(err);
+  console.error('[푸른하늘 오류]', err);
+  try {
+    toast(`앱 오류: ${String(msg).slice(0, 90)}`);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { const el = document.getElementById('toast'); if (el) el.classList.remove('show'); }, 6000);
+  } catch (e) { /* 무시 */ }
+}
+window.addEventListener('error', (e) => { if (e.filename && /\/app\.js/.test(e.filename)) reportError(e.error || e.message); });
+window.addEventListener('unhandledrejection', (e) => { if (e.reason && /app\.js/.test(String(e.reason.stack || ''))) reportError(e.reason); });
+
 // "준비 중" 안내 (아직 없는 기능 버튼)
 let toastTimer = null;
 function toast(msg) {
@@ -2673,7 +2686,7 @@ function render() {
   if (!state.user && !['login', 'email-login', 'signup'].includes(screen)) screen = state.screen = 'login';
   app.innerHTML = VIEWS[screen]();
   app.dataset.screen = screen;
-  initTabBar();
+  try { initTabBar(); } catch (err) { console.warn('[탭 바]', err); }
   if (state.navDir) {
     app.classList.remove('enter-fwd', 'enter-back');
     void app.offsetWidth; // 애니메이션 다시 시작
@@ -3161,7 +3174,7 @@ appEl.addEventListener('touchcancel', endSwipe);
   }
 })();
 
-render();
+try { render(); } catch (err) { reportError(err); }
 setTimeout(showCampNotices, 500);
 
 serverCheck = checkServer();
