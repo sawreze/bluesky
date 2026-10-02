@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.02-search';
+const APP_VERSION = '2026.10.02-places';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -290,7 +290,9 @@ function makePlaceService(kakao, naver) {
     });
     // 도로명주소 키 오류 같은 관리자용 메시지는 사용자에게 보여 주지 않고 콘솔에만 남겨요
     if (jusoRes.error) console.warn('[도로명주소 검색]', jusoRes.error);
-    return out;
+    // 가게·상호·역 이름을 먼저, 주소만 있는 결과는 맨 뒤로 (각 묶음 안의 순서는 그대로)
+    const isAddr = (p) => p.needsCoords || /주소/.test(p.category || '');
+    return out.filter((p) => !isAddr(p)).concat(out.filter(isAddr));
   };
 
   if (kakao) {
@@ -3052,7 +3054,12 @@ if (HAS_NAVER) {
 }
 if (HAS_JS) {
   loadKakaoMaps()
-    .then((kakao) => { state.kakao = kakao; updateReady(); if (state.screen !== 'nav') render(); })
+    .then((kakao) => {
+      state.kakao = kakao; updateReady();
+      // 카카오(가게·역 이름 검색)가 늦게 준비되면, 이미 입력한 검색어로 다시 찾아요
+      if (state.screen === 'search' && state.search.query.trim()) runSearch();
+      else if (state.screen !== 'nav') render();
+    })
     .catch((err) => {
       if (MAP_KIND === 'kakao') { state.mapError = err.message; render(); }
       else console.warn('카카오 장소 검색을 쓸 수 없어 네이버 주소 검색으로 대신해요:', err.message);
