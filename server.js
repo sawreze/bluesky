@@ -24,7 +24,7 @@ const path = require('path');
 const api = require('./api-core.cjs');
 
 const PORT = 5173;
-const APP_VERSION = '2026.10.02-arrive'; // app.js 의 APP_VERSION 과 같게
+const APP_VERSION = '2026.10.02-acctab'; // app.js 의 APP_VERSION 과 같게
 const ROOT = __dirname;
 const PRIVATE_DIR = path.join(ROOT, 'private');
 const TYPES = {

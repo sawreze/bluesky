@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.02-arrive';
+const APP_VERSION = '2026.10.02-acctab';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -2089,8 +2089,10 @@ function accountHTML() {
   const how = { kakao: '카카오 계정', email: '이메일' }[u.provider] || '로그인';
   const { me } = monthRanking();
   const photo = loadAvatar();
-  return `${appBar('계정 설정', 'back')}
-    <main class="content acc">
+  return `<main class="main acc">
+      <header class="m-top">
+        <div><p class="m-kicker">${ICON.spark}내 정보</p><h1 class="m-title sm">계정정보</h1></div>
+      </header>
       <section class="acc-top">
         <label class="acc-photo" aria-label="프로필 사진 바꾸기">
           <input type="file" id="avatar-input" accept="image/*" hidden>
@@ -2120,7 +2122,8 @@ function accountHTML() {
       </section>
       <button type="button" class="btn sheet-out" data-act="logout">로그아웃</button>
       <p class="rk-note">프로필 사진과 닉네임은 이 기기에 저장돼요</p>
-    </main>`;
+    </main>
+    ${tabBarHTML('me')}`;
 }
 
 function tabBarHTML(active) {
@@ -2354,6 +2357,20 @@ function kgGuideHTML() {
     <p class="source">${EQUIV_SOURCE}</p>
   </details>`;
 }
+// 색깔 뜻 (경로 막대의 색이 어떤 이동 수단인지) — 지금 보이는 경로에 있는 수단만
+const LEGEND = [
+  { mode: 'walk', label: '도보', sw: 'walk' },
+  { mode: 'bus', label: '버스', sw: 'bus', title: '초록 지선 · 파랑 간선 · 빨강 광역' },
+  { mode: 'subway', label: '지하철', sw: 'subway', title: '호선마다 노선 색' },
+  { mode: 'bike', label: '자전거', sw: 'bike' },
+  { mode: 'car', label: '자동차', sw: 'car' },
+];
+function legendHTML(options) {
+  const used = new Set();
+  (options || []).forEach((r) => (r.segments || []).forEach((sg) => used.add(sg.mode)));
+  const items = LEGEND.filter((l) => (used.size ? used.has(l.mode) : ['walk', 'bus', 'subway'].includes(l.mode)));
+  return `<ul class="legend" aria-label="색깔 뜻">${items.map((l) => `<li${l.title ? ` title="${l.title}"` : ''}><i class="sw sw-${l.sw}" aria-hidden="true"></i>${l.label}</li>`).join('')}</ul>`;
+}
 function resultSheetHTML() {
   const { ranked, options, chosen } = currentPlan();
   const { prefs, level } = state;
@@ -2366,6 +2383,7 @@ function resultSheetHTML() {
 
   const filters = `<div class="filters">
     <select id="sort" class="fsel" aria-label="정렬">${SORTS.map((s) => `<option value="${s.id}" ${prefs.sort === s.id ? 'selected' : ''}>${s.label}</option>`).join('')}</select>
+    ${legendHTML(options)}
   </div>`;
 
   let list;

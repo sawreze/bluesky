@@ -1197,3 +1197,14 @@ textarea { font: inherit; color: inherit; }
 .navx-arrive { width: 100%; min-height: 52px; margin-top: 10px; border: 2px solid #E5484D; border-radius: 16px; background: #fff;
   color: #E5484D; font-size: 17px; font-weight: 800; letter-spacing: -0.01em; box-shadow: 0 4px 16px rgba(229, 72, 77, .12); }
 .navx-arrive:active { background: #FFF1F1; }
+
+/* 경로 색깔 뜻 (빠른 순 옆) */
+.filters { align-items: center; }
+.legend { flex: none; display: flex; align-items: center; gap: 10px; margin: 0 0 0 4px; padding: 0; list-style: none; font-size: 12.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.legend li { display: inline-flex; align-items: center; gap: 5px; }
+.legend .sw { display: inline-block; width: 18px; height: 8px; border-radius: 4px; }
+.sw-walk { background: repeating-linear-gradient(90deg, #A9B4C2 0 3px, transparent 3px 5px); box-shadow: inset 0 0 0 1px #D5DCE5; }
+.sw-bus { background: linear-gradient(90deg, #53B332 0 33%, #3D5BAB 33% 66%, #E60012 66%); }
+.sw-subway { background: linear-gradient(90deg, #0052A4 0 25%, #00A84D 25% 50%, #EF7C1C 50% 75%, #996CAC 75%); }
+.sw-bike { background: #127a52; }
+.sw-car { background: #a24b3c; }
