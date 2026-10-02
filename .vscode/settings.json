@@ -1,0 +1,9 @@
+{
+  "editor.tabSize": 2,
+  "liveServer.settings.port": 5173,
+  "liveServer.settings.host": "0.0.0.0",
+  "liveServer.settings.root": "/",
+  "liveServer.settings.useLocalIp": false,
+  "liveServer.settings.donotShowInfoMsg": true,
+  "liveServer.settings.ignoreFiles": [".vscode/**", "private/**", "server.js", "README.md"]
+}

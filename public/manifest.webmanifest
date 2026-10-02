@@ -1,0 +1,9 @@
+{
+  "name": "푸른하늘 - 탄소 절약 내비게이션",
+  "short_name": "푸른하늘",
+  "start_url": "../index.html",
+  "display": "standalone",
+  "background_color": "#F1F8FE",
+  "theme_color": "#1976D2",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
