@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.02-glass';
+const APP_VERSION = '2026.10.02-maprty';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -235,30 +235,49 @@ function naverAuthHelp() {
 // ※ 네이버 지도는 주소 검색 모듈(geocoder)을 document.write 로 불러오는데, 스크립트를 나중에 붙이면
 //   브라우저가 이를 막아서 "준비 완료" 신호(callback)가 안 올 때가 있어요 (될 때도 있고 안 될 때도 있음).
 //   그래서 지도 본체가 준비되면 신호를 기다리지 않고 시작하고, 주소 검색 모듈은 직접 불러와요.
+//   ※ 네이버 인증 서버가 가끔 "500 잠시 후 다시" 로 답하면 지도가 영영 안 떠요 → 7초 안에 안 되면 자동으로 다시 불러요 (최대 3번).
 function loadNaverMaps() {
   return new Promise((resolve, reject) => {
     let done = false;
-    const finish = () => { if (!done) { done = true; resolve(window.naver); } };
+    let tries = 0;
+    let poll = null;
+    let retryTimer = null;
+    const stop = () => { clearInterval(poll); clearTimeout(retryTimer); };
+    const finish = () => { if (!done) { done = true; stop(); resolve(window.naver); } };
+    const fail = (msg) => { if (!done) { done = true; stop(); reject(new Error(msg)); } };
     window.navermap_authFailure = () => {
       const err = new Error(naverAuthHelp());
-      if (!done) { done = true; reject(err); return; }
+      if (!done) { done = true; stop(); reject(err); return; }
       state.mapError = err.message; state.naver = null; updateReady(); render(); // 시작한 뒤에 인증 실패가 온 경우
     };
     window.__pureunNaverReady = finish;
-    loadScript(`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_KEY_ID}&submodules=geocoder&callback=__pureunNaverReady`)
-      .catch(() => { if (!done) { done = true; reject(new Error('네이버 지도를 불러오지 못했어요. 인터넷 연결과 클라이언트 ID를 확인해 주세요.')); } });
-    const t0 = Date.now();
-    const poll = setInterval(() => {
-      const nm = window.naver && window.naver.maps;
-      if (done || Date.now() - t0 > 15000) { clearInterval(poll); return; }
-      if (nm && nm.Map && nm.LatLng) {
-        clearInterval(poll);
-        if (nm.Service) { finish(); return; }
-        // 주소 검색 모듈이 안 왔으면 직접 불러오고, 실패해도 지도는 써요
-        loadScript('https://oapi.map.naver.com/openapi/v3/maps-geocoder.js').catch(() => {}).then(() => setTimeout(finish, 200));
-        setTimeout(finish, 2500);
-      }
-    }, 250);
+    const attempt = () => {
+      tries += 1;
+      // 지난번에 덜 불러온 스크립트는 지우고 새로 (주소 뒤에 시도 번호를 붙여 캐시도 피해요)
+      document.querySelectorAll('script[src*="oapi.map.naver.com"]').forEach((el) => el.remove());
+      if (tries > 1) { try { window.naver = undefined; } catch (e) { /* 무시 */ } }
+      loadScript(`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_KEY_ID}&submodules=geocoder&callback=__pureunNaverReady${tries > 1 ? `&retry=${tries}` : ''}`)
+        .catch(() => { if (tries >= 3) fail('네이버 지도를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.'); });
+      clearInterval(poll);
+      poll = setInterval(() => {
+        const nm = window.naver && window.naver.maps;
+        if (done) { clearInterval(poll); return; }
+        if (nm && nm.Map && nm.LatLng) {
+          clearInterval(poll); clearTimeout(retryTimer);
+          if (nm.Service) { finish(); return; }
+          // 주소 검색 모듈이 안 왔으면 직접 불러오고, 실패해도 지도는 써요
+          loadScript('https://oapi.map.naver.com/openapi/v3/maps-geocoder.js').catch(() => {}).then(() => setTimeout(finish, 200));
+          setTimeout(finish, 2500);
+        }
+      }, 250);
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => {
+        if (done) return;
+        if (tries < 3) { console.warn(`[네이버 지도] ${tries}번째 불러오기가 7초 안에 끝나지 않아 다시 시도해요`); attempt(); }
+        else fail('네이버 지도 서버가 응답하지 않아요. 잠시 후 아래 버튼으로 다시 시도해 주세요.');
+      }, 7000);
+    };
+    attempt();
   });
 }
 
@@ -1493,7 +1512,7 @@ function kgCardHTML(view, myG) {
   const mine = view === 'mine';
   const g = mine ? myG : 1000;
   const kgText = !mine ? '1kg' : !has ? '' : myG < 1000 ? `${Math.round(myG)}g` : `${(myG / 1000).toFixed(myG >= 100000 ? 0 : 1)}kg`;
-  const title = mine && !has ? '내가 아낀 탄소는 얼마나 될까요?' : `CO<sub>2</sub> ${kgText}은 얼마나 될까요?`;
+  const title = mine && !has ? '내가 아낀 탄소는 얼마나 될까요?' : `이산화탄소 ${kgText}은 얼마나 될까요?`;
   const body = mine && !has
     ? `<div class="kg-empty">
         <span aria-hidden="true">🌱</span>
@@ -3152,9 +3171,9 @@ serverCheck.then(() => { if (state.naver || state.kakao) { updateReady(); if (st
 if (HAS_NAVER) {
   const slow = setTimeout(() => {
     if (state.naver || state.mapError) return;
-    state.mapError = '지도를 12초 넘게 불러오지 못했어요. 인터넷 연결을 확인하고, 광고 차단 확장 프로그램이 있다면 이 주소에서 꺼 주세요.';
+    state.mapError = '지도를 20초 넘게 불러오지 못했어요. 인터넷 연결을 확인하고, 광고 차단·추적 방지 기능이 있다면 이 주소에서 꺼 주세요.';
     if (['home', 'result', 'nav'].includes(state.screen)) render();
-  }, 12000);
+  }, 22000);
   loadNaverMaps()
     .then((naver) => { clearTimeout(slow); state.naver = naver; state.mapError = ''; updateReady(); if (state.screen !== 'nav') render(); })
     .catch((err) => { clearTimeout(slow); state.mapError = err.message; render(); });
