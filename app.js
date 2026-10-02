@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.02-login2';
+const APP_VERSION = '2026.10.02-search';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -288,7 +288,8 @@ function makePlaceService(kakao, naver) {
       seen.add(key);
       out.push(p);
     });
-    if (!out.length && jusoRes.error) throw new Error(jusoRes.error);
+    // 도로명주소 키 오류 같은 관리자용 메시지는 사용자에게 보여 주지 않고 콘솔에만 남겨요
+    if (jusoRes.error) console.warn('[도로명주소 검색]', jusoRes.error);
     return out;
   };
 
@@ -1119,9 +1120,9 @@ function tripBox(compact) {
 // ── 로그인 ──
 // 로그인 화면 문구 (KO / EN)
 const LOGIN_I18N = {
-  ko: { eyebrow: '환영합니다', title: '하늘을 더 푸르게,', chip: '이메일로 로그인', email: '이메일', password: '비밀번호', showPw: '비밀번호 보기', hidePw: '비밀번호 숨기기', login: '로그인', remember: '로그인 상태 유지', forgot: '비밀번호 찾기', or: '또는', kakao: '카카오 로그인', noAccount: '아직 푸른하늘 회원이 아니신가요?', signup: '회원가입',
+  ko: { eyebrow: '푸른하늘', title: '탄소 줄이는 길찾기', chip: '이메일로 로그인', email: '이메일', password: '비밀번호', showPw: '비밀번호 보기', hidePw: '비밀번호 숨기기', login: '로그인', remember: '로그인 상태 유지', forgot: '비밀번호 찾기', or: '또는', kakao: '카카오 로그인', noAccount: '아직 푸른하늘 회원이 아니신가요?', signup: '회원가입',
     errEmailEmpty: '이메일을 입력해 주세요.', errEmailFormat: '올바른 이메일 형식이 아닙니다.', errPwEmpty: '비밀번호를 입력해 주세요.', errPwShort: '비밀번호는 8자 이상이에요.', errKakao: '카카오 로그인에 실패했어요. 다시 시도해 주세요.',
-    demoLive: 'Live Server로 열어서 카카오 로그인은 체험용이에요', demoKey: '카카오 키를 넣기 전이라 체험용으로 로그인돼요', demoEmail: '아직 회원 DB가 없어서 이메일 로그인은 체험용이에요', soon: '준비 중인 기능이에요' },
+    demoLive: '지금은 체험용 로그인이에요', demoKey: '지금은 체험용 로그인이에요', demoEmail: '지금은 체험용 로그인이에요', soon: '준비 중인 기능이에요' },
   en: { eyebrow: 'Welcome', title: 'Make the sky bluer', chip: 'Log in with email', email: 'Email', password: 'Password', showPw: 'Show password', hidePw: 'Hide password', login: 'Log in', remember: 'Keep me logged in', forgot: 'Forgot password?', or: 'or', kakao: 'Login with Kakao', noAccount: 'New to Blue Sky?', signup: 'Sign up',
     errEmailEmpty: 'Please enter your email.', errEmailFormat: 'Please enter a valid email address.', errPwEmpty: 'Please enter your password.', errPwShort: 'Password must be at least 8 characters.', errKakao: 'Kakao login failed. Please try again.',
     demoLive: 'Opened with Live Server, so Kakao login is a demo', demoKey: 'Kakao key not set yet, so login is a demo', demoEmail: 'No member DB yet, so email login is a demo', soon: 'Coming soon' },
@@ -1272,23 +1273,23 @@ const tagOf = (id) => CAMP_TAGS.find((t) => t.id === id) || CAMP_TAGS[0];
 function seedCampaigns() {
   const day = 86400000; const now = Date.now();
   return [
-    { id: 'seed-1', tag: 'transit', title: '버스 타고 떠나는 초록빛 주말', sub: '주말 나들이는 자동차 대신 버스로',
-      body: '주말마다 자동차 키부터 집어 들고 있지 않나요? 근교 공원, 한강, 전시회까지 대부분은 버스로 충분히 갈 수 있어요.\n\n이번 캠페인은 주말 나들이를 버스로 다녀오는 거예요. 혼자 자동차로 10km를 가면 CO₂ 약 2.1kg이 나오지만, 버스로 가면 약 0.28kg이에요. 한 번의 선택으로 탄소를 85% 넘게 줄일 수 있어요.\n\n창밖 풍경을 보며 천천히 가는 주말, 함께 해요!',
+    { id: 'seed-1', tag: 'transit', title: '주말 나들이 버스로 가기', sub: '주말 나들이는 자동차 대신 버스로',
+      body: '주말에 공원이나 한강 갈 때 버스 타고 가 봐요. 근교는 대부분 버스로 충분히 갈 수 있어요.\n\n이번 캠페인은 주말 나들이를 버스로 다녀오는 거예요. 혼자 자동차로 10km를 가면 CO₂ 약 2.1kg이 나오지만, 버스로 가면 약 0.28kg이에요. 한 번의 선택으로 탄소를 85% 넘게 줄일 수 있어요.',
       goalKg: 500, progressG: 523400, participants: 128, likes: 312, creator: '초록버스', createdAt: now - 20 * day },
     { id: 'seed-2', tag: 'walk', title: '한 정거장 먼저 내려 걸어요', sub: '하루 10분 걷기로 탄소도 줄이고 건강도 챙기기',
-      body: '집이나 회사에 가는 길, 한 정거장만 먼저 내려서 걸어보세요. 약 600m, 걸어서 8~10분이에요.\n\n버스가 덜 달린 거리만큼 탄소가 줄고, 하루 1,000보가 저절로 채워져요. 처음엔 귀찮아도 일주일만 해보면 그 10분이 하루 중 가장 상쾌한 시간이 돼요.\n\n목표는 참여자 모두 합쳐 200kg! 오늘 퇴근길부터 시작해요.',
+      body: '집이나 회사에 가는 길, 한 정거장만 먼저 내려서 걸어보세요. 약 600m, 걸어서 8~10분이에요.\n\n버스가 덜 달린 거리만큼 탄소가 줄고, 하루 1,000보가 저절로 채워져요.\n\n목표는 참여자 모두 합쳐 200kg! 오늘 퇴근길부터 시작해요.',
       goalKg: 200, progressG: 151200, participants: 96, likes: 241, creator: '산책하는해달', createdAt: now - 14 * day },
-    { id: 'seed-3', tag: 'carfree', title: '차 없는 금요일, 도시가 더 가볍게', sub: '매주 금요일은 자차 대신 대중교통 출근',
-      body: '일주일에 하루만 자동차를 집에 두고 출근해 보면 어떨까요?\n\n출퇴근 왕복 30km를 자차 대신 지하철로 다니면 하루에 CO₂ 약 6kg을 줄일 수 있어요. 한 사람이 1년 동안 금요일마다 실천하면 나무 30그루를 심은 것과 같은 효과예요.\n\n금요일 아침, 지하철에서 만나요. 목표 1,000kg을 함께 달성했어요. 고마워요!',
+    { id: 'seed-3', tag: 'carfree', title: '금요일엔 차 두고 출근하기', sub: '매주 금요일은 자차 대신 대중교통 출근',
+      body: '일주일에 하루만 자동차를 집에 두고 출근해 보면 어떨까요?\n\n출퇴근 왕복 30km를 자차 대신 지하철로 다니면 하루에 CO₂ 약 6kg을 줄일 수 있어요. 한 사람이 1년 동안 금요일마다 실천하면 나무 30그루를 심은 것과 같은 효과예요.\n\n목표 1,000kg 달성했어요. 계속 참여할 수 있어요.',
       goalKg: 1000, progressG: 1042000, participants: 214, likes: 198, creator: '금요일의지하철', createdAt: now - 30 * day },
-    { id: 'seed-4', tag: 'bike', title: '두 바퀴로 만드는 맑은 하늘', sub: '5km 이내는 자전거로 이동하기',
-      body: '5km 이내 가까운 거리는 자전거가 가장 빠르고 깨끗한 이동 수단이에요. 탄소는 0g, 운동은 덤이에요.\n\n공공자전거를 이용해도 좋아요. 자전거도로를 따라 달리며 우리 동네의 몰랐던 길을 발견해 보세요.\n\n목표 300kg, 바퀴 하나하나가 모여 하늘을 맑게 만들어요.',
+    { id: 'seed-4', tag: 'bike', title: '가까운 거리는 자전거로', sub: '5km 이내는 자전거로 이동하기',
+      body: '5km 이내 가까운 거리는 자전거가 가장 빠르고 깨끗한 이동 수단이에요. 자전거는 탄소가 나오지 않아요.\n\n공공자전거를 이용해도 좋아요. 자전거도로를 따라 달리며 우리 동네의 몰랐던 길을 발견해 보세요.\n\n목표는 300kg이에요.',
       goalKg: 300, progressG: 118500, participants: 73, likes: 176, creator: '페달밟는곰', createdAt: now - 9 * day },
     { id: 'seed-5', tag: 'together', title: '같이 타면 혜택이 두 배', sub: '친구·동료와 함께 대중교통으로 이동하기',
-      body: '혼자 하면 작심삼일, 같이 하면 습관이 돼요. 친구나 동료를 한 명 초대해서 함께 대중교통으로 이동해 보세요.\n\n같은 방향으로 출근하는 동료와 버스를 같이 타거나, 약속 장소까지 지하철로 함께 가는 것도 좋아요. 함께한 이동이 쌓일수록 목표에 더 빨리 가까워져요.',
+      body: '친구나 동료랑 같이 하면 더 오래 할 수 있어요. 친구나 동료를 한 명 초대해서 함께 대중교통으로 이동해 보세요.\n\n같은 방향으로 출근하는 동료와 버스를 같이 타거나, 약속 장소까지 지하철로 함께 가는 것도 좋아요. 함께한 이동이 쌓일수록 목표에 더 빨리 가까워져요.',
       goalKg: 150, progressG: 88600, participants: 64, likes: 154, creator: '함께가요', createdAt: now - 5 * day },
     { id: 'seed-6', tag: 'bike', title: '새벽 공공자전거 출근 챌린지', sub: '선선한 아침, 자전거로 출근하기',
-      body: '차가 막히기 전 이른 아침, 공공자전거로 출근해 보는 작은 챌린지예요.\n\n아침 공기를 마시며 달리면 하루가 달라져요. 목표는 소박하게 50kg! 이미 달성했지만 계속 함께 달려요.',
+      body: '차가 막히기 전 이른 아침, 공공자전거로 출근해 보는 작은 챌린지예요.\n\n목표는 소박하게 50kg! 이미 달성했지만 계속 함께 달려요.',
       goalKg: 50, progressG: 50300, participants: 18, likes: 37, creator: '아침라이더', createdAt: now - 3 * day },
   ].map((c) => ({ cover: '', liked: false, joined: false, mine: false, rewarded: false, ...c }));
 }
@@ -1378,7 +1379,7 @@ function addSavingToCampaigns(g) {
   list.forEach((c) => { if (c.joined && isPublic(c)) { c.progressG += g; changed = true; } });
   const won = checkRewards(list);
   if (changed || won.length) campStore.save(list);
-  if (won.length) setTimeout(() => toast(`🎉 내 캠페인이 인기 캠페인에 선정됐어요! +${campReward(won[0]).toLocaleString()}P`), 600);
+  if (won.length) setTimeout(() => toast(`내 캠페인이 인기 캠페인이 됐어요 +${campReward(won[0]).toLocaleString()}P`), 600);
 }
 // 캠페인 카드 배경 (올린 사진이 있으면 사진, 없으면 분류별 하늘·초록 그라데이션)
 function campBg(c, shade) {
@@ -1388,7 +1389,7 @@ function campBg(c, shade) {
 
 function greetingText() {
   const h = new Date().getHours();
-  const hi = h >= 5 && h < 11 ? '좋은 아침이에요' : h >= 11 && h < 17 ? '좋은 오후예요' : h >= 17 && h < 22 ? '좋은 저녁이에요' : '편안한 밤이에요';
+  const hi = '안녕하세요';
   const name = state.user && state.user.name && !/사용자$/.test(state.user.name) ? state.user.name : '';
   return name ? `${hi}, ${name}님` : hi;
 }
@@ -1421,7 +1422,7 @@ function mainHTML() {
     </header>
 
     <p class="m-hello">${esc(greetingText())}</p>
-    <h1 class="m-title">오늘도 지구에게<br>가벼운 이동을 해볼까요?</h1>
+    <h1 class="m-title">오늘은<br>어디로 가세요?</h1>
 
     <button type="button" class="m-quick" data-act="open-route">
       <span class="m-quick-ic">${ICON.route}</span>
@@ -1434,7 +1435,7 @@ function mainHTML() {
 
     <section class="m-sec">
       <div class="m-sec-head">
-        <div><p class="m-kicker">${ICON.spark}인기 캠페인 TOP 5</p><h2>가볍게 시작해요</h2></div>
+        <div><p class="m-kicker">${ICON.spark}인기 캠페인 TOP 5</p><h2>요즘 많이 참여하는 캠페인</h2></div>
         <div class="m-dots" id="m-dots">${tops.map((_, i) => `<i class="${i === 0 ? 'on' : ''}"></i>`).join('')}</div>
       </div>
       <div class="m-carousel" id="m-carousel">
@@ -1503,7 +1504,7 @@ function kgCardHTML(view, myG) {
       <b class="num">${t.big}<small>${t.unit}</small></b>
       <span>${t.text}</span></li>`).join('')}</ul>`;
   return `<div class="kg-head">
-      <div><p class="m-label">탄소, 감이 안 온다면</p><h3 class="m-h3">${title}</h3></div>
+      <div><p class="m-label">탄소량 쉽게 보기</p><h3 class="m-h3">${title}</h3></div>
       <span class="m-tile">ⓘ</span>
     </div>
     <div class="kg-seg" role="tablist" aria-label="기준">
@@ -1615,7 +1616,7 @@ function campaignsHTML() {
   const all = sort === 'new' ? list.slice().sort((a, b) => (b.approvedAt || b.createdAt) - (a.approvedAt || a.createdAt)) : rankCampaigns(list);
   return `<main class="main camps">
     <header class="m-top">
-      <div><p class="m-kicker">${ICON.spark}푸른하늘 캠페인</p><h1 class="m-title sm">함께 줄이면<br>하늘이 더 파래져요</h1></div>
+      <div><p class="m-kicker">${ICON.spark}푸른하늘 캠페인</p><h1 class="m-title sm">같이 참여하고<br>탄소 줄이기</h1></div>
       <button type="button" class="m-new" data-act="camp-new">${ICON.plus}<span>만들기</span></button>
     </header>
     <section class="c-rule">
@@ -1746,7 +1747,7 @@ function campaignNewHTML() {
           <input class="input" name="title" maxlength="30" placeholder="예: 한 정거장 먼저 내려 걸어요" value="${esc(d.title || '')}"></label>
         <label class="field"><span class="label">한 줄 소개</span>
           <input class="input" name="sub" maxlength="40" placeholder="예: 하루 10분 걷기로 탄소 줄이기" value="${esc(d.sub || '')}"></label>
-        <label class="field"><span class="label">캠페인 글 <small>(환경을 위한 실천 이야기)</small></span>
+        <label class="field"><span class="label">캠페인 글</span>
           <textarea class="input cn-body" name="body" rows="7" maxlength="1500" placeholder="어떤 실천을 함께 하고 싶은지, 왜 중요한지 적어 주세요.">${esc(d.body || '')}</textarea></label>
         <div class="field"><span class="label">목표 탄소 절약량</span>
           <div class="cn-goal"><input class="input" name="goalKg" type="number" inputmode="numeric" min="10" max="100000" step="10" value="${d.goalKg || ''}"><b>kg</b></div>
@@ -1858,7 +1859,6 @@ function adminHTML() {
         <button type="button" role="tab" class="${tab === 'done' ? 'on' : ''}" aria-selected="${tab === 'done'}" data-act="admin-tab" data-id="done">처리 완료 ${done.length}</button>
       </div>
       ${rows.length ? rows.map(item).join('') : `<p class="acc-empty">${tab === 'pending' ? '✅ 검토할 캠페인이 없어요.' : '아직 처리한 캠페인이 없어요.'}</p>`}
-      <p class="rk-note">관리자 이메일은 config.js 의 ADMIN_EMAILS 에서 바꿔요 (DB 연결 전 체험용)</p>
     </main>`;
 }
 // 승인 / 반려 처리
@@ -1913,7 +1913,7 @@ function showCampNotices() {
   if (!n && !won.length) return;
   if (n) n.notice.seen = true;
   campStore.save(list);
-  if (won.length) toast(`🎉 내 캠페인이 인기 캠페인에 선정됐어요! +${campReward(won[0]).toLocaleString()}P`);
+  if (won.length) toast(`내 캠페인이 인기 캠페인이 됐어요 +${campReward(won[0]).toLocaleString()}P`);
   if (!n) return;
   const ok = n.notice.type === 'approved';
   setTimeout(() => confirmSheet(ok ? '🎉 캠페인이 승인됐어요' : '캠페인이 반려됐어요',
@@ -2016,7 +2016,7 @@ function rankHTML() {
     <header class="rk-head">
       <p class="m-kicker">${ICON.spark}${now.getFullYear()}년 ${now.getMonth() + 1}월</p>
       <h1 class="m-title sm">이달의 절약왕</h1>
-      <p class="rk-sub">탄소 포인트를 가장 많이 모은 사람 · ${left ? `${left}일 남았어요` : '오늘이 마지막 날!'}</p>
+      <p class="rk-sub">탄소 포인트를 가장 많이 모은 사람 · ${left ? `${left}일 남았어요` : '오늘 마감'}</p>
     </header>
     <section class="podium" aria-label="1~3위">
       ${pod(all[1], 2)}${pod(all[0], 1)}${pod(all[2], 3)}
@@ -2028,7 +2028,6 @@ function rankHTML() {
       <span class="rk-n">${u.rank}</span>${avatarHTML(u.name, u.photo)}
       <span class="rk-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</span>
       <span class="rk-pt">${u.points.toLocaleString()}P</span></li>`).join('')}</ol>
-    <p class="rk-note">아직 회원 DB가 없어서 다른 사용자는 가상 사용자예요</p>
     <div class="rk-me">
       <span class="rk-n">${me.rank > 999 ? '999+' : me.rank}</span>${avatarHTML(me.name, me.photo)}
       <span class="rk-name">내 순위${me.rank <= 3 ? ' 🏅' : ''}</span>
@@ -2118,7 +2117,7 @@ function accountHTML() {
         ${u.email ? `<div class="acc-info"><span>이메일</span><b>${esc(u.email)}</b></div>` : ''}
       </section>
       <button type="button" class="btn sheet-out" data-act="logout">로그아웃</button>
-      <p class="rk-note">프로필 사진과 닉네임은 이 휴대폰에만 저장돼요 (DB 연결 전)</p>
+      <p class="rk-note">프로필 사진과 닉네임은 이 기기에 저장돼요</p>
     </main>`;
 }
 
@@ -2332,7 +2331,7 @@ function compareHTML(ranked, chosenId) {
   const rows = [ranked.baseline, ...ranked.all.slice().sort((a, b) => b.emission - a.emission)];
   const max = Math.max(...rows.map((r) => r.emission), 1);
   return `<details class="compare">
-    <summary class="label">🚗 혼자 자동차와 비교하면? <small>(${rows.length}가지 방법)</small></summary>
+    <summary class="label">자동차로 갈 때와 비교 <small>(${rows.length}가지 방법)</small></summary>
     <ul>${rows.map((r) => {
       const tierId = r.id === 'car' || !r.tier ? 'base' : r.tier.id;
       const icon = r.id === 'car' ? '🚗' : r.tier ? r.tier.sky : '';
@@ -2517,7 +2516,7 @@ function forestHTML(log) {
     <h3>나의 숲 <small>${log.trips}번 이동 · 총 ${formatG(log.g)} 아낌</small></h3>
     <div class="trees" aria-hidden="true">${'🌳'.repeat(shown)}${trees > shown ? `<b>+${trees - shown}</b>` : ''}<span class="sprout">🌱</span></div>
     <div class="grow"><span style="width:${part.toFixed(1)}%"></span></div>
-    <p>${trees ? `소나무 <b>${trees}그루</b>가 1년 동안 할 일을 했어요. ` : ''}다음 나무까지 <b class="num">${formatG(TREE_YEAR_G - (log.g % TREE_YEAR_G))}</b> 남았어요</p>
+    <p>${trees ? `소나무 <b>${trees}그루</b>가 1년 동안 흡수하는 양이에요. ` : ''}다음 나무까지 <b class="num">${formatG(TREE_YEAR_G - (log.g % TREE_YEAR_G))}</b> 남았어요</p>
   </section>`;
 }
 function doneHTML() {
@@ -2715,7 +2714,7 @@ function runSearch() {
       s.results = list;
       s.message = list.length ? '' : state.places.byName
         ? '검색 결과가 없어요. 이름을 조금 다르게 적어 보세요.'
-        : '검색 결과가 없어요. 지금은 주소로만 찾을 수 있어요 (예: 세종대로 110). 가게·건물 이름으로 찾으려면 카카오 JavaScript 키를 설정해 주세요 (README 참고).';
+        : '검색 결과가 없어요. 주소로 검색해 보세요. (예: 세종대로 110)';
     })
     .catch((err) => { if (seq === searchSeq) { s.results = []; s.message = err.message; } })
     .finally(() => { if (seq === searchSeq) { s.busy = false; renderSearchOut(); } });

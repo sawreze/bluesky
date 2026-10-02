@@ -7,7 +7,7 @@
 // =====================================================================
 import api from '../../api-core.cjs';
 
-const APP_VERSION = '2026.10.02-login2'; // app.js 의 APP_VERSION 과 같게
+const APP_VERSION = '2026.10.02-search'; // app.js 의 APP_VERSION 과 같게
 
 export default async (req) => {
   const url = new URL(req.url);
