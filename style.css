@@ -1185,3 +1185,15 @@ textarea { font: inherit; color: inherit; }
 .kg-empty b { font-size: 16px; font-weight: 800; color: var(--ink); }
 .kg-empty p { margin: 0 0 6px; font-size: 13px; line-height: 1.55; color: var(--muted); }
 .kg-empty .btn { min-height: 42px; padding: 0 18px; }
+
+/* ── 길안내: 내 위치 버튼 · 도착 버튼 ── */
+.locate-btn { width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: #fff; color: #1F2937;
+  display: grid; place-items: center; box-shadow: 0 4px 14px rgba(15, 22, 38, .18); transition: color .15s, transform .1s; }
+.locate-btn svg { width: 24px; height: 24px; }
+.locate-btn .dot { fill: transparent; transition: fill .15s; }
+.locate-btn.on { color: #1F5EFF; }
+.locate-btn.on .dot { fill: rgba(31, 94, 255, .18); }
+.locate-btn:active { transform: scale(.94); }
+.navx-arrive { width: 100%; min-height: 52px; margin-top: 10px; border: 2px solid #E5484D; border-radius: 16px; background: #fff;
+  color: #E5484D; font-size: 17px; font-weight: 800; letter-spacing: -0.01em; box-shadow: 0 4px 16px rgba(229, 72, 77, .12); }
+.navx-arrive:active { background: #FFF1F1; }

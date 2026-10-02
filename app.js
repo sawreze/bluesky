@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.02-places';
+const APP_VERSION = '2026.10.02-arrive';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -2232,7 +2232,7 @@ function searchHTML() {
     <main class="content">
       <form class="search-bar" id="search-form">
         <input id="search-input" class="input" type="search" enterkeyhint="search" autocomplete="off"
-          placeholder="${byName ? '장소, 건물, 가게 이름이나 주소' : '도로명 주소 (예: 세종대로 110)'}" value="${esc(s.query)}">
+          placeholder="${byName ? '장소·주소 검색 · 건물·초성도 돼요 (예: ㄱㄴㅇ)' : '도로명 주소 (예: 세종대로 110)'}" value="${esc(s.query)}">
         <button type="submit" class="btn primary small">검색</button>
       </form>
       ${s.which === 'from' ? '<button type="button" class="mine" data-act="mine">◎ 현재 위치에서 출발</button>' : ''}
@@ -2430,6 +2430,8 @@ function splitGuide(text) {
   const main = t.replace(/'[^']+'\s*(방면으로|방향으로|방면|방향|으로|로)?\s*/, '').trim();
   return { main: main || t, road: `${m[1]}${m[2] ? ` ${m[2]}` : ''}` };
 }
+// 내 위치 아이콘 (조준점 모양)
+const SVG_LOCATE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7.6"/><circle class="dot" cx="12" cy="12" r="3.4"/><path d="M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6"/></svg>';
 function navHTML() {
   return `<main class="navx tier-${state.level}">
       <div class="navx-mapbox ${state.ready ? '' : 'empty'}">${state.ready ? '<div class="navx-map" id="map-nav"></div>' : ''}</div>
@@ -2481,7 +2483,7 @@ function updateNav() {
     bottom.innerHTML = `
       <div class="navx-tools">
         ${link ? `<a class="tool" href="${link}" target="_blank" rel="noopener noreferrer">카카오맵</a>` : '<span></span>'}
-        ${state.ready ? `<button type="button" class="tool ${state.follow ? 'on' : ''}" data-act="follow" aria-pressed="${state.follow}">${state.follow ? '◉ 내 위치' : '◎ 내 위치'}</button>` : ''}
+        ${state.ready ? `<button type="button" class="locate-btn ${state.follow ? 'on' : ''}" data-act="follow" aria-pressed="${state.follow}" aria-label="${state.follow ? '내 위치 따라가는 중' : '내 위치로 이동'}">${SVG_LOCATE}</button>` : ''}
       </div>
       ${state.gpsMsg ? `<p class="navx-toast">${esc(state.gpsMsg)}</p>` : ''}
       <div class="navx-bar">
@@ -2491,9 +2493,9 @@ function updateNav() {
           <span>${arriveText(remMin)}${remKm ? ` · ${remKm}` : ''}</span>
           <small>${impact(chosen.saving).icon} ${impact(chosen.saving).short}</small>
         </div>
-        ${last ? '<button type="button" class="btn primary navx-next" data-act="nav-next">도착</button>'
-          : manual ? '<button type="button" class="btn navx-next" data-act="nav-next">다음 ›</button>' : ''}
-      </div>`;
+        ${manual && !last ? '<button type="button" class="btn navx-next" data-act="nav-next">다음 ›</button>' : ''}
+      </div>
+      <button type="button" class="navx-arrive" data-act="arrive">도착</button>`;
   }
 }
 
@@ -2855,6 +2857,7 @@ const actions = {
     if (state.step >= chosen.steps.length - 1) finishTrip();
     else { state.step += 1; updateNav(); }
   },
+  arrive: () => finishTrip(), // 도착 버튼: 아낀 탄소를 저장하고 결과(나무 N그루) 화면으로
   follow: () => { state.follow = !state.follow; if (mapCtl) mapCtl.setMe(state.me, state.follow); updateNav(); },
   restart: () => { state.to = null; state.raw = null; go('home'); },
 };
