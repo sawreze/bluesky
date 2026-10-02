@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.02-functions';
+const APP_VERSION = '2026.10.02-login2';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -1119,10 +1119,10 @@ function tripBox(compact) {
 // ── 로그인 ──
 // 로그인 화면 문구 (KO / EN)
 const LOGIN_I18N = {
-  ko: { eyebrow: '다시 만나서 반가워요', title: '오늘도 지구에게<br>가벼운 이동을 해볼까요?', chip: '이메일로 로그인', email: '이메일', password: '비밀번호', showPw: '비밀번호 보기', hidePw: '비밀번호 숨기기', login: '로그인', remember: '로그인 상태 유지', forgot: '비밀번호 찾기', or: '또는', kakao: '카카오 로그인', noAccount: '아직 푸른하늘 회원이 아니신가요?', signup: '회원가입',
+  ko: { eyebrow: '환영합니다', title: '하늘을 더 푸르게', chip: '이메일로 로그인', email: '이메일', password: '비밀번호', showPw: '비밀번호 보기', hidePw: '비밀번호 숨기기', login: '로그인', remember: '로그인 상태 유지', forgot: '비밀번호 찾기', or: '또는', kakao: '카카오 로그인', noAccount: '아직 푸른하늘 회원이 아니신가요?', signup: '회원가입',
     errEmailEmpty: '이메일을 입력해 주세요.', errEmailFormat: '올바른 이메일 형식이 아닙니다.', errPwEmpty: '비밀번호를 입력해 주세요.', errPwShort: '비밀번호는 8자 이상이에요.', errKakao: '카카오 로그인에 실패했어요. 다시 시도해 주세요.',
     demoLive: 'Live Server로 열어서 카카오 로그인은 체험용이에요', demoKey: '카카오 키를 넣기 전이라 체험용으로 로그인돼요', demoEmail: '아직 회원 DB가 없어서 이메일 로그인은 체험용이에요', soon: '준비 중인 기능이에요' },
-  en: { eyebrow: 'Welcome back', title: 'Ready for a lighter<br>trip for the planet today?', chip: 'Log in with email', email: 'Email', password: 'Password', showPw: 'Show password', hidePw: 'Hide password', login: 'Log in', remember: 'Keep me logged in', forgot: 'Forgot password?', or: 'or', kakao: 'Login with Kakao', noAccount: 'New to Blue Sky?', signup: 'Sign up',
+  en: { eyebrow: 'Welcome', title: 'Make the sky bluer', chip: 'Log in with email', email: 'Email', password: 'Password', showPw: 'Show password', hidePw: 'Hide password', login: 'Log in', remember: 'Keep me logged in', forgot: 'Forgot password?', or: 'or', kakao: 'Login with Kakao', noAccount: 'New to Blue Sky?', signup: 'Sign up',
     errEmailEmpty: 'Please enter your email.', errEmailFormat: 'Please enter a valid email address.', errPwEmpty: 'Please enter your password.', errPwShort: 'Password must be at least 8 characters.', errKakao: 'Kakao login failed. Please try again.',
     demoLive: 'Opened with Live Server, so Kakao login is a demo', demoKey: 'Kakao key not set yet, so login is a demo', demoEmail: 'No member DB yet, so email login is a demo', soon: 'Coming soon' },
 };
@@ -1153,7 +1153,7 @@ function loginHTML() {
       <header class="lg-head">
         <div class="lg-brand">
           <span class="lg-mark"><span class="brand-mark" aria-hidden="true"></span></span>
-          <span><b>${loginLang() === 'en' ? 'Blue Sky' : '푸른하늘'}</b><small>BETTER WAY, BETTER AIR</small></span>
+          <span><b>${loginLang() === 'en' ? 'Blue Sky' : '푸른하늘'}</b></span>
         </div>
         <div class="lg-lang" role="group" aria-label="Language">
           <button type="button" data-act="login-lang" data-id="ko" aria-pressed="${loginLang() === 'ko'}">KO</button>
