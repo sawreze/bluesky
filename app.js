@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.02-safari';
+const APP_VERSION = '2026.10.03-mapfix';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -243,7 +243,14 @@ function loadNaverMaps() {
     let poll = null;
     let retryTimer = null;
     const stop = () => { clearInterval(poll); clearTimeout(retryTimer); };
-    const finish = () => { if (!done) { done = true; stop(); resolve(window.naver); } };
+    // "준비 완료" 신호가 와도 지도 본체(naver.maps.Map)가 실제로 있을 때만 끝내요.
+    //  (새로고침하면 캐시된 스크립트가 신호를 먼저 보내고 window.naver 는 아직 비어 있는 경우가 있어요 → 그때는 계속 기다려요)
+    const libReady = () => !!(window.naver && window.naver.maps && window.naver.maps.Map && window.naver.maps.LatLng);
+    const finish = () => {
+      if (done) return;
+      if (!libReady()) { setTimeout(finish, 150); return; }
+      done = true; stop(); resolve(window.naver);
+    };
     const fail = (msg) => { if (!done) { done = true; stop(); reject(new Error(msg)); } };
     window.navermap_authFailure = () => {
       const err = new Error(naverAuthHelp());
@@ -263,11 +270,12 @@ function loadNaverMaps() {
         const nm = window.naver && window.naver.maps;
         if (done) { clearInterval(poll); return; }
         if (nm && nm.Map && nm.LatLng) {
-          clearInterval(poll); clearTimeout(retryTimer);
+          clearInterval(poll);
           if (nm.Service) { finish(); return; }
           // 주소 검색 모듈이 안 왔으면 직접 불러오고, 실패해도 지도는 써요
           loadScript('https://oapi.map.naver.com/openapi/v3/maps-geocoder.js').catch(() => {}).then(() => setTimeout(finish, 200));
           setTimeout(finish, 2500);
+          return;
         }
       }, 250);
       clearTimeout(retryTimer);
@@ -3188,7 +3196,16 @@ if (HAS_NAVER) {
     if (['home', 'result', 'nav'].includes(state.screen)) render();
   }, 22000);
   loadNaverMaps()
-    .then((naver) => { clearTimeout(slow); state.naver = naver; state.mapError = ''; updateReady(); if (state.screen !== 'nav') render(); })
+    .then((naver) => {
+      clearTimeout(slow);
+      if (!naver || !naver.maps) { state.mapError = '네이버 지도를 불러오지 못했어요. 아래 버튼으로 다시 시도해 주세요.'; render(); return; }
+      state.naver = naver; state.mapError = ''; updateReady(); if (state.screen !== 'nav') render();
+      // 주소 검색 모듈(Service)이 빠진 채로 시작했으면 따로 불러와요
+      if (!naver.maps.Service) {
+        loadScript('https://oapi.map.naver.com/openapi/v3/maps-geocoder.js').catch(() => {})
+          .then(() => setTimeout(() => { if (naver.maps.Service) { updateReady(); if (state.screen === 'search') runSearch(); } }, 300));
+      }
+    })
     .catch((err) => { clearTimeout(slow); state.mapError = err.message; render(); });
 }
 if (HAS_JS) {
