@@ -7,7 +7,7 @@
 // =====================================================================
 import api from '../../api-core.cjs';
 
-const APP_VERSION = '2026.10.02-acctab'; // app.js 의 APP_VERSION 과 같게
+const APP_VERSION = '2026.10.02-glass'; // app.js 의 APP_VERSION 과 같게
 
 export default async (req) => {
   const url = new URL(req.url);

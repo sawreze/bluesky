@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.02-acctab';
+const APP_VERSION = '2026.10.02-glass';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -2126,15 +2126,99 @@ function accountHTML() {
     ${tabBarHTML('me')}`;
 }
 
+// 아래 탭 바 (글라스 UI): 선택 표시가 눌린 탭으로 미끄러지듯 이동하고, 손가락으로 끌어서 옮길 수도 있어요
+const TAB_IDS = ['route', 'rank', 'camp', 'me'];
+let tabIdx = null; // 마지막으로 보여 준 탭 (다음 화면에서 여기서부터 미끄러져요)
 function tabBarHTML(active) {
+  const cur = TAB_IDS.indexOf(active);
+  const from = tabIdx == null ? cur : tabIdx;
   const tab = (id, icon, label, act) => `<button type="button" class="m-tab ${active === id ? 'on' : ''}" data-act="${act}">${icon}<span>${label}</span></button>`;
-  return `<nav class="m-tabs" aria-label="메뉴">
+  return `<nav class="m-tabs" aria-label="메뉴" data-cur="${cur}" data-from="${from}">
+    <span class="m-tab-ind" aria-hidden="true"></span>
     ${tab('route', ICON.route, '길찾기', 'open-main')}
     ${tab('rank', ICON.rank, '랭킹', 'open-rank')}
     ${tab('camp', ICON.flag, '캠페인', 'open-camps')}
     ${tab('me', ICON.user, '계정정보', 'open-account')}
   </nav>`;
 }
+function tabX(nav, i) { const t = nav.querySelectorAll('.m-tab')[i]; return t ? t.offsetLeft : 0; }
+function setTabInd(ind, x, animate) {
+  if (!animate) ind.style.transition = 'none';
+  ind.style.transform = `translateX(${x}px)`;
+  if (!animate) { void ind.offsetWidth; ind.style.transition = ''; }
+}
+// 화면을 그린 뒤: 이전 탭 자리에서 지금 탭 자리로 미끄러지게
+function initTabBar() {
+  const nav = appEl.querySelector('.m-tabs');
+  if (!nav) return;
+  const ind = nav.querySelector('.m-tab-ind');
+  const tabs = nav.querySelectorAll('.m-tab');
+  const cur = Number(nav.dataset.cur);
+  const from = Number(nav.dataset.from);
+  ind.style.width = `${tabs[0].offsetWidth}px`;
+  setTabInd(ind, tabX(nav, from), false);
+  if (from !== cur) requestAnimationFrame(() => setTabInd(ind, tabX(nav, cur), true));
+  tabIdx = cur;
+}
+window.addEventListener('resize', () => {
+  const nav = appEl.querySelector('.m-tabs');
+  if (!nav) return;
+  const ind = nav.querySelector('.m-tab-ind');
+  ind.style.width = `${nav.querySelector('.m-tab').offsetWidth}px`;
+  setTabInd(ind, tabX(nav, Number(nav.dataset.cur)), false);
+});
+// 손가락으로 끌기: 선택 표시가 손가락을 따라오고, 놓은 자리의 탭으로 이동해요
+let tabDrag = null;
+let tabDragJustMoved = false;
+function nearestTab(nav, x) {
+  const tabs = [...nav.querySelectorAll('.m-tab')];
+  let best = 0;
+  tabs.forEach((t, i) => { if (Math.abs(t.offsetLeft - x) < Math.abs(tabs[best].offsetLeft - x)) best = i; });
+  return best;
+}
+document.getElementById('app').addEventListener('pointerdown', (e) => {
+  const nav = e.target.closest('.m-tabs');
+  if (!nav || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  const ind = nav.querySelector('.m-tab-ind');
+  const tabs = nav.querySelectorAll('.m-tab');
+  tabDrag = { nav, ind, id: e.pointerId, x0: e.clientX, moved: false, w: tabs[0].offsetWidth,
+    min: tabs[0].offsetLeft, max: tabs[tabs.length - 1].offsetLeft, left: nav.getBoundingClientRect().left };
+  nav.classList.add('pressing');
+});
+document.getElementById('app').addEventListener('pointermove', (e) => {
+  const d = tabDrag;
+  if (!d || e.pointerId !== d.id) return;
+  if (!d.moved && Math.abs(e.clientX - d.x0) < 8) return;
+  if (!d.moved) { d.moved = true; d.nav.classList.add('dragging'); try { d.nav.setPointerCapture(d.id); } catch (err) { /* 무시 */ } }
+  const x = Math.max(d.min, Math.min(d.max, e.clientX - d.left - d.w / 2));
+  setTabInd(d.ind, x, false);
+  const near = nearestTab(d.nav, x);
+  d.nav.querySelectorAll('.m-tab').forEach((t, i) => t.classList.toggle('on', i === near));
+});
+function endTabDrag(e) {
+  const d = tabDrag;
+  if (!d || e.pointerId !== d.id) return;
+  tabDrag = null;
+  d.nav.classList.remove('pressing', 'dragging');
+  if (!d.moved) return; // 그냥 누른 거면 평소처럼 click 으로 이동
+  const x = Math.max(d.min, Math.min(d.max, e.clientX - d.left - d.w / 2));
+  const i = nearestTab(d.nav, x);
+  setTabInd(d.ind, tabX(d.nav, i), true);
+  tabDragJustMoved = true;
+  setTimeout(() => { tabDragJustMoved = false; }, 350);
+  const btn = d.nav.querySelectorAll('.m-tab')[i];
+  if (i !== Number(d.nav.dataset.cur)) {
+    tabIdx = i; // 이미 그 자리에 있으니 다음 화면에서는 미끄러지지 않게
+    setTimeout(() => { const fn = actions[btn.dataset.act]; if (fn) fn(btn); }, 160);
+  }
+}
+document.getElementById('app').addEventListener('pointerup', endTabDrag);
+document.getElementById('app').addEventListener('pointercancel', endTabDrag);
+// 끌기를 끝낸 직후 생기는 click 은 무시 (두 번 이동하지 않게)
+document.getElementById('app').addEventListener('click', (e) => {
+  if (tabDragJustMoved && e.target.closest('.m-tabs')) { e.stopPropagation(); e.preventDefault(); }
+}, true);
+
 // 캠페인 점 표시 (넘길 때마다)
 function bindMain() {
   const car = document.getElementById('m-carousel');
@@ -2570,6 +2654,7 @@ function render() {
   if (!state.user && !['login', 'email-login', 'signup'].includes(screen)) screen = state.screen = 'login';
   app.innerHTML = VIEWS[screen]();
   app.dataset.screen = screen;
+  initTabBar();
   if (state.navDir) {
     app.classList.remove('enter-fwd', 'enter-back');
     void app.offsetWidth; // 애니메이션 다시 시작
@@ -2989,6 +3074,7 @@ appEl.addEventListener('touchstart', (e) => {
   const t = e.touches[0];
   const edge = t.clientX - appEl.getBoundingClientRect().left < 28;
   if (!edge && (MAP_SCREENS.includes(state.screen) || e.target.closest('.m-carousel, input, select, textarea, .filters'))) return;
+  if (e.target.closest('.m-tabs')) return; // 탭 바는 손가락으로 끌어서 탭을 고르는 곳
   swipe = { x0: t.clientX, y0: t.clientY, t0: Date.now(), dx: 0, active: false, target, under: null };
 }, { passive: true });
 appEl.addEventListener('touchmove', (e) => {

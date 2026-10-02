@@ -1208,3 +1208,30 @@ textarea { font: inherit; color: inherit; }
 .sw-subway { background: linear-gradient(90deg, #0052A4 0 25%, #00A84D 25% 50%, #EF7C1C 50% 75%, #996CAC 75%); }
 .sw-bike { background: #127a52; }
 .sw-car { background: #a24b3c; }
+
+/* ── 아래 탭 바: 글라스 UI (모양·색·글꼴은 그대로, 유리 질감 + 미끄러지는 선택 표시) ── */
+.m-tabs {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .62), rgba(255, 255, 255, .40));
+  border: 1px solid rgba(255, 255, 255, .78);
+  box-shadow: 0 14px 36px rgba(31, 61, 110, .18), 0 2px 6px rgba(31, 61, 110, .06),
+    inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 -1px 1px rgba(255, 255, 255, .5), inset 0 0 0 .5px rgba(15, 22, 38, .05);
+  backdrop-filter: blur(22px) saturate(1.8); -webkit-backdrop-filter: blur(22px) saturate(1.8);
+  touch-action: none; user-select: none; -webkit-user-select: none; isolation: isolate;
+  transition: transform .25s cubic-bezier(.3, 1.3, .5, 1);
+}
+.m-tabs::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
+  background: radial-gradient(120% 70% at 50% -25%, rgba(255, 255, 255, .6), transparent 62%); }
+.m-tabs.pressing { transform: translateX(-50%) scale(1.015); }
+.m-tab { position: relative; z-index: 1; background: transparent !important; transition: color .2s, transform .2s;
+  -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+.m-tab:active { transform: scale(.94); }
+.m-tabs.dragging .m-tab:active { transform: none; }
+.m-tab-ind { position: absolute; z-index: 0; top: 8px; bottom: 8px; left: 0; width: 0; border-radius: 20px; pointer-events: none;
+  background: #0F1626;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 -1px 0 rgba(0, 0, 0, .35), 0 6px 16px rgba(15, 22, 38, .22);
+  transition: transform .45s cubic-bezier(.3, 1.25, .4, 1), scale .25s cubic-bezier(.3, 1.3, .5, 1), opacity .2s;
+  will-change: transform; }
+.m-tab-ind::after { content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, 0) 55%); }
+.m-tabs.dragging .m-tab-ind { scale: 1.1 1.06; opacity: .9; }
+@media (prefers-reduced-motion: reduce) { .m-tab-ind, .m-tabs { transition: none; } }
