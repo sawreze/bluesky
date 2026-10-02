@@ -1119,7 +1119,7 @@ function tripBox(compact) {
 // ── 로그인 ──
 // 로그인 화면 문구 (KO / EN)
 const LOGIN_I18N = {
-  ko: { eyebrow: '환영합니다', title: '하늘을 더 푸르게', chip: '이메일로 로그인', email: '이메일', password: '비밀번호', showPw: '비밀번호 보기', hidePw: '비밀번호 숨기기', login: '로그인', remember: '로그인 상태 유지', forgot: '비밀번호 찾기', or: '또는', kakao: '카카오 로그인', noAccount: '아직 푸른하늘 회원이 아니신가요?', signup: '회원가입',
+  ko: { eyebrow: '환영합니다', title: '하늘을 더 푸르게,', chip: '이메일로 로그인', email: '이메일', password: '비밀번호', showPw: '비밀번호 보기', hidePw: '비밀번호 숨기기', login: '로그인', remember: '로그인 상태 유지', forgot: '비밀번호 찾기', or: '또는', kakao: '카카오 로그인', noAccount: '아직 푸른하늘 회원이 아니신가요?', signup: '회원가입',
     errEmailEmpty: '이메일을 입력해 주세요.', errEmailFormat: '올바른 이메일 형식이 아닙니다.', errPwEmpty: '비밀번호를 입력해 주세요.', errPwShort: '비밀번호는 8자 이상이에요.', errKakao: '카카오 로그인에 실패했어요. 다시 시도해 주세요.',
     demoLive: 'Live Server로 열어서 카카오 로그인은 체험용이에요', demoKey: '카카오 키를 넣기 전이라 체험용으로 로그인돼요', demoEmail: '아직 회원 DB가 없어서 이메일 로그인은 체험용이에요', soon: '준비 중인 기능이에요' },
   en: { eyebrow: 'Welcome', title: 'Make the sky bluer', chip: 'Log in with email', email: 'Email', password: 'Password', showPw: 'Show password', hidePw: 'Hide password', login: 'Log in', remember: 'Keep me logged in', forgot: 'Forgot password?', or: 'or', kakao: 'Login with Kakao', noAccount: 'New to Blue Sky?', signup: 'Sign up',
