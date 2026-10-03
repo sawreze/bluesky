@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.03-icons';
+const APP_VERSION = '2026.10.03-titles';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -52,12 +52,13 @@ const SPEED = { walk: 4.5, bike: 15, bus: 18, subway: 33, car: 25 };
 
 // 이동수단 아이콘 (선 아이콘 · 글자 색을 따라가요)
 const MI = {
+  walk: '<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="14" cy="3.8" r="2.1"/><g stroke-width="2.5"><path d="M12.9 7.9 11.5 13.8"/><path d="M12.9 8.1l1.8 2.7 2.7 1"/><path d="M12.4 8.2 9.8 10.3l-.6 3"/><path d="M11.5 13.8l3.8 5.6"/><path d="M11.5 13.8l-.9 2.8-2.6 2.8"/></g><path d="M2.6 21.4h.01M4.8 21.4h.01M11.4 21.4h.01M13.4 21.4h.01M19.4 21.4h.01M21.4 21.4h.01" stroke-width="1.8"/></svg>',
   subway: '<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 2.9c3.2-.7 6.4-.7 9.6 0A2.8 2.8 0 0 1 19 5.6v9.4a2.8 2.8 0 0 1-2.8 2.8H7.8A2.8 2.8 0 0 1 5 15V5.6a2.8 2.8 0 0 1 2.2-2.7z"/><path d="M10.8 4.9h2.4"/><rect x="7.6" y="7" width="8.8" height="4.2" rx=".6"/><circle cx="9.2" cy="14.4" r="1"/><circle cx="14.8" cy="14.4" r="1"/><path d="M8.7 17.8 6.9 21.2M15.3 17.8l1.8 3.4M8.1 19.6h7.8"/></svg>',
   bus: '<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.6" y="2.6" width="12.8" height="15" rx="2.3"/><path d="M10.4 4.7h3.2M5.6 6.8h12.8M5.6 12.4h12.8"/><path d="M5.6 7.8H4.4v3.2h1.2M18.4 7.8h1.2v3.2h-1.2"/><circle cx="8.7" cy="15" r=".85"/><circle cx="15.3" cy="15" r=".85"/><path d="M11.2 15h1.6"/><path d="M7.7 17.6v1.6a.8.8 0 0 0 .8.8h.9a.8.8 0 0 0 .8-.8v-1.6M13.8 17.6v1.6a.8.8 0 0 0 .8.8h.9a.8.8 0 0 0 .8-.8v-1.6"/></svg>',
   car: '<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 17.2v-5.8c0-.4.1-.8.3-1.1l1.8-4.7a2 2 0 0 1 1.9-1.3h7a2 2 0 0 1 1.9 1.3l1.8 4.7c.2.3.3.7.3 1.1v5.8z"/><path d="M7.3 9.4l1.1-3a.8.8 0 0 1 .8-.6h5.6a.8.8 0 0 1 .8.6l1.1 3z"/><path d="M11.7 8.2l1.5-1.2"/><path d="M4.9 9.4H3.7a.8.8 0 0 1 0-1.6h1.5M19.1 9.4h1.2a.8.8 0 0 0 0-1.6h-1.5"/><circle cx="7.4" cy="13.3" r=".95"/><circle cx="16.6" cy="13.3" r=".95"/><path d="M10.3 13.3h3.4"/><path d="M6.1 17.2v1.5h2.2v-1.5M15.7 17.2v1.5h2.2v-1.5M2.8 20.6h18.4"/></svg>',
 };
 const MODES = {
-  walk: { label: '도보', color: '#8a97a5', icon: '🚶' },
+  walk: { label: '도보', color: '#8a97a5', icon: MI.walk },
   bike: { label: '자전거', color: '#127a52', icon: '🚲' },
   bus: { label: '버스', color: '#2f7fd0', icon: MI.bus },
   subway: { label: '지하철', color: '#5b4bb7', icon: MI.subway },
@@ -1298,7 +1299,7 @@ const CAMP_KEY = 'pureun-campaigns';
 const POINT_KEY = 'pureun-points';
 const CAMP_TAGS = [
   { id: 'transit', label: '대중교통', tone: 'sky', icon: MI.bus, bg: 'linear-gradient(160deg,#7fb6e8 0%,#a8d4c0 50%,#4f8a5b 100%)' },
-  { id: 'walk', label: '걷기', tone: 'sun', icon: '🚶', bg: 'linear-gradient(160deg,#9cc3e6 0%,#c9d9c4 50%,#6f8f72 100%)' },
+  { id: 'walk', label: '걷기', tone: 'sun', icon: MI.walk, bg: 'linear-gradient(160deg,#9cc3e6 0%,#c9d9c4 50%,#6f8f72 100%)' },
   { id: 'bike', label: '자전거', tone: 'mint', icon: '🚲', bg: 'linear-gradient(160deg,#a9c6e0 0%,#b9d3b0 50%,#4d7a57 100%)' },
   { id: 'carfree', label: '차 없는 날', tone: 'violet', icon: '🏙️', bg: 'linear-gradient(160deg,#b5c9dc 0%,#d6d2c4 50%,#6d7f73 100%)' },
   { id: 'together', label: '함께하기', tone: 'sky', icon: '🤝', bg: 'linear-gradient(160deg,#6f9fb8 0%,#5f8f62 55%,#2f5e3c 100%)' },
@@ -1422,6 +1423,63 @@ function campBg(c, shade) {
   return c.cover ? `${dark},url('${c.cover}') center/cover` : `${dark},${tagOf(c.tag).bg}`;
 }
 
+// ---------------------------------------------------------------------
+// 칭호: 지금까지 아낀 CO₂(kg)에 따라 씨앗 → 새싹 → … → 숲 → 산 → 푸른하늘
+//  기준은 "나무 1그루가 1년 동안 흡수하는 양(9.8kg)"에 맞춰 잡았어요.
+// ---------------------------------------------------------------------
+const TITLES = [
+  { kg: 0, icon: '🌰', name: '씨앗', desc: '첫 친환경 이동을 기다리고 있어요' },
+  { kg: 1, icon: '🌱', name: '새싹', desc: '첫 1kg! 풍선 40개만큼 하늘을 지켰어요' },
+  { kg: 5, icon: '🌿', name: '묘목', desc: '나무 한 그루가 반년 동안 흡수하는 양' },
+  { kg: 10, icon: '🌳', name: '나무', desc: '나무 1그루가 1년 동안 흡수하는 양' },
+  { kg: 50, icon: '🌲', name: '작은 숲', desc: '나무 5그루가 1년 동안 흡수하는 양' },
+  { kg: 100, icon: '🏕️', name: '숲', desc: '나무 10그루가 1년 동안 흡수하는 양' },
+  { kg: 300, icon: '🏞️', name: '큰 숲', desc: '나무 30그루가 1년 동안 흡수하는 양' },
+  { kg: 1000, icon: '⛰️', name: '산', desc: '나무 100그루 — 작은 동산 하나만큼' },
+  { kg: 3000, icon: '🏔️', name: '산맥', desc: '나무 300그루가 1년 동안 흡수하는 양' },
+  { kg: 10000, icon: '🌤️', name: '푸른하늘', desc: '나무 1,000그루 — 하늘을 지키는 사람' },
+];
+function titleOf(g) {
+  const kg = Math.max(0, g) / 1000;
+  let i = 0;
+  TITLES.forEach((t, k) => { if (kg >= t.kg) i = k; });
+  const next = TITLES[i + 1] || null;
+  const cur = TITLES[i];
+  const pct = next ? Math.min(100, ((kg - cur.kg) / (next.kg - cur.kg)) * 100) : 100;
+  return { ...cur, level: i + 1, next, pct, leftKg: next ? Math.max(0, next.kg - kg) : 0 };
+}
+const titleChipHTML = (t, cls = '') => `<span class="ttl-chip ${cls}" title="칭호">${t.icon} ${esc(t.name)}</span>`;
+function leftText(kg) { return kg >= 10 ? `${Math.ceil(kg).toLocaleString()}kg` : kg >= 1 ? `${kg.toFixed(1)}kg` : `${Math.max(1, Math.round(kg * 1000))}g`; }
+
+// 칭호 화면 ("지금까지 탄소 절약" 카드를 누르면)
+function titlesHTML() {
+  const log = loadLog();
+  const t = titleOf(log.g);
+  const kg = log.g / 1000;
+  return `${appBar('내 칭호', 'back')}
+    <main class="content ttl">
+      <section class="ttl-hero">
+        <span class="ttl-big" aria-hidden="true">${t.icon}</span>
+        <p class="ttl-lv">LV.${t.level} · 지금까지 ${kg >= 100 ? kg.toFixed(0) : kg.toFixed(1)}kg 아낌</p>
+        <h2>${esc((state.user && state.user.name) || '나')} <span>${esc(t.name)}</span></h2>
+        <p class="ttl-desc">${esc(t.desc)}</p>
+        ${t.next ? `<div class="ttl-bar"><span style="width:${Math.max(3, t.pct).toFixed(1)}%"></span></div>
+          <p class="ttl-next">다음 칭호 <b>${t.next.icon} ${esc(t.next.name)}</b>까지 <b class="num">${leftText(t.leftKg)}</b> 남았어요</p>`
+          : '<p class="ttl-next">🎉 가장 높은 칭호를 얻었어요!</p>'}
+      </section>
+      <h3 class="c-h">칭호 단계 <small>아낀 이산화탄소가 쌓이면 올라가요</small></h3>
+      <ol class="ttl-list">${TITLES.map((x, i) => {
+        const got = i < t.level;
+        return `<li class="${got ? 'got' : 'lock'} ${i === t.level - 1 ? 'now' : ''}">
+          <span class="ttl-ic" aria-hidden="true">${got ? x.icon : '🔒'}</span>
+          <span class="ttl-txt"><b>${esc(x.name)}${i === t.level - 1 ? ' <em>지금</em>' : ''}</b><small>${esc(x.desc)}</small></span>
+          <span class="ttl-kg num">${x.kg ? `${x.kg.toLocaleString()}kg` : '시작'}</span>
+        </li>`;
+      }).join('')}</ol>
+      <p class="rk-note">나무 1그루는 1년에 CO₂ 약 9.8kg을 흡수해요 (국립산림과학원)</p>
+    </main>`;
+}
+
 function greetingText() {
   const h = new Date().getHours();
   const hi = '안녕하세요';
@@ -1456,7 +1514,7 @@ function mainHTML() {
       <button type="button" class="m-round m-me" data-act="open-account" aria-label="계정 설정">${loadAvatar() ? avatarHTML('', loadAvatar()) : ICON.user}</button>
     </header>
 
-    <p class="m-hello">${esc(greetingText())}</p>
+    <p class="m-hello">${esc(greetingText())} <button type="button" class="ttl-btn" data-act="open-titles" aria-label="내 칭호 보기">${titleChipHTML(titleOf(log.g))}</button></p>
     <h1 class="m-title">오늘은<br>어디로 가세요?</h1>
 
     <button type="button" class="m-quick" data-act="open-route">
@@ -1486,9 +1544,9 @@ function mainHTML() {
       </div>
     </section>
 
-    <section class="m-card">
+    <section class="m-card m-save-card" data-act="open-titles" role="button" tabindex="0" aria-label="내 칭호 보기">
       <div class="m-card-head">
-        <div><p class="m-label">지금까지 탄소 절약</p><p class="m-big"><b>${kg >= 100 ? kg.toFixed(0) : kg.toFixed(1)}</b> kg CO<sub>2</sub></p></div>
+        <div><p class="m-label">지금까지 탄소 절약 <span class="m-ttl">${titleChipHTML(titleOf(log.g), 'sm')}</span></p><p class="m-big"><b>${kg >= 100 ? kg.toFixed(0) : kg.toFixed(1)}</b> kg CO<sub>2</sub></p></div>
         <span class="m-tile">${ICON.leaf}</span>
       </div>
       <div class="m-bar"><span style="width:${log.g > 0 ? Math.max(3, part).toFixed(1) : 0}%"></span></div>
@@ -2043,7 +2101,7 @@ function rankHTML() {
   const pod = (u, place) => u ? `<div class="pod pod-${place}">
       ${place === 1 ? '<span class="crown" aria-hidden="true">👑</span>' : ''}
       <div class="medal m${place}">${avatarHTML(u.name, u.photo, 'av-lg')}</div>
-      <b class="pod-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</b>
+      <b class="pod-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</b>${u.me ? titleChipHTML(titleOf(loadLog().g), 'sm') : ''}
       <span class="pod-pt">${u.points.toLocaleString()}P</span>
       <div class="step"><span>${place}</span></div>
     </div>` : '';
@@ -2061,11 +2119,11 @@ function rankHTML() {
     </details>
     <ol class="rk-list">${top.slice(3).map((u) => `<li class="${u.me ? 'is-me' : ''}">
       <span class="rk-n">${u.rank}</span>${avatarHTML(u.name, u.photo)}
-      <span class="rk-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</span>
+      <span class="rk-name">${esc(u.name)}${u.me ? ` <em>나</em> ${titleChipHTML(titleOf(loadLog().g), 'sm')}` : ''}</span>
       <span class="rk-pt">${u.points.toLocaleString()}P</span></li>`).join('')}</ol>
     <div class="rk-me">
       <span class="rk-n">${me.rank > 999 ? '999+' : me.rank}</span>${avatarHTML(me.name, me.photo)}
-      <span class="rk-name">내 순위${me.rank <= 3 ? ' 🏅' : ''}</span>
+      <span class="rk-name">내 순위${me.rank <= 3 ? ' 🏅' : ''} ${titleChipHTML(titleOf(loadLog().g), 'sm')}</span>
       <span class="rk-pt">${me.points.toLocaleString()}P</span>
     </div>
   </main>
@@ -2132,6 +2190,7 @@ function accountHTML() {
           ${avatarHTML(u.name || '나', photo, 'av-xl')}
           <span class="acc-cam" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
         </label>
+        <p class="acc-who"><b>${esc(u.name || '나')}</b><button type="button" class="ttl-btn" data-act="open-titles" aria-label="내 칭호 보기">${titleChipHTML(titleOf(loadLog().g))}</button></p>
         ${photo ? '<button type="button" class="acc-reset" data-act="avatar-reset">기본 이미지로</button>' : '<p class="acc-hint">사진을 눌러 프로필 사진을 바꿔요</p>'}
       </section>
       <section class="m-card acc-card">
@@ -2410,7 +2469,7 @@ function timeBarHTML(route) {
 function modeTimesHTML(route) {
   const t = route.time;
   const items = [
-    ['transit', MI.subway, '대중교통', t.transit], ['walk', '🚶', '도보', t.walk],
+    ['transit', MI.subway, '대중교통', t.transit], ['walk', MI.walk, '도보', t.walk],
     ['car', MI.car, '자동차', t.car], ['bike', '🚲', '자전거', t.bike],
   ].filter((x) => x[3] > 0 || x[0] !== 'bike');
   return `<div class="mtimes">${items.map(([k, ic, label, v]) =>
@@ -2671,12 +2730,94 @@ function updateNav() {
           <small>${impact(chosen.saving).icon} ${impact(chosen.saving).short}</small>
         </div>
         ${manual && !last ? '<button type="button" class="btn navx-next" data-act="nav-next">다음 ›</button>' : ''}
-      </div>
-      <button type="button" class="navx-arrive" data-act="arrive">도착</button>`;
+        <button type="button" class="navx-arrive" data-act="arrive">도착</button>
+      </div>`;
   }
 }
 
 // ── 도착 ──
+// ── 나무·숲 일러스트 (도착 화면) ──
+//  둥근 잎 덩어리 여러 겹 + 갈색 줄기 (플랫 일러스트)
+const TREE_PAL = [
+  { back: '#9BD45A', mid: '#A9DE5F', front: '#B6E66A', shade: '#93CC52' }, // 연두
+  { back: '#86C44F', mid: '#97D056', front: '#A6DA60', shade: '#7FBA48' }, // 초록
+  { back: '#A5D95E', mid: '#B3E168', front: '#C2EA78', shade: '#9BCF57' }, // 밝은 연두
+];
+// x: 줄기 가운데, y: 땅, s: 크기(1 = 높이 약 150), p: 색 번호
+function oneTreeSVG(x, y, s, p = 0) {
+  const c = TREE_PAL[p % TREE_PAL.length];
+  const S = (n) => (n * s).toFixed(1);
+  const X = (n) => (x + n * s).toFixed(1);
+  const Y = (n) => (y - n * s).toFixed(1);
+  const blob = (cx, cy, r, f) => `<circle cx="${X(cx)}" cy="${Y(cy)}" r="${S(r)}" fill="${f}"/>`;
+  return `<g>
+    <path d="M${X(-7)} ${Y(0)} C${X(-6)} ${Y(30)} ${X(-5)} ${Y(55)} ${X(-9)} ${Y(78)} L${X(-3)} ${Y(80)} C${X(-1)} ${Y(70)} ${X(0)} ${Y(64)} ${X(2)} ${Y(60)} C${X(6)} ${Y(66)} ${X(12)} ${Y(74)} ${X(16)} ${Y(82)} L${X(21)} ${Y(79)} C${X(14)} ${Y(66)} ${X(8)} ${Y(56)} ${X(7)} ${Y(42)} C${X(6)} ${Y(28)} ${X(7)} ${Y(12)} ${X(9)} ${Y(0)} Z" fill="#C9A27E"/>
+    <path d="M${X(1)} ${Y(0)} C${X(1)} ${Y(16)} ${X(0)} ${Y(34)} ${X(2)} ${Y(56)} C${X(4)} ${Y(42)} ${X(5)} ${Y(22)} ${X(9)} ${Y(0)} Z" fill="#D8B896"/>
+    ${blob(-30, 92, 30, c.back)}${blob(30, 92, 30, c.back)}${blob(0, 118, 34, c.back)}
+    ${blob(-38, 76, 20, c.back)}${blob(38, 76, 20, c.back)}${blob(-14, 132, 22, c.back)}${blob(16, 134, 20, c.back)}
+    ${blob(-18, 98, 24, c.mid)}${blob(18, 102, 25, c.mid)}${blob(0, 120, 24, c.mid)}
+    ${blob(-24, 84, 15, c.front)}${blob(-6, 92, 17, c.front)}${blob(14, 110, 16, c.front)}${blob(26, 88, 14, c.front)}
+    ${blob(-34, 72, 10, c.shade)}${blob(34, 70, 11, c.shade)}
+  </g>`;
+}
+// 도착 화면 그림: 1그루 미만~2그루 미만 → 1그루, 2·3·4·5그루, 6그루 이상 → 숲
+function treeSceneSVG(trees) {
+  const n = Math.floor(trees);
+  const W = 320, H = 210, G = 196;
+  const ground = `<ellipse cx="160" cy="${G + 2}" rx="150" ry="10" fill="#D8ECC2" opacity=".8"/>`;
+  let body = '';
+  if (n >= 6) return forestSVG();
+  if (n <= 1) body = oneTreeSVG(160, G, 1.15, 0);
+  else if (n === 2) body = oneTreeSVG(115, G, .95, 1) + oneTreeSVG(205, G, 1.08, 0);
+  else {
+    // 3~5그루: 뒤에 작은 나무, 가운데 앞에 큰 나무 (보내준 그림처럼 겹치게)
+    const mid = [[96, .86, 1], [226, .86, 1]];
+    const far = [[50, .62, 2], [272, .62, 2]];
+    const order = n === 3 ? mid : n === 4 ? [far[0], ...mid] : [...far, ...mid]; // 작은(먼) 나무부터 그려서 뒤로
+    body = order.map(([x, s, p]) => oneTreeSVG(x, G, s, p)).join('') + oneTreeSVG(160, G, n >= 4 ? 1.02 : 1.12, 0);
+  }
+  return `<svg class="tree-scene" viewBox="0 0 ${W} ${H}" role="img" aria-label="나무 ${n || 1}그루">${ground}${body}</svg>`;
+}
+// 6그루 이상: 숲 (뾰족한 침엽수 + 둥근 나무 + 덤불 + 꽃 + 풀밭)
+function forestSVG() {
+  const pine = (x, y, h, w, f, dot) => {
+    const tiers = [0, .3, .58].map((t, i) => {
+      const top = y - h + h * t; const bw = w * (0.62 + i * 0.2);
+      return `<path d="M${x} ${top} L${x + bw / 2} ${top + h * .42} L${x + bw * .3} ${top + h * .42} L${x + bw * .5} ${top + h * .48} L${x - bw * .5} ${top + h * .48} L${x - bw * .3} ${top + h * .42} L${x - bw / 2} ${top + h * .42} Z" fill="${f}"/>`;
+    }).join('');
+    const dots = Array.from({ length: 14 }, (_, i) => {
+      const yy = y - h * .85 + (i * 37 % 100) / 100 * h * .78; const span = (yy - (y - h)) / h * w * .4;
+      const xx = x + (((i * 53) % 100) / 100 - .5) * span;
+      return `<path d="M${xx.toFixed(1)} ${yy.toFixed(1)} v4" stroke="${dot}" stroke-width="1.6" stroke-linecap="round"/>`;
+    }).join('');
+    return `<g><rect x="${x - 3}" y="${y - h * .12}" width="6" height="${h * .12}" fill="#8C5A2E"/>${tiers}${dots}</g>`;
+  };
+  const round = (x, y, s, f, trunk, branch) => `<g>
+    <rect x="${x - 3.5 * s}" y="${y - 70 * s}" width="${7 * s}" height="${70 * s}" rx="${2 * s}" fill="${trunk}"/>
+    <circle cx="${x}" cy="${y - 92 * s}" r="${26 * s}" fill="${f}"/><circle cx="${x - 20 * s}" cy="${y - 72 * s}" r="${20 * s}" fill="${f}"/>
+    <circle cx="${x + 20 * s}" cy="${y - 72 * s}" r="${20 * s}" fill="${f}"/><circle cx="${x}" cy="${y - 62 * s}" r="${22 * s}" fill="${f}"/>
+    ${branch ? `<path d="M${x} ${y - 30 * s} V${y - 108 * s} M${x} ${y - 60 * s} l${-14 * s} ${-16 * s} M${x} ${y - 78 * s} l${13 * s} ${-14 * s} M${x} ${y - 94 * s} l${-9 * s} ${-10 * s}" stroke="${trunk}" stroke-width="${2.2 * s}" stroke-linecap="round" fill="none"/>` : ''}
+  </g>`;
+  const bush = (x, y, s, f) => `<g><circle cx="${x - 12 * s}" cy="${y - 12 * s}" r="${13 * s}" fill="${f}"/><circle cx="${x + 12 * s}" cy="${y - 12 * s}" r="${13 * s}" fill="${f}"/><circle cx="${x}" cy="${y - 22 * s}" r="${15 * s}" fill="${f}"/><rect x="${x - 2.5 * s}" y="${y - 6 * s}" width="${5 * s}" height="${8 * s}" fill="#8C5A2E"/></g>`;
+  const flower = (x, y) => `<g>${[0, 72, 144, 216, 288].map((a) => `<circle cx="${(x + Math.cos(a * Math.PI / 180) * 4).toFixed(1)}" cy="${(y + Math.sin(a * Math.PI / 180) * 4).toFixed(1)}" r="3.4" fill="#F2878B"/>`).join('')}<circle cx="${x}" cy="${y}" r="2.2" fill="#F7D35B"/></g>`;
+  const grass = (x, y, f) => `<path d="M${x} ${y} q-2 -9 -7 -12 M${x} ${y} q0 -10 1 -15 M${x} ${y} q3 -8 8 -11" stroke="${f}" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  return `<svg class="tree-scene forest" viewBox="0 0 320 210" role="img" aria-label="숲">
+    <path d="M6 186 C40 176 80 180 120 178 C170 175 230 180 314 176 L316 204 C260 210 120 206 4 206 Z" fill="#B2D98C"/>
+    <circle cx="96" cy="96" r="30" fill="#2F5E45"/><circle cx="196" cy="88" r="26" fill="#2F5E45"/>
+    ${pine(40, 188, 130, 70, '#4E9460', '#3C7A4D')}
+    ${round(100, 188, 1.15, '#5A9455', '#C27B3E', true)}
+    ${pine(160, 192, 172, 110, '#3D7660', '#2D5E4B')}
+    ${round(232, 180, 1.05, '#5C9353', '#8C5A2E', false)}
+    ${pine(282, 194, 150, 84, '#3D7660', '#2D5E4B')}
+    ${round(214, 196, 1.12, '#92BC64', '#9A5A2B', true)}
+    ${bush(80, 200, 1.2, '#94BF68')}${bush(152, 200, 1, '#5A9455')}
+    ${flower(118, 197)}${flower(180, 201)}${grass(60, 204, '#7FB45E')}${grass(250, 202, '#7FB45E')}${grass(296, 198, '#6EA651')}${grass(18, 200, '#6EA651')}
+  </svg>`;
+}
+// 도착 화면 위쪽 그림: 아낀 양만큼 나무 (1그루 = 1년 동안 CO₂ 9.8kg 흡수)
+function treeHeroHTML(g) {
+  return `<div class="tree-hero">${treeSceneSVG(Math.max(0, g) / TREE_YEAR_G)}</div>`;
+}
 // 풍선 그림: 자동차 대신 이 방법을 써서 "하늘로 안 올라간" CO₂를 풍선 개수로 보여줘요.
 // 너무 많으면 풍선 1개가 5·10·50개를 뜻하도록 묶어요 (최대 40개만 그림).
 function balloonsHTML(g) {
@@ -2706,7 +2847,8 @@ function doneHTML() {
   return `${appBar('도착')}
     <main class="content">
       <div class="done">
-        ${balloonsHTML(chosen.saving)}
+        ${state.newTitle ? `<button type="button" class="ttl-new" data-act="open-titles"><span aria-hidden="true">${state.newTitle.icon}</span><span><small>새 칭호를 얻었어요!</small><b>${esc(state.newTitle.name)}</b></span><i>보기 ›</i></button>` : ''}
+        ${treeHeroHTML(chosen.saving)}
         <h2>${esc(impact(chosen.saving).long)}</h2>
         <p class="big num">−${formatG(chosen.saving)} <small>CO₂</small></p>
         <p>혼자 자동차로 올 때보다 ${Math.round(chosen.savingPct)}% 줄였어요</p>
@@ -2717,7 +2859,7 @@ function doneHTML() {
     ${cta('<button type="button" class="btn primary" data-act="restart">새 경로 찾기</button>')}`;
 }
 
-const VIEWS = { admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
+const VIEWS = { titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
 
 // 화면 전체 그리기
 function render() {
@@ -2777,7 +2919,7 @@ function go(screen, dir) {
 // 뒤로 가면 나올 화면 (손가락으로 밀기·뒤로 버튼 공통)
 function backOf(screen) {
   return {
-    calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', home: 'main', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
+    titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', home: 'main', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
     'email-login': 'login', signup: 'login',
   }[screen] || null;
 }
@@ -2832,7 +2974,10 @@ function onPosition(p) {
 function finishTrip() {
   const { chosen } = currentPlan();
   if (chosen && !state.recorded) {
+    const before = titleOf(loadLog().g).level;
     state.lastLog = saveTrip(chosen.saving);
+    const after = titleOf(state.lastLog.g);
+    state.newTitle = after.level > before ? after : null;
     state.lastEarn = tripPoints(chosen);
     addPoints(state.lastEarn.total);
     addSavingToCampaigns(chosen.saving);
@@ -2960,6 +3105,7 @@ const actions = {
   'avatar-reset': () => { saveAvatar(''); render(); toast('기본 이미지로 바꿨어요'); },
   'open-camps': () => { if (state.screen !== 'campaigns') go('campaigns'); },
   'open-camp': (el) => { state.campId = el.dataset.id; state.campReturn = ['main', 'account', 'admin'].includes(state.screen) ? state.screen : 'campaigns'; go('campaign'); },
+  'open-titles': () => { state.titlesReturn = ['account', 'done'].includes(state.screen) ? state.screen : 'main'; go('titles'); },
   'open-admin': () => { state.adminTab = 'pending'; go('admin'); },
   'admin-tab': (el) => { state.adminTab = el.dataset.id; render(); },
   'camp-approve': (el) => reviewCampaign(el.dataset.id, 'approved'),
