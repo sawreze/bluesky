@@ -1476,7 +1476,8 @@ const campReward = (c) => c.goalKg * REWARD_P_PER_KG;
 //  예시 캠페인처럼 status 가 없으면 이미 게시된 캠페인이에요.
 //  ※ DB 전이라 관리자 확인도 이 휴대폰 안에서만 돼요 (진짜 서비스는 서버에서 권한을 확인해야 해요).
 const ADMIN_EMAILS = (CFG.ADMIN_EMAILS || ['admin@bluesky.kr']).map((e) => String(e).trim().toLowerCase());
-const isAdmin = () => !!(state.user && state.user.email && ADMIN_EMAILS.includes(String(state.user.email).toLowerCase()));
+// 관리자: 회원 DB에서 role = 'admin' 인 계정 (또는 config.js 의 관리자 이메일)
+const isAdmin = () => !!(state.user && (state.user.role === 'admin' || (state.user.email && ADMIN_EMAILS.includes(String(state.user.email).toLowerCase()))));
 function userKey(u) {
   if (!u) return '';
   if (u.email) return `e:${String(u.email).toLowerCase()}`;
@@ -3616,10 +3617,19 @@ appEl.addEventListener('touchcancel', endSwipe);
     state.auth = { busy: false, message: data.error || '카카오 로그인에 실패했어요.' };
   } else {
     state.user = { provider: 'kakao', id: data.id, name: data.name };
-    fetch('/api/auth/social', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'kakao', id: data.id, name: data.name }) }).catch(() => {}); // 회원 DB에 기록 (실패해도 로그인은 유지)
     let remember = true;
     try { remember = sessionStorage.getItem('pureun-remember') !== '0'; sessionStorage.removeItem('pureun-remember'); } catch (e) { /* 무시 */ }
     saveUser(state.user, remember);
+    // 회원 DB에 기록하고 권한(관리자 여부)을 받아 와요 (실패해도 로그인은 유지)
+    fetch('/api/auth/social', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'kakao', id: data.id, name: data.name }) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d || !d.user || !state.user || state.user.id !== data.id) return;
+        state.user.role = d.user.role;
+        saveUser(state.user, remember);
+        render();
+      })
+      .catch(() => {});
     state.screen = 'main';
   }
 })();

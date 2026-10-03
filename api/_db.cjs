@@ -42,7 +42,7 @@ function checkPw(pw, stored) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-const pub = (r) => ({ id: r.id, provider: r.provider, email: r.email || undefined, name: r.name });
+const pub = (r) => ({ id: r.id, provider: r.provider, email: r.email || undefined, name: r.name, role: r.role || 'user' });
 
 const store = {
   async findEmail(email) {
