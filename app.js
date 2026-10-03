@@ -3693,6 +3693,18 @@ const actions = {
   'camp-join': (el) => {
     const c = campStore.load().find((x) => x.id === el.dataset.id); if (!c) return;
     if (campEnded(c)) { toast('종료된 캠페인이에요'); return; }
+    // 누르는 순간 참여자로 등록해요 → "내가 참여한 캠페인"에 바로 보여요
+    if (!c.joined) {
+      const list = campStore.load(); const x = list.find((y) => y.id === c.id);
+      if (x) { x.joined = true; x.participants += 1; campStore.save(list); }
+      if (dbMode()) {
+        dataApi('camp-join', { id: c.id }).then((r) => {
+          if (r.status === 401) return needRelogin();
+          if (r.status !== 200) toast(r.data.error || '참여를 저장하지 못했어요');
+          syncFromServer({ quiet: true });
+        });
+      }
+    }
     state.campTrip = { campId: c.id, mode: campMode(c).id };
     state.campResult = null; state.recorded = false;
     state.to = null; state.raw = null; state.chosenId = null; state.openDetail = null;

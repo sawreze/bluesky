@@ -121,6 +121,19 @@ const trip = (km, savedG, extra = {}) => ({
   await post('camp-review', admin, { id: campId, decision: 'approved' });
   c = (await api('sync', sky)).body.camps.find((x) => x.id === campId);
   ok('승인되면 모두에게 보임', c && c.status === 'approved' && c.ownerId !== '@me' && c.creator === '김지민', c);
+  r = await call(signup, { method: 'POST', body: { name: '참여테스트', email: 'joiner@test.kr', pw: 'password1' } });
+  const newbieJ = cookieFrom(r);
+  r = await post('camp-join', newbieJ, { id: '999999' });
+  ok('없는 캠페인 참여 불가', r.statusCode === 400, r.body);
+
+  console.log('2-1) 참여하기 버튼');
+  r = await post('camp-join', newbieJ, { id: campId });
+  ok('참여하기 누르면 바로 참여자 (이동 전)', r.statusCode === 200 && r.body.participants === 2, r.body);
+  c = (await api('sync', newbieJ)).body.camps.find((x) => x.id === campId);
+  ok('내 목록에 참여 중으로 보임', c && c.joined === true && c.myG === 0, c);
+  r = await post('camp-join', newbieJ, { id: campId });
+  ok('두 번 눌러도 한 번만', r.body.participants === 2, r.body);
+  await sql()`DELETE FROM campaign_participants WHERE campaign_id = ${Number(campId)} AND user_id <> (SELECT creator_id FROM campaigns WHERE id = ${Number(campId)})`;
 
   console.log('3) 이동 저장 · 포인트 · 캠페인 기여');
   r = await post('trip', sky, trip(4, 600, { key: 'k1', campaignId: campId }));

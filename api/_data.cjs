@@ -7,7 +7,7 @@
 //  GET  a=img&k=a|c&id=            프로필 사진(a) · 캠페인 표지(c)
 //  POST a=trip                     도착한 이동 저장 (+ 포인트, 캠페인 기여, 인기 캠페인 보상)
 //  POST a=camp-save                캠페인 만들기 / 고쳐서 다시 신청
-//  POST a=camp-del | camp-like | camp-seen
+//  POST a=camp-del | camp-like | camp-join | camp-seen
 //  POST a=camp-review              (관리자) 승인 · 반려
 //  POST a=profile                  닉네임 · 프로필 사진
 //  POST a=logout                   출입증 쿠키 지우기
@@ -293,6 +293,18 @@ module.exports = function makeData(db) {
     return { ok: true, likes: num(r.n), liked: !!b.on };
   }
 
+  // 캠페인 참여하기 버튼: 누르는 순간 참여자로 등록 (도착하면 그 이동이 캠페인에 더해져요)
+  async function joinCamp(me, b) {
+    const id = intId(b.id);
+    const [c] = await sql()`SELECT status, (reached_at IS NOT NULL AND reached_at < now() - make_interval(days => ${END_DAYS})) AS ended
+      FROM v_campaign_stats WHERE campaign_id = ${id}`;
+    if (!c || c.status !== 'approved') bad('게시 중인 캠페인만 참여할 수 있어요.');
+    if (c.ended) bad('종료된 캠페인이에요.');
+    await sql()`INSERT INTO campaign_participants (campaign_id, user_id) VALUES (${id}, ${me.id}) ON CONFLICT DO NOTHING`;
+    const [r] = await sql()`SELECT COUNT(*) AS n FROM campaign_participants WHERE campaign_id = ${id}`;
+    return { ok: true, joined: true, participants: num(r.n) };
+  }
+
   async function reviewCamp(me, b) {
     if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
     const id = intId(b.id);
@@ -350,7 +362,7 @@ module.exports = function makeData(db) {
     return res.status(200).send(Buffer.from(m[2], 'base64'));
   }
 
-  const POSTS = { 'demo-seed': demoSeed, 'demo-clear': demoClear, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
+  const POSTS = { 'demo-seed': demoSeed, 'demo-clear': demoClear, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-join': joinCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
 
   return async function handler(req, res) {
     const q = req.query || {};
