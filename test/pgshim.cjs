@@ -20,13 +20,13 @@ function run(text, params = []) {
       else if (depth === 0 && /select/i.test(q.slice(i, i + 6)) && !/\w/.test(q[i - 1] || ' ')) last = i;
     }
     wrapped = `${q.slice(0, last).trimEnd()}, __f AS (${q.slice(last)}) SELECT coalesce(json_agg(__f), '[]') FROM __f`;
-  } else if (/^\s*select\b/i.test(q) || /\breturning\b/i.test(q)) {
+  } else if (/^\s*select\b/i.test(q) || (/^\s*(insert|update|delete)\b/i.test(q) && /\breturning\b/i.test(q))) {
     wrapped = `WITH __r AS (${q}) SELECT coalesce(json_agg(__r), '[]') FROM __r`;
   }
   try {
     const out = execFileSync('psql', ['-h', 'localhost', '-U', 'postgres', '-d', process.env.TESTDB || 'pureun_app', '-tA', '-v', 'ON_ERROR_STOP=1', '-c', wrapped],
       { env: { ...process.env, PGPASSWORD: 'test' }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-    if (!/^\s*(select|with)\b/i.test(q) && !/\breturning\b/i.test(q)) return Promise.resolve([]);
+    if (wrapped === q) return Promise.resolve([]);
     return Promise.resolve(JSON.parse(out || '[]'));
   } catch (e) {
     const msg = String(e.stderr || e.message);

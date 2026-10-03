@@ -1409,7 +1409,7 @@ function campRankHTML(c) {
   const rest = all.slice(3, 50);
   const meOut = me && me.rank > 50;
   return `<section class="m-card cr" id="camp-rank">
-    <div class="cr-head"><p class="m-label">참여자 기여 랭킹</p><small>${all.length.toLocaleString()}명 · 아낀 탄소 많은 순</small></div>
+    <div class="cr-head"><p class="m-label">참여자 기여 랭킹</p><small>${(dbMode() && state.campRanks[c.id] && state.campRanks[c.id].total ? state.campRanks[c.id].total : all.length).toLocaleString()}명 · 아낀 탄소 많은 순</small></div>
     ${me ? `<p class="cr-mine">${avatarHTML(me.name, me.photo)}<span>내 기여 <b>${kgText(me.g)}</b></span><em>${me.rank.toLocaleString()}위</em></p>` : ''}
     <div class="podium cr-podium" aria-label="1~3위">${pod(all[1], 2)}${pod(all[0], 1)}${pod(all[2], 3)}</div>
     ${rest.length ? `<ol class="rk-list cr-list">${rest.map((u) => `<li class="${u.me ? 'is-me' : ''}">
@@ -1417,7 +1417,7 @@ function campRankHTML(c) {
       <span class="rk-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</span>
       <span class="rk-pt">${kgText(u.g)}</span></li>`).join('')}
       ${meOut ? `<li class="is-me cr-gap"><span class="rk-n">${me.rank}</span>${avatarHTML(me.name, me.photo)}<span class="rk-name">${esc(me.name)} <em>나</em></span><span class="rk-pt">${kgText(me.g)}</span></li>` : ''}</ol>` : ''}
-    ${all.length > 50 ? `<p class="rk-note">50위까지 보여 드려요</p>` : ''}
+    ${all.length > 50 || (dbMode() && state.campRanks[c.id] && state.campRanks[c.id].total > 50) ? `<p class="rk-note">50위까지 보여 드려요</p>` : ''}
   </section>`;
 }
 // 예시 캠페인 6개 (좋아요·참여·달성 정도를 다르게 넣어 순위가 매겨지는지 확인용)
@@ -2126,7 +2126,19 @@ function adminHTML() {
         <button type="button" role="tab" class="${tab === 'done' ? 'on' : ''}" aria-selected="${tab === 'done'}" data-act="admin-tab" data-id="done">처리 완료 ${done.length}</button>
       </div>
       ${rows.length ? rows.map(item).join('') : `<p class="acc-empty">${tab === 'pending' ? '✅ 검토할 캠페인이 없어요.' : '아직 처리한 캠페인이 없어요.'}</p>`}
+      ${dbMode() ? demoHTML() : ''}
     </main>`;
+}
+// 예시 데이터: 사람이 많을 때 랭킹·캠페인이 어떻게 보이는지 확인용 (관리자만)
+function demoHTML() {
+  const n = state.demoUsers || 0;
+  return `<section class="ad-demo">
+      <b>🧪 예시 데이터</b>
+      <p>사람이 많을 때 랭킹·캠페인이 어떻게 보이는지 보려고 가상 회원 100명과 이동 기록(약 1,200번), 캠페인 8개를 넣어요. 가상 회원은 로그인할 수 없고, 진짜 회원 기록은 건드리지 않아요.</p>
+      ${n ? `<p class="ad-demo-now">지금 예시 회원 <b>${n.toLocaleString()}명</b>이 들어 있어요</p>
+        <button type="button" class="btn rv-no" data-act="demo-clear" ${state.demoBusy ? 'disabled' : ''}>${state.demoBusy ? '지우는 중…' : '예시 데이터 모두 지우기'}</button>`
+      : `<button type="button" class="btn primary" data-act="demo-seed" ${state.demoBusy ? 'disabled' : ''}>${state.demoBusy ? '넣는 중…' : '예시 회원 100명 넣기'}</button>`}
+    </section>`;
 }
 // 승인 / 반려 처리
 function reviewCampaign(id, status, reason) {
@@ -2604,6 +2616,7 @@ function applySync(d) {
   lsSet(AVATAR_KEY, d.user && d.user.avatar ? d.user.avatar : null);
   state.rank = d.rank || null;
   state.campRanks = {};
+  state.demoUsers = d.demoUsers || 0; // 관리자에게만: 예시 회원 수
   if (state.user && d.user) {
     const { avatar, ...u } = d.user;
     state.user = { ...state.user, ...u };
@@ -3530,6 +3543,20 @@ const actions = {
   'open-titles': () => { state.titlesReturn = ['account', 'done'].includes(state.screen) ? state.screen : 'main'; go('titles'); },
   'open-admin': () => { state.adminTab = 'pending'; go('admin'); },
   'admin-tab': (el) => { state.adminTab = el.dataset.id; render(); },
+  'demo-seed': () => confirmSheet('예시 회원 100명을 넣을까요?', '가상 회원 100명과 이동 기록·캠페인 8개가 랭킹과 캠페인 목록에 보여요. 언제든 한 번에 지울 수 있어요.', '넣기', '취소', 'primary').then(async (ok) => {
+    if (!ok) return;
+    state.demoBusy = true; render();
+    const r = await dbWrite('demo-seed', {});
+    state.demoBusy = false; render();
+    if (r) toast(`예시 회원 ${r.users}명 · 이동 ${r.trips.toLocaleString()}번을 넣었어요`);
+  }),
+  'demo-clear': () => confirmSheet('예시 데이터를 모두 지울까요?', '가상 회원과 그 사람들의 이동·포인트·캠페인·좋아요가 지워져요. 진짜 회원 기록은 그대로예요.', '모두 지우기').then(async (ok) => {
+    if (!ok) return;
+    state.demoBusy = true; render();
+    const r = await dbWrite('demo-clear', {});
+    state.demoBusy = false; render();
+    if (r) toast(`예시 회원 ${r.removed}명을 지웠어요`);
+  }),
   'camp-approve': (el) => reviewCampaign(el.dataset.id, 'approved'),
   'camp-reject': (el) => {
     const c = campStore.load().find((x) => x.id === el.dataset.id);

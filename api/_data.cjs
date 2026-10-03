@@ -11,6 +11,7 @@
 //  POST a=camp-review              (관리자) 승인 · 반려
 //  POST a=profile                  닉네임 · 프로필 사진
 //  POST a=logout                   출입증 쿠키 지우기
+//  POST a=demo-seed | demo-clear   (관리자) 예시 회원 100명 넣기 · 지우기 (_seed.cjs)
 //
 //  누구인지는 출입증 쿠키로만 확인해요. 포인트도 서버가 계산해요.
 // =====================================================================
@@ -25,6 +26,7 @@ const TRIP_MODES = ['car', 'bus', 'subway', 'bike', 'walk'];
 const MAX_COVER = 1500000;     // 표지 사진 (글자로 바꾼 크기) 최대 약 1.5MB
 const MAX_AVATAR = 400000;
 
+const SEED = require('./_seed.cjs');
 class Bad extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const bad = (msg, status = 400) => { throw new Bad(status, msg); };
 const str = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
@@ -128,7 +130,26 @@ module.exports = function makeData(db) {
 
   async function sync(me) {
     const [s, camps, rank] = await Promise.all([summary(me.id), campaigns(me), monthRank(me.id)]);
-    return { user: userOut(me), ...s, camps, rank };
+    const out = { user: userOut(me), ...s, camps, rank };
+    if (isAdminRow(me)) out.demoUsers = num((await sql()`SELECT COUNT(*) AS n FROM users WHERE provider = 'seed'`)[0].n);
+    return out;
+  }
+
+  // ── 예시 데이터 (관리자) ──
+  async function demoSeed(me) {
+    if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
+    try { await sql().query(SEED.SEED_SQL); } catch (e) {
+      if (/SEED_EXISTS/.test(e.message)) bad('예시 회원이 이미 있어요. 먼저 지운 뒤 다시 넣어 주세요.', 409);
+      throw e;
+    }
+    const [r] = await sql()`SELECT (SELECT COUNT(*) FROM users WHERE provider = 'seed') AS u,
+      (SELECT COUNT(*) FROM trips t JOIN users x ON x.id = t.user_id WHERE x.provider = 'seed') AS t`;
+    return { ok: true, users: num(r.u), trips: num(r.t) };
+  }
+  async function demoClear(me) {
+    if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
+    const rows = await sql().query(`${SEED.CLEAR_SQL} RETURNING id`);
+    return { ok: true, removed: rows.length };
   }
 
   // ── 이동 저장 ──
@@ -315,7 +336,7 @@ module.exports = function makeData(db) {
     return res.status(200).send(Buffer.from(m[2], 'base64'));
   }
 
-  const POSTS = { trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
+  const POSTS = { 'demo-seed': demoSeed, 'demo-clear': demoClear, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
 
   return async function handler(req, res) {
     const q = req.query || {};
