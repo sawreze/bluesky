@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.03-tabdir';
+const APP_VERSION = '2026.10.03-campjoin';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -1052,7 +1052,7 @@ function currentSource() {
 function currentPlan() {
   const source = currentSource();
   const ranked = source ? rankRoutes(source, state.prefs) : null;
-  const options = ranked ? ranked.byTier[state.level] : [];
+  const options = !ranked ? [] : state.campTrip ? campOptions(ranked, state.campTrip.mode) : ranked.byTier[state.level];
   const chosen = options.find((r) => r.id === state.chosenId) || options[0] || null;
   return { source, ranked, options, chosen };
 }
@@ -1305,6 +1305,92 @@ const CAMP_TAGS = [
   { id: 'together', label: '함께하기', tone: 'sky', icon: '🤝', bg: 'linear-gradient(160deg,#6f9fb8 0%,#5f8f62 55%,#2f5e3c 100%)' },
 ];
 const tagOf = (id) => CAMP_TAGS.find((t) => t.id === id) || CAMP_TAGS[0];
+// 캠페인 이동 수단: 참여하면 이 수단으로 가는 길만 찾아요 (버스 · 지하철 · 자전거 · 도보)
+const CAMP_MODES = [
+  { id: 'bus', label: '버스', icon: MI.bus, ro: '버스로' },
+  { id: 'subway', label: '지하철', icon: MI.subway, ro: '지하철로' },
+  { id: 'bike', label: '자전거', icon: '🚲', ro: '자전거로' },
+  { id: 'walk', label: '도보', icon: MI.walk, ro: '걸어서' },
+];
+const TAG_MODE = { transit: 'bus', walk: 'walk', bike: 'bike', carfree: 'subway', together: 'bus' };
+const campModeOf = (id) => CAMP_MODES.find((m) => m.id === id) || CAMP_MODES[0];
+const campMode = (c) => campModeOf((c && c.mode) || TAG_MODE[c && c.tag] || 'bus');
+// 이 경로가 캠페인 이동 수단에 맞는지 (strict: 그 수단만, 아니면 그 수단이 들어 있으면)
+function campMatch(r, mode, strict) {
+  const has = (m) => (r.segments || []).some((sg) => sg.mode === m);
+  if (mode === 'walk') return r.kind === 'walk';
+  if (mode === 'bike') return r.kind === 'bike';
+  if (r.kind !== 'transit' || !has(mode)) return false;
+  const other = mode === 'bus' ? 'subway' : 'bus';
+  return strict ? !has(other) : true;
+}
+// 캠페인 길찾기에서 보여줄 경로: 그 수단만 타는 길 → 없으면 그 수단이 들어간 길
+function campOptions(ranked, mode) {
+  let list = ranked.all.filter((r) => campMatch(r, mode, true));
+  if (!list.length) list = ranked.all.filter((r) => campMatch(r, mode, false));
+  list = list.map((r) => ({ ...r, badges: [] })).sort(SORTERS[state.prefs.sort] || SORTERS.fast);
+  if (list.length > 1) {
+    const fastest = list.reduce((a, b) => (b.minutes < a.minutes ? b : a));
+    const greenest = list.reduce((a, b) => (b.emission < a.emission ? b : a));
+    fastest.badges.push('최소시간');
+    if (greenest !== fastest) greenest.badges.push('최소탄소');
+  }
+  return list;
+}
+const campTripCamp = () => (state.campTrip ? campStore.load().find((x) => x.id === state.campTrip.campId) || null : null);
+// 캠페인 기여량 kg 표시 (0.35kg · 12.3kg · 523kg)
+function kgText(g) {
+  const kg = Math.max(0, g) / 1000;
+  return `${kg.toLocaleString(undefined, { maximumFractionDigits: kg >= 100 ? 0 : kg >= 10 ? 1 : 2 })}kg`;
+}
+// 캠페인 참여자 기여 랭킹
+//  ※ DB 전이라 다른 참여자는 가상 사용자예요. 다른 사람들의 몫(전체 - 내 몫)을 캠페인마다 고정된 비율로 나눠요.
+function campRanking(c) {
+  const myG = Math.max(0, c.myG || 0);
+  const meIn = !!(c.joined || myG > 0);
+  const othersN = Math.max(0, Math.min(400, (c.participants || 0) - (meIn ? 1 : 0)));
+  const othersG = Math.max(0, c.progressG - myG);
+  const rnd = seededRand(hashStr(`camp:${c.id}`) + 11);
+  const used = new Set([(state.user && state.user.name) || '나']);
+  const people = [];
+  for (let i = 0; i < othersN; i++) {
+    let name; let n = 0;
+    do { name = NICK_A[Math.floor(rnd() * NICK_A.length)] + NICK_B[Math.floor(rnd() * NICK_B.length)] + (rnd() < 0.4 || n > 3 ? Math.floor(rnd() * 90 + 10) : ''); n++; } while (used.has(name));
+    used.add(name);
+    people.push({ id: `p${i}`, name, w: Math.pow(rnd(), 3.4) + 0.02, photo: '' });
+  }
+  if (people.length && !isMine(c) && c.creator && !used.has(c.creator)) { people[0].name = c.creator; people[0].w += 0.6; } // 만든 사람도 열심히 참여
+  const sumW = people.reduce((a, u) => a + u.w, 0) || 1;
+  people.forEach((u) => { u.g = Math.round((othersG * u.w) / sumW); });
+  if (meIn) people.push({ id: 'me', me: true, name: (state.user && state.user.name) || '나', g: myG, photo: loadAvatar() });
+  const all = people.sort((a, b) => (b.g - a.g) || (a.me ? -1 : b.me ? 1 : 0) || a.name.localeCompare(b.name));
+  all.forEach((u, i) => { u.rank = i + 1; });
+  return { all, me: all.find((u) => u.me) || null };
+}
+function campRankHTML(c) {
+  const { all, me } = campRanking(c);
+  if (!all.length) return `<section class="m-card cr"><p class="m-label">참여자 기여 랭킹</p><p class="cr-empty">아직 참여한 사람이 없어요. 첫 번째로 참여해 보세요!</p></section>`;
+  const pod = (u, place) => (u ? `<div class="pod pod-${place}">
+      ${place === 1 ? '<span class="crown" aria-hidden="true">👑</span>' : ''}
+      <div class="medal m${place}">${avatarHTML(u.name, u.photo, 'av-lg')}</div>
+      <b class="pod-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</b>
+      <span class="pod-pt">${kgText(u.g)}</span>
+      <div class="step"><span>${place}</span></div>
+    </div>` : '<div class="pod"></div>');
+  const rest = all.slice(3, 50);
+  const meOut = me && me.rank > 50;
+  return `<section class="m-card cr" id="camp-rank">
+    <div class="cr-head"><p class="m-label">참여자 기여 랭킹</p><small>${all.length.toLocaleString()}명 · 아낀 탄소 많은 순</small></div>
+    ${me ? `<p class="cr-mine">${avatarHTML(me.name, me.photo)}<span>내 기여 <b>${kgText(me.g)}</b></span><em>${me.rank.toLocaleString()}위</em></p>` : ''}
+    <div class="podium cr-podium" aria-label="1~3위">${pod(all[1], 2)}${pod(all[0], 1)}${pod(all[2], 3)}</div>
+    ${rest.length ? `<ol class="rk-list cr-list">${rest.map((u) => `<li class="${u.me ? 'is-me' : ''}">
+      <span class="rk-n">${u.rank}</span>${avatarHTML(u.name, u.photo)}
+      <span class="rk-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</span>
+      <span class="rk-pt">${kgText(u.g)}</span></li>`).join('')}
+      ${meOut ? `<li class="is-me cr-gap"><span class="rk-n">${me.rank}</span>${avatarHTML(me.name, me.photo)}<span class="rk-name">${esc(me.name)} <em>나</em></span><span class="rk-pt">${kgText(me.g)}</span></li>` : ''}</ol>` : ''}
+    ${all.length > 50 ? `<p class="rk-note">50위까지 보여 드려요</p>` : ''}
+  </section>`;
+}
 // 예시 캠페인 6개 (좋아요·참여·달성 정도를 다르게 넣어 순위가 매겨지는지 확인용)
 function seedCampaigns() {
   const day = 86400000; const now = Date.now();
@@ -1407,15 +1493,21 @@ function checkRewards(list) {
   });
   return won;
 }
-// 도착하면: 내가 참여한 캠페인에 아낀 탄소를 더해요
-function addSavingToCampaigns(g) {
-  if (!(g > 0)) return;
+// 캠페인 길찾기로 도착하면: 그 캠페인에 아낀 탄소를 더하고 내 기여로 기록해요
+function addSavingToCampaign(id, g) {
+  g = Math.max(0, Math.round(g || 0));
   const list = campStore.load();
-  let changed = false;
-  list.forEach((c) => { if (c.joined && isPublic(c)) { c.progressG += g; changed = true; } });
+  const c = list.find((x) => x.id === id);
+  if (!c) return null;
+  const beforeG = c.progressG;
+  c.progressG += g;
+  c.myG = (c.myG || 0) + g;
+  c.myTrips = (c.myTrips || 0) + 1;
+  if (!c.joined) { c.joined = true; c.participants += 1; }
   const won = checkRewards(list);
-  if (changed || won.length) campStore.save(list);
+  campStore.save(list);
   if (won.length) setTimeout(() => toast(`내 캠페인이 인기 캠페인이 됐어요 +${campReward(won[0]).toLocaleString()}P`), 600);
+  return { beforeG, afterG: c.progressG };
 }
 // 캠페인 카드 배경 (올린 사진이 있으면 사진, 없으면 분류별 하늘·초록 그라데이션)
 function campBg(c, shade) {
@@ -1741,6 +1833,7 @@ function campCardHTML(c) {
       <span class="c-tag tone-${tagOf(c.tag).tone}">${esc(tagOf(c.tag).label)}</span>
       <h3>${esc(c.title)}</h3>
       <p class="c-by">by ${esc(c.creator)} · ${c.participants.toLocaleString()}명 참여</p>
+      <p class="c-mode">${campMode(c).icon}<span>${campMode(c).label}로 참여</span></p>
       <div class="c-prog"><span style="width:${pct.toFixed(1)}%"></span></div>
       <p class="c-num"><b>${kgShort(c.progressG)}</b> / ${c.goalKg.toLocaleString()}kg <span>${Math.floor(pct)}%</span></p>
       <p class="c-like ${c.liked ? 'on' : ''}">${ICON.heart}${c.likes.toLocaleString()}</p>
@@ -1761,7 +1854,7 @@ function campaignHTML() {
       ${isMine(c) ? `<button type="button" class="cd-del" data-act="camp-del" data-id="${c.id}" aria-label="캠페인 삭제">${ICON.trash}<span>삭제</span></button>` : ''}
       ${c.cover ? '' : `<span class="cd-art" aria-hidden="true">${tagOf(c.tag).icon}</span>`}
       <div class="cd-cover-txt">
-        <span class="m-chip tone-${tagOf(c.tag).tone}">${pop ? '🏆 인기 캠페인' : esc(tagOf(c.tag).label)}</span>
+        <span class="cd-chips"><span class="m-chip tone-${tagOf(c.tag).tone}">${pop ? '🏆 인기 캠페인' : esc(tagOf(c.tag).label)}</span><span class="m-chip cd-mode">${campMode(c).icon}${campMode(c).label}로 참여</span></span>
         <h1>${esc(c.title)}</h1>
         <p>${esc(c.sub || '')}</p>
       </div>
@@ -1774,6 +1867,7 @@ function campaignHTML() {
         <div class="m-bar"><span style="width:${pct.toFixed(1)}%"></span></div>
         <p class="m-note">${pct >= 100 ? '🎉 목표 달성!' : `목표까지 ${kgShort(left)} 남았어요`} · ${c.participants.toLocaleString()}명 참여${c.progressG > 0 ? ` · ${impact(c.progressG).icon} ${esc(impact(c.progressG).short)}` : ''}</p>
       </section>
+      ${pub ? campRankHTML(c) : ''}
       <section class="cd-reward ${pop ? 'won' : ''}">
         <b>${pop ? '🏆 인기 캠페인 선정 · 보상 지급 완료' : c.goalKg >= POPULAR_MIN_KG ? '🎯 목표를 달성하면 인기 캠페인!' : `ℹ️ 목표가 ${POPULAR_MIN_KG}kg 미만이라 인기 캠페인 대상이 아니에요`}</b>
         <p>${c.goalKg >= POPULAR_MIN_KG ? `만든 사람(${esc(c.creator)})에게 탄소 포인트 <strong>${campReward(c).toLocaleString()}P</strong>${pop ? '를 드렸어요' : '를 드려요'}` : '목표를 크게 잡을수록 인기 캠페인이 될 수 있어요'}</p>
@@ -1781,12 +1875,12 @@ function campaignHTML() {
       <article class="cd-body">
         <p class="c-by">by <b>${esc(c.creator)}</b> · ${new Date(c.createdAt).toLocaleDateString('ko-KR')}</p>
         ${esc(c.body).split(/\n{2,}/).map((para) => `<p>${para.replace(/\n/g, '<br>')}</p>`).join('')}
-        <p class="cd-how">참여하면 앞으로 친환경 경로로 도착할 때마다 아낀 탄소가 이 캠페인에 더해져요.</p>
+        <p class="cd-how">"캠페인 참여하기"를 누르고 출발지·도착지를 정하면 <b>${campMode(c).label}</b>로 가는 길만 보여 드려요. 도착하면 자동차 대신 아낀 탄소가 이 캠페인에 더해지고 기여 랭킹에 올라가요.</p>
       </article>
     </div>
     ${pub ? `<div class="cd-bar">
       <button type="button" class="cd-like ${c.liked ? 'on' : ''}" data-act="camp-like" data-id="${c.id}" aria-pressed="${c.liked}">${ICON.heart}<span>${c.likes.toLocaleString()}</span></button>
-      <button type="button" class="btn ${c.joined ? '' : 'primary'} cd-join" data-act="camp-join" data-id="${c.id}">${c.joined ? '✓ 참여 중 · 그만하기' : '캠페인 참여하기'}</button>
+      <button type="button" class="btn primary cd-join" data-act="camp-join" data-id="${c.id}">${campMode(c).icon}<span>${c.myTrips ? '캠페인 또 참여하기' : '캠페인 참여하기'}</span></button>
     </div>` : reviewBarHTML(c)}
   </main>`;
 }
@@ -1825,7 +1919,7 @@ function reviewBarHTML(c) {
 }
 // ── 캠페인 만들기 ──
 function campaignNewHTML() {
-  const d = state.campDraft || (state.campDraft = { tag: 'transit', goalKg: 100, cover: '' });
+  const d = state.campDraft || (state.campDraft = { tag: 'transit', mode: 'bus', goalKg: 100, cover: '' });
   const editing = !!state.campEditId;
   return `${appBar(editing ? '캠페인 고치기' : '캠페인 만들기', 'back')}
     <main class="content cn">
@@ -1837,6 +1931,8 @@ function campaignNewHTML() {
         </label>
         <div class="field"><span class="label">분류</span>
           <div class="cn-tags">${CAMP_TAGS.map((t) => `<button type="button" class="cn-tag ${d.tag === t.id ? 'on' : ''}" data-act="cn-tag" data-id="${t.id}">${t.icon} ${t.label}</button>`).join('')}</div></div>
+        <div class="field"><span class="label">이동 수단 <small class="cn-sub">참여자는 이 수단으로 가는 길만 찾을 수 있어요</small></span>
+          <div class="cn-tags cn-modes">${CAMP_MODES.map((m) => `<button type="button" class="cn-tag ${(d.mode || TAG_MODE[d.tag]) === m.id ? 'on' : ''}" data-act="cn-mode" data-id="${m.id}">${m.icon} ${m.label}</button>`).join('')}</div></div>
         <label class="field"><span class="label">캠페인 제목</span>
           <input class="input" name="title" maxlength="30" placeholder="예: 한 정거장 먼저 내려 걸어요" value="${esc(d.title || '')}"></label>
         <label class="field"><span class="label">한 줄 소개</span>
@@ -1896,7 +1992,7 @@ function submitCampaign() {
     : !(d.goalKg >= 10) ? '목표는 10kg 이상으로 정해 주세요.' : '';
   state.campErr = err;
   if (err) { render(); return; }
-  const fields = { tag: d.tag, title: d.title.trim(), sub: d.sub.trim(), body: d.body.trim(), goalKg: Math.round(d.goalKg), cover: d.cover || '' };
+  const fields = { tag: d.tag, mode: d.mode || TAG_MODE[d.tag] || 'bus', title: d.title.trim(), sub: d.sub.trim(), body: d.body.trim(), goalKg: Math.round(d.goalKg), cover: d.cover || '' };
   const list = campStore.load();
   const old = state.campEditId && list.find((x) => x.id === state.campEditId && isMine(x));
   let c;
@@ -1904,7 +2000,7 @@ function submitCampaign() {
     c = Object.assign(old, fields, { status: 'pending', rejectReason: '', submittedAt: Date.now(), notice: null });
   } else {
     c = {
-      id: `c-${Date.now().toString(36)}`, ...fields, progressG: 0, participants: 1, likes: 0,
+      id: `c-${Date.now().toString(36)}`, ...fields, progressG: 0, myG: 0, participants: 1, likes: 0,
       creator: (state.user && state.user.name) || '푸른하늘 사용자', ownerId: userKey(state.user),
       status: 'pending', joined: true, liked: false, rewarded: false, createdAt: Date.now(), submittedAt: Date.now(),
     };
@@ -2024,7 +2120,7 @@ function startEdit(id) {
   const c = campStore.load().find((x) => x.id === id && isMine(x));
   if (!c) return;
   state.campEditId = id; state.campErr = '';
-  state.campDraft = { tag: c.tag, title: c.title, sub: c.sub, body: c.body, goalKg: c.goalKg, cover: c.cover, rejectReason: c.status === 'rejected' ? c.rejectReason : '' };
+  state.campDraft = { tag: c.tag, mode: campMode(c).id, title: c.title, sub: c.sub, body: c.body, goalKg: c.goalKg, cover: c.cover, rejectReason: c.status === 'rejected' ? c.rejectReason : '' };
   state.campNewReturn = state.screen === 'campaign-new' ? 'account' : state.screen;
   go('campaign-new');
 }
@@ -2436,8 +2532,20 @@ function homeHTML() {
       </div>`;
   }
   const can = state.ready ? state.from && state.to && !state.loading && state.raw : !!source;
-  return `<main class="home">${body}</main>
+  const ct = campTripCamp();
+  if (ct) body = body.replace(/(<div class="float-head">[\s\S]*?<\/div><\/div>)/, `$1${campTripBanner(ct)}`);
+  return `<main class="home ${ct ? 'camp-mode' : ''}">${body}</main>
     ${cta(`<button type="button" class="btn primary" id="go-result" data-act="to-result" ${can ? '' : 'disabled'}>길찾기</button>`)}`;
+}
+
+// 캠페인 길찾기 중일 때 위쪽 띠: 어떤 캠페인 · 어떤 수단으로만 찾는지
+function campTripBanner(c, compact) {
+  const m = campModeOf(state.campTrip.mode);
+  return `<div class="camp-trip ${compact ? 'sm' : ''}">
+    <span class="camp-trip-ic" aria-hidden="true">${m.icon}</span>
+    <span class="camp-trip-txt"><small>캠페인 참여 중</small><b>${esc(c.title)}</b>${compact ? '' : `<em>${m.label}로 가는 길만 찾아요</em>`}</span>
+    <button type="button" class="camp-trip-x" data-act="camp-trip-cancel" aria-label="캠페인 참여 그만두기">✕</button>
+  </div>`;
 }
 
 // ── 검색 ──
@@ -2633,6 +2741,21 @@ function resultSheetHTML() {
   else if (!options.length) list = `<p class="empty">이 구간에는 ${tier.label} 경로가 없어요. 다른 절약 단계를 눌러 보세요.</p>`;
   else list = options.map((r) => routeCardHTML(r, chosen && r.id === chosen.id, ranked.baseline.emission)).join('');
 
+  const ct = campTripCamp();
+  if (ct) {
+    const m = campModeOf(state.campTrip.mode);
+    if (!state.loading && !options.length) list = `<p class="empty">이 구간에는 ${m.label}로 가는 길이 없어요.${m.id === 'bike' ? '' : ' 출발지나 도착지를 바꿔 보세요.'}</p>`;
+    const far = m.id === 'bike' && options[0] && options[0].km > 15;
+    return `
+    ${campTripBanner(ct, true)}
+    <p class="camp-only">${m.icon}<span><b>${m.label}</b>로 가는 길만 보여요 · 도착하면 아낀 탄소가 캠페인에 더해져요</span></p>
+    ${far ? '<p class="notice warn small">15km가 넘는 먼 거리예요. 무리하지 말고 쉬어 가며 타세요.</p>' : ''}
+    ${filters}
+    ${state.notes.map((n) => `<p class="notice warn small">${esc(n)}</p>`).join('')}
+    <div class="rlist">${list}</div>
+    ${kgGuideHTML()}
+    <p class="source">배출계수: ${FACTOR_SOURCE}. 아낀 탄소는 같은 길을 혼자 자동차로 갈 때와 비교했어요.</p>`;
+  }
   return `
     ${tabs}
     ${filters}
@@ -2754,7 +2877,7 @@ function updateNav() {
           <small>${impact(chosen.saving).icon} ${impact(chosen.saving).short}</small>
         </div>
         ${manual && !last ? '<button type="button" class="btn navx-next" data-act="nav-next">다음 ›</button>' : ''}
-        <button type="button" class="navx-arrive" data-act="arrive">도착</button>
+        <button type="button" class="navx-arrive ${state.campTrip ? 'camp' : ''}" data-act="arrive">${state.campTrip ? '참여 완료' : '도착'}</button>
       </div>`;
   }
 }
@@ -2883,7 +3006,41 @@ function doneHTML() {
     ${cta('<button type="button" class="btn primary" data-act="restart">새 경로 찾기</button>')}`;
 }
 
-const VIEWS = { titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
+// ── 캠페인 참여 완료 ──
+function campDoneHTML() {
+  const r = state.campResult;
+  const c = r && campStore.load().find((x) => x.id === r.campId);
+  if (!r || !c) return `${appBar('캠페인')}<main class="content"><p class="empty">캠페인을 찾지 못했어요.</p></main>${cta('<button type="button" class="btn primary" data-act="go-main">홈으로 돌아가기</button>')}`;
+  const m = campModeOf(r.mode);
+  const goal = c.goalKg * 1000;
+  const prevPct = Math.min(100, (r.beforeG / goal) * 100);
+  const nowPct = campPct(c);
+  const { me } = campRanking(c);
+  return `<main class="content cdone">
+      <div class="done">
+        ${state.newTitle ? `<button type="button" class="ttl-new" data-act="open-titles"><span aria-hidden="true">${state.newTitle.icon}</span><span><small>새 칭호를 얻었어요!</small><b>${esc(state.newTitle.name)}</b></span><i>보기 ›</i></button>` : ''}
+        ${treeHeroHTML(r.g)}
+        <span class="cdone-badge">✓ 캠페인 참여 완료</span>
+        <h2>${esc(c.title)}</h2>
+        <p class="cdone-lead">${m.icon}<span>${m.ro} 도착했어요</span></p>
+        <div class="cdone-kg">
+          <small>이번에 내가 기여한 탄소</small>
+          <b class="num">+${kgText(r.g)}</b>
+          <span>${impact(r.g).icon} ${esc(impact(r.g).short)}</span>
+        </div>
+        <section class="m-card cdone-goal">
+          <div class="cdone-goal-top"><p class="m-label">캠페인 목표</p><b class="num">${Math.floor(nowPct)}%</b></div>
+          <p class="m-big"><b>${(c.progressG / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })}</b> / ${c.goalKg.toLocaleString()} kg</p>
+          <div class="m-bar cdone-bar"><span class="cdone-was" style="width:${prevPct.toFixed(2)}%"></span><span class="cdone-add" style="--w:${Math.max(0, nowPct - prevPct).toFixed(2)}%"></span></div>
+          <p class="m-note">내 누적 기여 <b>${kgText(c.myG || 0)}</b>${me ? ` · 참여자 중 <b>${me.rank.toLocaleString()}위</b>` : ''}</p>
+        </section>
+        ${state.lastEarn ? `<div class="earn"><b>+${state.lastEarn.total.toLocaleString()}P</b><span>탄소 포인트 · 절약 ${state.lastEarn.kgP}P + 거리 ${state.lastEarn.kmP}P (${state.lastEarn.ecoKm.toFixed(1)}km)</span></div>` : ''}
+      </div>
+    </main>
+    ${cta('<button type="button" class="btn" data-act="go-main">홈으로 돌아가기</button><button type="button" class="btn primary" data-act="camp-back">캠페인 화면으로 돌아가기</button>')}`;
+}
+
+const VIEWS = { campdone: campDoneHTML, titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
 
 // 화면 전체 그리기
 function render() {
@@ -2927,8 +3084,10 @@ function render() {
 }
 
 // 다른 화면으로 이동
+const CAMP_TRIP_SCREENS = ['home', 'search', 'result', 'nav', 'titles'];
 function go(screen, dir) {
   if (state.screen === 'nav' && screen !== 'nav') stopTracking();
+  if (state.campTrip && !CAMP_TRIP_SCREENS.includes(screen)) state.campTrip = null; // 길찾기 밖으로 나가면 캠페인 모드 끝
   state.navDir = dir === undefined ? (screen === state.screen ? null : 'fwd') : dir;
   state.prevScreen = state.screen;
   state.screen = screen;
@@ -2943,7 +3102,7 @@ function go(screen, dir) {
 // 뒤로 가면 나올 화면 (손가락으로 밀기·뒤로 버튼 공통)
 function backOf(screen) {
   return {
-    titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', home: 'main', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
+    titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', home: state.campTrip ? 'campaign' : 'main', campdone: 'campaign', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
     'email-login': 'login', signup: 'login',
   }[screen] || null;
 }
@@ -3004,9 +3163,14 @@ function finishTrip() {
     state.newTitle = after.level > before ? after : null;
     state.lastEarn = tripPoints(chosen);
     addPoints(state.lastEarn.total);
-    addSavingToCampaigns(chosen.saving);
+    if (state.campTrip) {
+      const g = Math.max(0, chosen.saving);
+      const res = addSavingToCampaign(state.campTrip.campId, g);
+      state.campResult = res ? { campId: state.campTrip.campId, mode: state.campTrip.mode, g, beforeG: res.beforeG } : null;
+    }
     state.recorded = true;
   }
+  if (state.campTrip && state.campResult) { state.campId = state.campResult.campId; go('campdone'); return; }
   go('done');
 }
 
@@ -3157,12 +3321,35 @@ const actions = {
     el.classList.toggle('on', c.liked); el.setAttribute('aria-pressed', String(c.liked));
     el.querySelector('span').textContent = c.likes.toLocaleString();
   },
+  // 캠페인 참여하기 → 그 캠페인 이동 수단으로만 길찾기
   'camp-join': (el) => {
-    const list = campStore.load(); const c = list.find((x) => x.id === el.dataset.id); if (!c) return;
-    c.joined = !c.joined; c.participants += c.joined ? 1 : -1; campStore.save(list);
-    render(); toast(c.joined ? '참여했어요! 친환경 이동이 이 캠페인에 쌓여요' : '참여를 그만뒀어요');
+    const c = campStore.load().find((x) => x.id === el.dataset.id); if (!c) return;
+    state.campTrip = { campId: c.id, mode: campMode(c).id };
+    state.campResult = null; state.recorded = false;
+    state.to = null; state.raw = null; state.chosenId = null; state.openDetail = null;
+    go('home');
+    toast(`${campMode(c).label}로 가는 길만 찾아 드려요`);
   },
-  'cn-tag': (el) => { saveDraftFromForm(); state.campDraft.tag = el.dataset.id; render(); },
+  'camp-trip-cancel': () => {
+    confirmSheet('캠페인 참여를 그만둘까요?', '보통 길찾기로 돌아가요. 이번 이동은 캠페인에 더해지지 않아요.', '그만두기', '계속 참여').then((ok) => {
+      if (!ok) return;
+      state.campTrip = null; state.chosenId = null;
+      if (state.screen === 'result') renderResultSheet(); else render();
+      if (state.screen === 'result') drawChosen();
+    });
+  },
+  'camp-back': () => {
+    const id = state.campResult && state.campResult.campId;
+    state.campTrip = null;
+    if (id) state.campId = id;
+    state.campReturn = 'campaigns';
+    state.to = null; state.raw = null;
+    go('campaign', 'back');
+    setTimeout(() => { const el = document.getElementById('camp-rank'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 380);
+  },
+  'go-main': () => { state.campTrip = null; state.to = null; state.raw = null; goTab('main'); },
+  'cn-mode': (el) => { saveDraftFromForm(); state.campDraft.mode = el.dataset.id; render(); },
+  'cn-tag': (el) => { saveDraftFromForm(); state.campDraft.tag = el.dataset.id; state.campDraft.mode = TAG_MODE[el.dataset.id] || state.campDraft.mode; render(); },
   'cn-goal': (el) => { saveDraftFromForm(); state.campDraft.goalKg = Number(el.dataset.id); render(); },
   'open-calendar': () => { state.calReturn = state.screen === 'account' ? 'account' : 'main'; state.calMonth = null; state.calSel = dayKey(new Date()); go('calendar'); },
   'cal-prev': () => { const n = new Date(); const c = state.calMonth || { y: n.getFullYear(), m: n.getMonth() }; const d = new Date(c.y, c.m - 1, 1); state.calMonth = { y: d.getFullYear(), m: d.getMonth() }; state.calSel = null; render(); },

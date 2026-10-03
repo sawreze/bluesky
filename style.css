@@ -1341,3 +1341,88 @@ textarea { font: inherit; color: inherit; }
   transition: transform .45s cubic-bezier(.3, 1.25, .4, 1); will-change: transform; }
 .kg-seg-ind::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, 0) 55%); }
 @media (prefers-reduced-motion: reduce) { .kg-seg-ind { transition: none; } }
+
+/* =====================================================================
+   캠페인 참여 길찾기 · 참여 완료 · 기여 랭킹
+   ===================================================================== */
+.c-mode { margin: 2px 0 0; display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--sky-strong); }
+.c-mode .mi { width: 14px; height: 14px; }
+.cd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cd-mode { display: inline-flex; align-items: center; gap: 4px; background: rgba(255, 255, 255, .92); }
+.cd-mode .mi { width: 14px; height: 14px; }
+.cd-join { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.cd-join .mi { width: 20px; height: 20px; }
+.cn-sub { display: block; margin-top: 2px; font-size: 12px; color: #8A97AA; }
+.cn-modes .cn-tag { display: inline-flex; align-items: center; gap: 5px; }
+.cn-modes .mi { width: 16px; height: 16px; }
+
+/* 길찾기 위쪽 띠: 캠페인 참여 중 */
+.camp-trip { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; border-radius: 18px;
+  background: linear-gradient(135deg, #1F5FE0, #3F86F5); color: #fff; box-shadow: 0 10px 24px rgba(31, 95, 224, .28); }
+.camp-trip-ic { flex: none; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: rgba(255, 255, 255, .2); font-size: 20px; }
+.camp-trip-ic .mi { width: 22px; height: 22px; }
+.camp-trip-txt { flex: 1; min-width: 0; display: grid; line-height: 1.3; }
+.camp-trip-txt small { font-size: 11px; font-weight: 700; opacity: .85; }
+.camp-trip-txt b { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.camp-trip-txt em { font-style: normal; font-size: 12px; opacity: .9; }
+.camp-trip-x { flex: none; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .2); color: #fff; font-size: 14px; }
+.camp-trip.sm { margin: 4px 0 8px; padding: 8px 8px 8px 10px; border-radius: 16px; box-shadow: none; }
+.camp-trip.sm .camp-trip-ic { width: 32px; height: 32px; border-radius: 10px; }
+.camp-only { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 13px; color: var(--muted); }
+.camp-only .mi { width: 16px; height: 16px; color: var(--sky-strong); }
+.camp-only b { color: var(--ink); }
+.navx-bar .navx-arrive.camp { min-width: 104px; padding: 0 14px; }
+
+/* 참여 완료 화면 */
+.cdone { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+.cdone .done { gap: 10px; }
+.cdone-badge { padding: 6px 14px; border-radius: 999px; background: #E6F6EC; color: #187A43; font-size: 13.5px; font-weight: 800; }
+.cdone .done h2 { font-size: 22px; }
+.cdone-lead { display: flex; align-items: center; gap: 6px; }
+.cdone-lead .mi { width: 18px; height: 18px; }
+.cdone-kg { display: grid; justify-items: center; gap: 4px; width: 100%; max-width: 340px; padding: 16px; border-radius: 22px; background: linear-gradient(135deg, #EAF2FF, #E3F4EC); border: 1px solid #D5E4F6; }
+.cdone-kg small { font-size: 13px; font-weight: 700; color: var(--muted); }
+.cdone-kg b { font: 900 40px/1.05 var(--font-display); color: var(--sky-strong); letter-spacing: -0.02em; }
+.cdone-kg span { font-size: 13px; color: var(--muted); }
+.cdone-goal { width: 100%; text-align: left; margin-top: 4px; }
+.cdone-goal-top { display: flex; align-items: center; justify-content: space-between; }
+.cdone-goal-top b { font: 800 18px/1 var(--font-display); color: var(--sky-strong); }
+.cdone-bar { display: flex; }
+.cdone-bar span { flex: none; border-radius: 0; }
+.cdone-bar .cdone-add { width: var(--w); background: #2BB673; animation: cdoneGrow 1s .35s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes cdoneGrow { from { width: 0; } to { width: var(--w); } }
+.cdone-goal .m-note b { color: var(--ink); }
+
+/* 캠페인 상세: 참여자 기여 랭킹 */
+.cr { padding: 18px 14px 14px; }
+.cr-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 4px; }
+.cr-head .m-label { margin: 0; }
+.cr-head small { font-size: 12px; color: var(--muted); }
+.cr-mine { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; padding: 8px 12px; border-radius: 16px; background: #0F1626; color: #fff; }
+.cr-mine .av { width: 34px; height: 34px; border: 2px solid rgba(255, 255, 255, .6); }
+.cr-mine > span:not(.av) { flex: 1; min-width: 0; font-size: 14px; }
+.cr-mine b { font-weight: 800; }
+.cr-mine em { font-style: normal; font: 800 15px/1 var(--font-display); }
+.cr-podium { margin-top: 18px; }
+.cr-podium .av.av-lg { width: 64px; height: 64px; } .cr-podium .av.av-lg i { font-size: 24px; }
+.cr-podium .pod-1 .av.av-lg { width: 78px; height: 78px; }
+.cr-podium .pod-1 .step { height: 92px; } .cr-podium .pod-2 .step { height: 66px; } .cr-podium .pod-3 .step { height: 50px; }
+.cr-podium .step { font-size: 22px; }
+.cr-list { margin-top: 10px; box-shadow: none; background: rgba(255, 255, 255, .6); }
+.cr-list .av { width: 34px; height: 34px; } .cr-list .av i { font-size: 14px; }
+.cr-gap { margin-top: 6px; }
+.cr-empty { margin: 10px 4px 2px; font-size: 14px; color: var(--muted); }
+[data-screen="campdone"] .cta { flex-direction: column; gap: 8px; }
+[data-screen="campdone"] .cta .btn { flex: none; min-height: 52px; }
+[data-screen="campdone"] .cta .btn.primary { order: -1; }
+.cdone { padding-bottom: calc(170px + env(safe-area-inset-bottom, 0px)); }
+.cdone-goal .m-note { margin-top: 10px; }
+
+.rsheet > * { min-width: 0; }
+.camp-trip { min-width: 0; max-width: 100%; overflow: hidden; }
+.rlist > .rcard { min-width: 0; }
+.rcard > * { min-width: 0; }
+.rcard .eco-head { flex-wrap: wrap; row-gap: 6px; }
+.eco { min-width: 0; }
+.eco > * { min-width: 0; max-width: 100%; }
+.eco-tree { margin-left: 0; }
