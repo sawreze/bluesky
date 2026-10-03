@@ -1684,22 +1684,9 @@ function mainHTML() {
       <span class="m-chev">${ICON.chev}</span>
     </button>
 
-    <section class="m-sec">
-      <div class="m-sec-head">
-        <div><p class="m-kicker">${ICON.spark}인기 캠페인 TOP 5</p><h2>요즘 많이 참여하는 캠페인</h2></div>
-        <div class="m-dots" id="m-dots">${tops.map((_, i) => `<i class="${i === 0 ? 'on' : ''}"></i>`).join('')}</div>
-      </div>
-      <div class="m-carousel" id="m-carousel">
-        ${tops.map((c, i) => `<button type="button" class="m-camp" data-act="open-camp" data-id="${c.id}" style="background:${campBg(c)}">
-          <span class="m-rank">${i + 1}</span>
-          ${c.cover ? '' : `<span class="m-camp-art" aria-hidden="true">${tagOf(c.tag).icon}</span>`}
-          <span class="m-chip tone-${tagOf(c.tag).tone}">${isPopular(c) ? '🏆 인기 캠페인' : esc(tagOf(c.tag).label)}</span>
-          <strong>${esc(c.title)}</strong>
-          <span class="m-camp-sub">♥ ${c.likes.toLocaleString()} · ${c.participants.toLocaleString()}명 참여 · ${Math.floor(campPct(c))}% 달성</span>
-          <span class="m-camp-go">${ICON.arrow}</span>
-        </button>`).join('')}
-        <button type="button" class="m-camp m-camp-more" data-act="open-camps"><span class="m-camp-art" aria-hidden="true">＋</span><strong>캠페인 전체 보기</strong><span class="m-camp-sub">직접 캠페인을 만들 수도 있어요</span></button>
-      </div>
+    <section class="m-card m-wk-card" id="wk-card" data-act="open-week" role="button" tabindex="0" aria-label="최근 7일 탄소 절약 자세히 보기">
+      <div class="m-card-head">${weekHeadHTML(wk7)}<span class="m-more">자세히 ${ICON.chev}</span></div>
+      ${weekChartHTML(wk7)}
     </section>
 
     <section class="m-card m-save-card" data-act="open-titles" role="button" tabindex="0" aria-label="내 칭호 보기">
@@ -1721,9 +1708,22 @@ function mainHTML() {
       <ul class="mjc-mini">${myJoined.slice(0, 3).map((c) => `<li><span class="mjc-mini-ic">${tagOf(c.tag).icon}</span><span class="mjc-mini-name">${esc(c.title)}</span><span class="mjc-mini-kg">${kgText(c.myG || 0)}</span></li>`).join('')}</ul>
     </section>` : ''}
 
-    <section class="m-card m-wk-card" id="wk-card" data-act="open-week" role="button" tabindex="0" aria-label="최근 7일 탄소 절약 자세히 보기">
-      <div class="m-card-head">${weekHeadHTML(wk7)}<span class="m-more">자세히 ${ICON.chev}</span></div>
-      ${weekChartHTML(wk7)}
+    <section class="m-sec">
+      <div class="m-sec-head">
+        <div><p class="m-kicker">${ICON.spark}인기 캠페인 TOP 5</p><h2>요즘 많이 참여하는 캠페인</h2></div>
+        <div class="m-dots" id="m-dots">${tops.map((_, i) => `<i class="${i === 0 ? 'on' : ''}"></i>`).join('')}</div>
+      </div>
+      <div class="m-carousel" id="m-carousel">
+        ${tops.map((c, i) => `<button type="button" class="m-camp" data-act="open-camp" data-id="${c.id}" style="background:${campBg(c)}">
+          <span class="m-rank">${i + 1}</span>
+          ${c.cover ? '' : `<span class="m-camp-art" aria-hidden="true">${tagOf(c.tag).icon}</span>`}
+          <span class="m-chip tone-${tagOf(c.tag).tone}">${isPopular(c) ? '🏆 인기 캠페인' : esc(tagOf(c.tag).label)}</span>
+          <strong>${esc(c.title)}</strong>
+          <span class="m-camp-sub">♥ ${c.likes.toLocaleString()} · ${c.participants.toLocaleString()}명 참여 · ${Math.floor(campPct(c))}% 달성</span>
+          <span class="m-camp-go">${ICON.arrow}</span>
+        </button>`).join('')}
+        <button type="button" class="m-camp m-camp-more" data-act="open-camps"><span class="m-camp-art" aria-hidden="true">＋</span><strong>캠페인 전체 보기</strong><span class="m-camp-sub">직접 캠페인을 만들 수도 있어요</span></button>
+      </div>
     </section>
   </main>
   ${tabBarHTML('route')}`;
