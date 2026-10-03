@@ -105,9 +105,10 @@ const SORTS = [
 ];
 
 const ROAD_FACTOR = 1.3; // 직선거리 → 도로 거리 추정 배수
-const ARRIVE_M = 30; // 도착지에서 이 거리(m) 안에 들어오면 자동 도착 + '도착' 버튼 표시 (자동 도착이 안 될 때 대비)
-// GPS로 확인한 내 위치가 도착지 근처인지 (위치를 모르면 false)
-const nearDest = () => !!(state.me && state.to && distM(state.me, state.to) <= ARRIVE_M);
+const ARRIVE_M = 30; // 도착지에서 이 거리(m) 안이면 '도착' 버튼 표시 (자동 도착이 안 될 때 대비)
+const AUTO_ARRIVE_M = 10; // 도착지에서 이 거리(m) 안이면 자동 도착
+// GPS로 확인한 내 위치가 도착지에서 m 미터 안인지 (위치를 모르면 false)
+const nearDest = (m = ARRIVE_M) => !!(state.me && state.to && distM(state.me, state.to) <= m);
 
 // ---------------------------------------------------------------------
 // 2. 공통 함수
@@ -3193,7 +3194,7 @@ function onPosition(p) {
   state.gpsMsg = '';
   const { chosen } = currentPlan();
   if (!chosen) return;
-  if (nearDest()) { finishTrip(); return; } // 도착지 30m 안: 자동 도착
+  if (nearDest(AUTO_ARRIVE_M)) { finishTrip(); return; } // 도착지 10m 안: 자동 도착
   const s = chosen.steps[state.step];
   if (s && s.target && state.step < chosen.steps.length - 1 && distM(state.me, s.target) < (s.radius || 30)) state.step += 1;
   if (mapCtl) mapCtl.setMe(state.me, state.follow);
