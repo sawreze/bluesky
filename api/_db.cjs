@@ -15,20 +15,17 @@ function sql() {
   if (!sqlClient) sqlClient = require('@neondatabase/serverless').neon(dbUrl());
   return sqlClient;
 }
-// 표가 없으면 만들어요 (처음 한 번만)
+// 표·뷰가 없으면 db/schema.sql 대로 만들어요 (서버가 켜질 때 한 번만 확인).
+//  마지막 뷰(v_user_stats)가 이미 있으면 이미 만들어진 것으로 보고 건너뛰어요.
+const SCHEMA = require('./_schema.cjs');
 function init() {
   if (!ready) {
-    ready = sql()`CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      provider TEXT NOT NULL DEFAULT 'email',
-      provider_id TEXT,
-      email TEXT,
-      name TEXT NOT NULL,
-      pw_hash TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )`.then(() => sql()`CREATE UNIQUE INDEX IF NOT EXISTS users_email_uq ON users (lower(email)) WHERE provider = 'email'`)
-      .then(() => sql()`CREATE UNIQUE INDEX IF NOT EXISTS users_social_uq ON users (provider, provider_id) WHERE provider_id IS NOT NULL`)
-      .catch((e) => { ready = null; throw e; });
+    ready = (async () => {
+      const db = sql();
+      const [chk] = await db.query("SELECT to_regclass('public.v_user_stats') IS NOT NULL AS ok");
+      if (chk && chk.ok) return;
+      for (const stmt of SCHEMA) await db.query(stmt);
+    })().catch((e) => { ready = null; throw e; });
   }
   return ready;
 }
