@@ -1553,3 +1553,6 @@ details.c-rule[open] summary i { transform: rotate(180deg); }
 .ap .ap-l { display: grid; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
 .ap-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .ap .rj-err { margin: 0; }
+.tf-rays { transform-box: view-box; transform-origin: 0 0; animation: tfSpin 24s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .tf-rays { animation: none; } }
+.acc-top .avf, .ttl-me .avf { margin: 22px 0 16px; }

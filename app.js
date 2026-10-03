@@ -1569,7 +1569,7 @@ const TITLES = [
   { kg: 10, icon: '🌳', name: '나무', desc: '나무 1그루가 1년 동안 흡수하는 양' },
   { kg: 50, icon: '🌲', name: '작은 숲', desc: '나무 5그루가 1년 동안 흡수하는 양' },
   { kg: 100, icon: '🏕️', name: '숲', desc: '나무 10그루가 1년 동안 흡수하는 양' },
-  { kg: 300, icon: '🏞️', name: '큰 숲', desc: '나무 30그루가 1년 동안 흡수하는 양' },
+  { kg: 300, icon: '🌴', name: '밀림', desc: '나무 30그루가 1년 동안 흡수하는 양 — 빽빽한 초록 세상' },
   { kg: 1000, icon: '⛰️', name: '산', desc: '나무 100그루 — 작은 동산 하나만큼' },
   { kg: 3000, icon: '🏔️', name: '산맥', desc: '나무 300그루가 1년 동안 흡수하는 양' },
   { kg: 10000, icon: '🌤️', name: '푸른하늘', desc: '나무 1,000그루 — 하늘을 지키는 사람' },
@@ -2342,106 +2342,217 @@ function avatarHTML(name, photo, cls = '') {
 }
 // ---------------------------------------------------------------------
 // 칭호(티어) 프로필 테두리 — 게임 티어처럼 칭호가 오를수록 테두리가 화려해져요
-//  씨앗 → 새싹 → 묘목 → 나무 → 작은 숲 → 숲 → 큰 숲 → 산 → 산맥 → 푸른하늘
-//  SVG 한 장(120×120)에 아바타(지름 80)를 가운데 두고 고리·잎·월계관·문장·날개를 그려요.
+//  씨앗 → 새싹 → 묘목 → 나무 → 작은 숲 → 숲 → 밀림 → 산 → 산맥 → 푸른하늘
+//  SVG 한 장(120×120)에 아바타(지름 80)를 가운데 두고,
+//  금속 고리(테두리선 · 빛 반사 · 안쪽 그림자) 위에 잎 · 월계관 · 문장 · 날개 · 보석을 겹쳐 그려요.
+//  빛은 모두 왼쪽 위에서 들어오는 것으로 맞췄어요.
 // ---------------------------------------------------------------------
 const TIER_STYLE = [
-  { ring: ['#EFE6D6', '#CDB492'], w: 3 },                                                     // 씨앗
-  { ring: ['#E4F9D2', '#9AD873', '#6BBF45'], w: 3.5, sprout: 1 },                             // 새싹
-  { ring: ['#C9F0B4', '#58B85C', '#2E7D32'], w: 4, leaves: 2, leaf: 'g' },                     // 묘목
-  { ring: ['#D7A879', '#8B5A2B', '#5D3A1A', '#B07A45'], w: 5, outer: '#7CC46A', top: 3, leaf: 'g' }, // 나무
-  { ring: ['#8AF0C6', '#10B981', '#047857', '#6EE7B7'], w: 5, dots: 1, laurel: 4, leaf: 'g' },   // 작은 숲
-  { ring: ['#4ADE9F', '#059669', '#064E3B', '#34D399'], w: 6, trim: 1, laurel: 6, leaf: 'g', gem: 'em' }, // 숲
-  { ring: ['#7FF3E1', '#14B8A6', '#0F766E', '#99F6E4'], w: 6, trim: 1, laurel: 7, leaf: 't', crestLeaf: 1, gem: 'tq', glow: 'rgba(20,184,166,.55)' }, // 큰 숲
-  { ring: ['#FFFFFF', '#CBD5E1', '#64748B', '#E2E8F0', '#94A3B8'], w: 6.5, trim: 's', mount: 's', wings: 3, leaf: 's', gem: 'sv', glow: 'rgba(100,116,139,.5)' }, // 산
-  { ring: ['#F0F9FF', '#7DD3FC', '#0284C7', '#BAE6FD', '#38BDF8'], w: 7, trim: 1, mount: 'i', wings: 5, leaf: 'i', gem: 'di', stars: 3, glow: 'rgba(56,189,248,.6)' }, // 산맥
-  { ring: ['#FFF7D1', '#7DD3FC', '#2563EB', '#A5F3FC', '#FFFFFF', '#60A5FA'], w: 7.5, trim: 1, sun: 1, wings: 6, leaf: 'k', gem: 'di', stars: 6, spin: 1, glow: 'rgba(59,130,246,.7)' }, // 푸른하늘
+  { m: ['#F6EDDD', '#D9C19C', '#A9855A', '#6E5133'], w: 3.2 },                                                         // 씨앗: 흙빛
+  { m: ['#F1FDE6', '#B4E58C', '#6BB646', '#2F6B1E'], w: 3.8, sprout: 1, leaf: 'g' },                                    // 새싹
+  { m: ['#E3F8D2', '#7FCB5C', '#3E8E33', '#1E5420'], w: 4.4, sprout: 2, sideLeaves: 3, leaf: 'g' },                     // 묘목
+  { m: ['#E7C49A', '#A8743F', '#6F4522', '#3E2510'], w: 5.4, grain: 1, canopy: 1, sideLeaves: 3, leaf: 'g', acorn: 1 }, // 나무: 나무결
+  { m: ['#D2FBE9', '#4FD3A1', '#0E9F6E', '#05553A'], w: 5.6, laurel: [96, 178, 6], leaf: 'g', crest: 'leaf3' },        // 작은 숲: 비취
+  { m: ['#C7F9E2', '#2BC48A', '#07774F', '#033D29'], w: 6, gold: 1, laurel: [94, 205, 8], leaf: 'g', crest: 'gleaf', gem: 'em' },         // 숲: 에메랄드 + 금
+  { m: ['#D9FFB8', '#4CC33A', '#137A2A', '#063A16'], w: 6.4, gold: 2, laurel: [92, 236, 9], leaf: 'j', crest: 'palm', gem: 'em', vines: 1, glow: 'rgba(76,195,58,.6)' }, // 밀림
+  { m: ['#FFFFFF', '#D5DDE7', '#8592A6', '#3D4757'], w: 7, gold: 's', plaque: 'm', wings: [4, 30, 's'], gem: 'sp', filigree: 1, glow: 'rgba(100,116,139,.55)' },   // 산: 은
+  { m: ['#FFFFFF', '#BFE9FF', '#3BA7E6', '#0B4F86'], w: 7.4, gold: 2, plaque: 'ice', wings: [6, 36, 'i'], gem: 'di', filigree: 1, stars: 4, glow: 'rgba(56,189,248,.65)' }, // 산맥: 얼음 백금
+  { m: ['#FFFBEA', '#9CDCFF', '#2F7CF6', '#123C9C'], w: 8, gold: 2, sun: 1, wings: [8, 42, 'k'], gem: 'di', clouds: 1, filigree: 1, stars: 7, spin: 1, glow: 'rgba(59,130,246,.75)' }, // 푸른하늘
 ];
-const LEAF_FILL = { g: 'url(#tl-g)', t: 'url(#tl-t)', s: 'url(#tl-s)', i: 'url(#tl-i)', k: 'url(#tl-k)' };
 const tierOfG = (g) => (g == null || !Number.isFinite(Number(g)) ? null : titleOf(Number(g)).level - 1);
-const f1 = (n) => Math.round(n * 10) / 10;
-function leafPath(x, y, deg, len, fill, vein = true) {
-  const w = len * 0.42;
-  return `<g transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(deg)})"><path d="M0 0Q${f1(len * 0.45)} ${f1(-w)} ${f1(len)} 0Q${f1(len * 0.45)} ${f1(w)} 0 0Z" fill="${fill}" stroke="rgba(0,0,0,.18)" stroke-width=".5"/>${vein ? `<path d="M${f1(len * 0.12)} 0H${f1(len * 0.8)}" stroke="rgba(255,255,255,.55)" stroke-width=".7" stroke-linecap="round"/>` : ''}</g>`;
+const f1 = (n) => Math.round(n * 100) / 100;
+const pol = (r, deg) => [60 + Math.cos((deg * Math.PI) / 180) * r, 60 + Math.sin((deg * Math.PI) / 180) * r];
+const mirror = (svg) => `${svg}<g transform="translate(120 0) scale(-1 1)">${svg}</g>`;
+// 잎: 두 가지 색(빛 받는 쪽 · 그늘 쪽) + 잎맥 + 얇은 테두리
+function leafSVG(x, y, deg, len, k = 'g') {
+  const w = len * 0.4;
+  return `<g transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(deg)})">
+    <path d="M0 0C${f1(len * 0.28)} ${f1(-w * 1.05)} ${f1(len * 0.78)} ${f1(-w * 0.95)} ${f1(len)} 0C${f1(len * 0.74)} ${f1(w * 0.85)} ${f1(len * 0.26)} ${f1(w * 0.9)} 0 0Z" fill="url(#tl-${k})" stroke="url(#tlo-${k})" stroke-width=".7"/>
+    <path d="M0 0C${f1(len * 0.28)} ${f1(-w * 1.05)} ${f1(len * 0.78)} ${f1(-w * 0.95)} ${f1(len)} 0Z" fill="#fff" opacity=".22"/>
+    <path d="M${f1(len * 0.06)} 0Q${f1(len * 0.5)} ${f1(-w * 0.12)} ${f1(len * 0.9)} 0" fill="none" stroke="rgba(255,255,255,.7)" stroke-width=".6" stroke-linecap="round"/></g>`;
 }
-function star(x, y, r, fill = '#fff') {
-  const p = [];
-  for (let i = 0; i < 8; i++) { const a = (Math.PI / 4) * i - Math.PI / 2; const rr = i % 2 ? r * 0.32 : r; p.push(`${f1(x + Math.cos(a) * rr)} ${f1(y + Math.sin(a) * rr)}`); }
-  return `<path class="tf-star" d="M${p.join('L')}Z" fill="${fill}"/>`;
+// 깃털: 비대칭 곡선 + 깃대
+function featherSVG(x, y, deg, len, wid, k) {
+  const L = len; const W = wid;
+  return `<g transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(deg)})">
+    <path d="M0 ${f1(-W * 0.35)}C${f1(L * 0.3)} ${f1(-W * 1.15)} ${f1(L * 0.82)} ${f1(-W * 1.1)} ${f1(L)} ${f1(-W * 0.2)}C${f1(L * 1.02)} ${f1(W * 0.25)} ${f1(L * 0.9)} ${f1(W * 0.55)} ${f1(L * 0.78)} ${f1(W * 0.6)}C${f1(L * 0.5)} ${f1(W * 0.75)} ${f1(L * 0.2)} ${f1(W * 0.7)} 0 ${f1(W * 0.35)}Z" fill="url(#tw-${k})" stroke="url(#two-${k})" stroke-width=".6"/>
+    <path d="M${f1(L * 0.04)} 0Q${f1(L * 0.5)} ${f1(-W * 0.18)} ${f1(L * 0.93)} ${f1(-W * 0.12)}" fill="none" stroke="rgba(255,255,255,.85)" stroke-width=".6" stroke-linecap="round"/>
+    <path d="M${f1(L * 0.55)} ${f1(W * 0.62)}L${f1(L * 0.62)} ${f1(W * 0.2)}M${f1(L * 0.7)} ${f1(W * 0.58)}L${f1(L * 0.76)} ${f1(W * 0.18)}" stroke="url(#two-${k})" stroke-width=".45" opacity=".6"/></g>`;
+}
+// 날개 (왼쪽만 그리고 거울로): 뒤쪽 긴 깃 → 가운데 깃 → 앞쪽 짧은 덮깃
+function wingSVG(outer, [n, maxLen, k]) {
+  const bx = 60 - outer + 5; const by = 63;
+  let s = '';
+  const layer = (cnt, a0, a1, l0, l1, wid, dy) => {
+    for (let i = 0; i < cnt; i++) {
+      const t = cnt === 1 ? 1 : i / (cnt - 1);
+      s += featherSVG(bx + t * 3, by + dy - t * 9, a0 + (a1 - a0) * t, l0 + (l1 - l0) * t, wid, k);
+    }
+  };
+  layer(n, 162, 244, maxLen * 0.6, maxLen, maxLen * 0.2, 0);                          // 긴 깃
+  layer(Math.max(2, n - 2), 170, 230, maxLen * 0.42, maxLen * 0.68, maxLen * 0.19, -1); // 가운데 깃
+  layer(Math.max(2, Math.round(n / 2)), 180, 218, maxLen * 0.26, maxLen * 0.4, maxLen * 0.17, -2); // 덮깃
+  return mirror(s);
+}
+// 월계관: 줄기(호) 위로 잎을 엇갈려 붙여요
+function laurelSVG(outer, [a0, a1, n], k) {
+  const r = outer + 3.6;
+  const p0 = pol(r, a0); const p1 = pol(r, a1);
+  let s = `<path d="M${f1(p0[0])} ${f1(p0[1])}A${f1(r)} ${f1(r)} 0 0 1 ${f1(p1[0])} ${f1(p1[1])}" fill="none" stroke="url(#tlo-${k})" stroke-width="1.3" stroke-linecap="round"/>`;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1); const a = a0 + (a1 - a0) * t; const len = 11.5 - t * 3.5;
+    const [x, y] = pol(r, a);
+    s += leafSVG(x, y, a + 90 + 38, len, k) + leafSVG(x, y, a + 90 - 30, len * 0.85, k); // 바깥 · 안쪽 잎
+  }
+  const [tx, ty] = pol(r, a1);
+  s += leafSVG(tx, ty, a1 + 90, 10, k);
+  return mirror(s);
+}
+// 보석: 깎인 면 + 금 테두리 + 반짝임
+function gemSVG(y, kind, size = 6) {
+  const c = { em: ['#B8FFD9', '#16A34A', '#065F2E'], tq: ['#C9FFF6', '#14B8A6', '#0B5E57'], sp: ['#D6E4FF', '#3B5BDB', '#1E2A78'], di: ['#FFFFFF', '#8FD3FF', '#2563EB'] }[kind];
+  const s = size;
+  return `<g transform="translate(60 ${f1(y)})">
+    <path d="M${-s - 3} 0Q${-s - 6} -3 ${-s - 9} -1M${s + 3} 0Q${s + 6} -3 ${s + 9} -1" fill="none" stroke="url(#tg-gold)" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="M0 ${-s - 2.2}L${s + 2.2} 0L0 ${s + 2.2}L${-s - 2.2} 0Z" fill="url(#tg-gold)" stroke="#8A5A10" stroke-width=".7"/>
+    <path d="M0 ${-s}L${s} 0L0 ${s}L${-s} 0Z" fill="${c[1]}" stroke="${c[2]}" stroke-width=".6"/>
+    <path d="M0 ${-s}L${-s} 0L0 0Z" fill="${c[0]}" opacity=".9"/><path d="M0 ${-s}L${s} 0L0 0Z" fill="${c[0]}" opacity=".45"/>
+    <path d="M0 ${s}L${s} 0L0 0Z" fill="${c[2]}" opacity=".55"/>
+    <circle cx="${f1(-s * 0.35)}" cy="${f1(-s * 0.4)}" r="${f1(s * 0.22)}" fill="#fff"/></g>`;
+}
+function sparkleSVG(x, y, r) {
+  const p = (rr, k) => { const out = []; for (let i = 0; i < 8; i++) { const a = (Math.PI / 4) * i - Math.PI / 2; const q = i % 2 ? rr * k : rr; out.push(`${f1(x + Math.cos(a) * q)} ${f1(y + Math.sin(a) * q)}`); } return `M${out.join('L')}Z`; };
+  return `<g class="tf-star"><circle cx="${x}" cy="${y}" r="${f1(r * 0.9)}" fill="url(#tg-glint)"/><path d="${p(r, 0.22)}" fill="#fff"/></g>`;
+}
+// 위쪽 문장들
+function crestSVG(st, outer) {
+  const top = 60 - outer;
+  if (st.crest === 'leaf3') return `<g>${leafSVG(60, top + 2, -90, 13, 'g')}${leafSVG(59, top + 3, -128, 11, 'g')}${leafSVG(61, top + 3, -52, 11, 'g')}</g>`;
+  if (st.crest === 'gleaf' || st.crest === 'gcrown') {
+    const big = st.crest === 'gcrown';
+    let s = `<path d="M${big ? 46 : 50} ${f1(top + 3)}Q60 ${f1(top - (big ? 3 : 1))} ${big ? 74 : 70} ${f1(top + 3)}" fill="none" stroke="url(#tg-gold)" stroke-width="3" stroke-linecap="round"/>`;
+    s += leafSVG(60, top + 1, -90, big ? 17 : 14, 'gold') + leafSVG(58.5, top + 2, -126, big ? 13 : 11, 'gold') + leafSVG(61.5, top + 2, -54, big ? 13 : 11, 'gold');
+    if (big) s += leafSVG(57, top + 3, -150, 10, 'gold') + leafSVG(63, top + 3, -30, 10, 'gold');
+    return s + `<circle cx="60" cy="${f1(top + 1.5)}" r="2.6" fill="url(#tr-gem-tq)" stroke="#8A5A10" stroke-width=".6"/>`;
+  }
+  if (st.crest === 'palm') { // 야자잎 다발 + 금 고리
+    let s = '';
+    [[-90, 22], [-118, 19], [-62, 19], [-146, 15], [-34, 15]].forEach(([a, l]) => { s += leafSVG(60, top + 3, a, l, 'j'); });
+    return s + `<circle cx="60" cy="${f1(top + 3)}" r="3.4" fill="url(#tg-gold)" stroke="#7A4A0C" stroke-width=".7"/><circle cx="59" cy="${f1(top + 2)}" r="1" fill="#fff" opacity=".8"/>`;
+  }
+  if (st.plaque === 'm') { // 은 방패 + 산
+    return `<g transform="translate(60 ${f1(top + 1)})">
+      <path d="M-15 2L15 2L13 -11Q0 -19 -13 -11Z" fill="url(#tm-7)" stroke="#3D4757" stroke-width="1"/>
+      <path d="M-13 1L13 1L11.5 -10Q0 -17 -11.5 -10Z" fill="none" stroke="rgba(255,255,255,.75)" stroke-width=".7"/>
+      <path d="M-10 0L-4 -8L-1 -5L3 -12L10 0Z" fill="url(#tmt-s)" stroke="#3D4757" stroke-width=".7" stroke-linejoin="round"/>
+      <path d="M3 -12L1 -8.5L3 -9L4.6 -8Z M-4 -8L-5.4 -6L-3.6 -6.4Z" fill="#fff"/></g>`;
+  }
+  if (st.plaque === 'ice') { // 얼음 결정 + 설산
+    let spikes = '';
+    [[-50, 15], [-24, 19], [24, 19], [50, 15]].forEach(([a, L2]) => {
+      spikes += `<g transform="translate(0 -4) rotate(${a})"><path d="M-2.6 0L0 ${-L2}L2.6 0Z" fill="url(#tmt-i)" stroke="#0B4F86" stroke-width=".6" stroke-linejoin="round"/><path d="M0 ${-L2}L-2.6 0L0 -1Z" fill="#fff" opacity=".7"/></g>`;
+    });
+    return `<g transform="translate(60 ${f1(top + 2)})">${spikes}
+      <path d="M-17 3L-8 -10L-3.5 -5L3 -17L10 -6L17 3Z" fill="url(#tmt-i)" stroke="#0B4F86" stroke-width=".9" stroke-linejoin="round"/>
+      <path d="M3 -17L0 -11.5L2.6 -12.4L4.8 -10.6L6.2 -12.2Z M-8 -10L-10 -7L-7.6 -7.6L-6 -7Z" fill="#fff"/>
+      <path d="M-17 3H17" stroke="url(#tg-gold)" stroke-width="2.4" stroke-linecap="round"/></g>`;
+  }
+  if (st.sun) { // 태양 + 후광
+    let rays = '';
+    for (let i = 0; i < 16; i++) {
+      const a = (Math.PI / 8) * i; const L2 = i % 2 ? 12.5 : 17; const wa = i % 2 ? 0.16 : 0.12;
+      rays += `<path d="M${f1(Math.cos(a - wa) * 8)} ${f1(Math.sin(a - wa) * 8)}L${f1(Math.cos(a) * L2)} ${f1(Math.sin(a) * L2)}L${f1(Math.cos(a + wa) * 8)} ${f1(Math.sin(a + wa) * 8)}Z" fill="url(#tg-gold)" stroke="#B7791F" stroke-width=".4"/>`;
+    }
+    return `<g transform="translate(60 ${f1(top - 7)})"><circle r="22" fill="url(#tr-halo)"/><g class="tf-rays">${rays}</g>
+      <circle r="8.6" fill="url(#tr-sun)" stroke="#C2410C" stroke-width=".8"/><circle r="8.6" fill="none" stroke="#FFF7D6" stroke-width=".7" opacity=".8"/>
+      <circle cx="-2.6" cy="-2.8" r="2.6" fill="#fff" opacity=".7"/></g>`;
+  }
+  return '';
 }
 const tierSvgCache = {};
 function tierFrameSVG(t) {
   if (tierSvgCache[t]) return tierSvgCache[t];
-  const st = TIER_STYLE[t]; const R = 40 + st.w / 2 + 0.8; const outerR = R + st.w / 2;
-  const L = LEAF_FILL[st.leaf] || LEAF_FILL.g;
-  let back = ''; let front = '';
-  // 날개 (뒤쪽)
-  if (st.wings) {
-    // 깃털: 아래쪽은 짧고 옆으로, 위쪽으로 갈수록 길고 위로 (펼친 날개)
-    const n = st.wings; const big = n > 4 ? 1 : 0;
-    for (let i = 0; i < n; i++) {
-      const k = n === 1 ? 1 : i / (n - 1);
-      const a = 168 + k * (big ? 72 : 58);            // 168°(옆·살짝 아래) → 240°(위로)
-      const len = (big ? 21 : 18) + k * (big ? 15 : 11);
-      const by = 66 - k * 10; const bx = outerR - 7;
-      back += leafPath(60 - bx, by, a, len, L, false) + leafPath(60 + bx, by, 180 - a, len, L, false);
-    }
+  const st = TIER_STYLE[t]; const w = st.w;
+  const R = 40 + w / 2 + 1.1; const outer = R + w / 2 + 1.2;
+  let back = ''; let ring = ''; let front = ''; let fx = '';
+  if (st.wings) back += wingSVG(outer, st.wings);
+  if (st.laurel) back += laurelSVG(outer, st.laurel, st.leaf || 'g');
+  if (st.clouds) {
+    const cloud = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M-12 4Q-16 4 -16 0Q-16 -5 -10 -5Q-9 -11 -2 -11Q4 -11 6 -6Q13 -7 14 -1Q16 4 10 4Z" fill="url(#tc-cloud)" stroke="#9CC8F2" stroke-width=".8"/></g>`;
+    back += mirror(cloud(30, 102, 1)) + mirror(cloud(18, 92, 0.7));
   }
-  // 월계관 (아래 양쪽)
-  if (st.laurel) {
-    for (let i = 0; i < st.laurel; i++) {
-      const th = (100 + i * (st.laurel > 5 ? 17 : 20)) * Math.PI / 180; const rr = outerR + 3.5;
-      const lx = 60 + Math.cos(th) * rr; const ly = 60 + Math.sin(th) * rr; const deg = (th * 180) / Math.PI + 90 + 25;
-      const rx = 60 - Math.cos(th) * rr; const rdeg = 180 - deg;
-      back += leafPath(lx, ly, deg, 12 - i * 0.4, L) + leafPath(rx, ly, rdeg, 12 - i * 0.4, L);
-    }
+  // 고리: 진한 바깥선 → 금속 → 입체(위 밝게 · 아래 어둡게) → 바깥 반사선 → 안쪽 그림자선
+  if (st.gold) {
+    const gR = outer + 1.8; const sil = st.gold === 's';
+    ring += `<circle cx="60" cy="60" r="${f1(gR)}" fill="none" stroke="${sil ? '#3D4757' : '#7A4A0C'}" stroke-width="4.2"/>
+      <circle cx="60" cy="60" r="${f1(gR)}" fill="none" stroke="${sil ? 'url(#tm-7)' : 'url(#tg-gold)'}" stroke-width="2.6"/>
+      <circle cx="60" cy="60" r="${f1(gR)}" fill="none" stroke="url(#tb-bevel)" stroke-width="2.6" opacity=".6"/>`;
+    if (st.gold === 2) ring += `<circle cx="60" cy="60" r="${f1(gR + 2.3)}" fill="none" stroke="url(#tg-gold)" stroke-width=".9" stroke-dasharray="1.2 2.2" opacity=".95"/>`;
   }
-  // 고리
-  front += `<circle cx="60" cy="60" r="${f1(R)}" fill="none" stroke="url(#tg-${t})" stroke-width="${st.w}"${st.spin ? ' class="tf-spin"' : ''}/>`;
-  front += `<circle cx="60" cy="60" r="${f1(40.6)}" fill="none" stroke="rgba(255,255,255,.75)" stroke-width=".9"/>`;
-  if (st.trim) front += `<circle cx="60" cy="60" r="${f1(outerR + 0.9)}" fill="none" stroke="${st.trim === 's' ? '#94A3B8' : 'url(#tg-gold)'}" stroke-width="1.6"/>`;
-  if (st.outer) front += `<circle cx="60" cy="60" r="${f1(outerR + 1.6)}" fill="none" stroke="${st.outer}" stroke-width="1.6"/>`;
-  if (st.dots) front += `<circle cx="60" cy="60" r="${f1(outerR + 3)}" fill="none" stroke="#10B981" stroke-width="1.6" stroke-dasharray="0.1 5.2" stroke-linecap="round"/>`;
-  // 새싹 · 잎
-  if (st.sprout) front += `<path d="M60 ${f1(60 + outerR + 1)}v-4" stroke="#5DAE3B" stroke-width="1.6" stroke-linecap="round"/>${leafPath(60, 60 + outerR - 3, -40, 8, 'url(#tl-g)', false)}${leafPath(60, 60 + outerR - 3, -140, 8, 'url(#tl-g)', false)}`;
-  if (st.leaves) front += leafPath(60 - 4, 60 + outerR, 160, 12, L) + leafPath(60 + 4, 60 + outerR, 20, 12, L);
-  if (st.top) front += leafPath(60, 60 - outerR + 1, -90, 13, L) + leafPath(58, 60 - outerR + 2, -130, 11, L) + leafPath(62, 60 - outerR + 2, -50, 11, L);
-  if (st.crestLeaf) front += `<g transform="translate(60 ${f1(60 - outerR - 1)})"><path d="M-9 4Q0 -16 9 4Z" fill="url(#tg-gold)" stroke="rgba(0,0,0,.2)" stroke-width=".6"/>${leafPath(0, 2, -90, 14, L)}</g>`;
-  // 산 문장
-  if (st.mount) {
-    const y = 60 - outerR + 3; const fill = st.mount === 's' ? 'url(#tm-s)' : 'url(#tm-i)';
-    front += `<g transform="translate(60 ${f1(y)})"><path d="M-17 2L-8 -11L-3 -5L3 -17L9 -8L17 2Z" fill="${fill}" stroke="${st.mount === 's' ? '#475569' : '#0369A1'}" stroke-width="1" stroke-linejoin="round"/><path d="M3 -17L0 -12L2 -11L5 -14ZM-8 -11L-10 -8L-8 -8L-6 -9Z" fill="#fff" opacity=".95"/>${st.trim === 1 ? '<path d="M-17 2H17" stroke="url(#tg-gold)" stroke-width="2"/>' : ''}</g>`;
+  ring += `<circle cx="60" cy="60" r="${f1(R)}" fill="none" stroke="${st.m[3]}" stroke-width="${f1(w + 2.4)}"/>`;
+  ring += `<circle cx="60" cy="60" r="${f1(R)}" fill="none" stroke="url(#tm-${t})" stroke-width="${w}"${st.spin ? ' class="tf-spin"' : ''}/>`;
+  if (st.grain) ring += `<circle cx="60" cy="60" r="${f1(R)}" fill="none" stroke="rgba(62,37,16,.35)" stroke-width="${f1(w * 0.5)}" stroke-dasharray="7 3 2 4 11 3" />`;
+  ring += `<circle cx="60" cy="60" r="${f1(R)}" fill="none" stroke="url(#tb-bevel)" stroke-width="${w}" opacity=".75"/>`;
+  ring += `<circle cx="60" cy="60" r="${f1(R + w / 2 - 0.5)}" fill="none" stroke="rgba(255,255,255,.75)" stroke-width=".7" stroke-dasharray="${f1(Math.PI * (R + w / 2) * 0.55)} 999" transform="rotate(178 60 60)"/>`;
+  ring += `<circle cx="60" cy="60" r="${f1(R - w / 2 + 0.5)}" fill="none" stroke="rgba(0,0,0,.28)" stroke-width=".8"/>`;
+  ring += `<circle cx="60" cy="60" r="40.3" fill="none" stroke="rgba(0,0,0,.35)" stroke-width=".9"/>`;
+  // 앞 장식
+  if (st.sprout) {
+    const y = 60 + outer - 1;
+    front += `<path d="M60 ${f1(y + 1)}Q59.4 ${f1(y - 4)} 60 ${f1(y - 7)}" fill="none" stroke="#3E8E33" stroke-width="1.5" stroke-linecap="round"/>`;
+    front += leafSVG(60, y - 6.5, -30, st.sprout > 1 ? 10 : 8.5, 'g') + leafSVG(60, y - 6.5, -150, st.sprout > 1 ? 10 : 8.5, 'g');
+    if (st.sprout > 1) front += leafSVG(60, y - 7, -90, 7, 'g');
   }
-  // 태양 문장
-  if (st.sun) {
-    const y = 60 - outerR - 6; let rays = '';
-    for (let i = 0; i < 12; i++) { const a = (Math.PI / 6) * i; rays += `<path d="M${f1(Math.cos(a) * 8.5)} ${f1(Math.sin(a) * 8.5)}L${f1(Math.cos(a + 0.12) * 13)} ${f1(Math.sin(a + 0.12) * 13)}L${f1(Math.cos(a - 0.12) * 13)} ${f1(Math.sin(a - 0.12) * 13)}Z" fill="url(#tg-gold)"/>`; }
-    front += `<g transform="translate(60 ${f1(y)})" class="tf-sun">${rays}<circle r="7.5" fill="url(#tg-sun)" stroke="#D97706" stroke-width=".8"/><circle r="3" cx="-2" cy="-2" fill="#fff" opacity=".6"/></g>`;
+  if (st.sideLeaves) {
+    let s = '';
+    for (let i = 0; i < st.sideLeaves; i++) { const a = 112 + i * 15; const [x, y] = pol(outer + 1, a); s += leafSVG(x, y, a + 90 + 30, 9.5 - i * 1.2, 'g'); }
+    front += mirror(s);
   }
-  // 보석 (아래)
-  if (st.gem) {
-    const gc = { em: ['#6EE7B7', '#047857'], tq: ['#99F6E4', '#0F766E'], sv: ['#F1F5F9', '#64748B'], di: ['#E0F2FE', '#2563EB'] }[st.gem];
-    front += `<g transform="translate(60 ${f1(60 + outerR + 0.5)}) rotate(45)"><rect x="-4.2" y="-4.2" width="8.4" height="8.4" rx="1.2" fill="${gc[1]}" stroke="url(#tg-gold)" stroke-width="1.2"/><rect x="-2.6" y="-2.6" width="3.6" height="3.6" fill="${gc[0]}" opacity=".9"/></g>`;
+  if (st.canopy) {
+    const y = 60 - outer;
+    [[-90, 0, 0, 15], [-122, -3, 1, 13], [-58, 3, 1, 13], [-148, -6, 3, 11], [-32, 6, 3, 11]].forEach(([a, dx, dy, l]) => { front += leafSVG(60 + dx, y + 2 + dy, a, l, 'g'); });
   }
-  // 반짝이
+  if (st.acorn) front += `<g transform="translate(60 ${f1(60 + outer + 2)})"><ellipse cx="0" cy="2" rx="3.6" ry="4.4" fill="#B7793E" stroke="#5D3A1A" stroke-width=".7"/><path d="M-4.6 -0.6Q0 -4.6 4.6 -0.6Q0 1.6 -4.6 -0.6Z" fill="#6F4522" stroke="#3E2510" stroke-width=".6"/><circle cx="-1.2" cy="1.6" r="1" fill="#fff" opacity=".5"/></g>`;
+  if (st.vines) {
+    let v = '';
+    [[200, 250], [290, 340]].forEach(([a0, a1]) => {
+      const r = outer + 0.5; const [x0, y0] = pol(r, a0); const [x1, y1] = pol(r, a1);
+      v += `<path d="M${f1(x0)} ${f1(y0)}A${f1(r)} ${f1(r)} 0 0 1 ${f1(x1)} ${f1(y1)}" fill="none" stroke="#1F6B23" stroke-width="1.6" stroke-dasharray="5 2.2" stroke-linecap="round"/>`;
+      for (let a = a0 + 10; a < a1; a += 16) { const [x, y] = pol(r, a); v += leafSVG(x, y, a + (a % 32 > 15 ? 60 : -60), 6.5, 'j'); }
+    });
+    front += v;
+  }
+  if (st.filigree) {
+    const [x0, y0] = pol(outer + 1.5, 150); const [x1, y1] = pol(outer + 1.5, 118);
+    front += mirror(`<path d="M${f1(x0)} ${f1(y0)}Q${f1(x0 - 6)} ${f1(y0 + 8)} ${f1(x1)} ${f1(y1 + 2)}" fill="none" stroke="url(#tg-gold)" stroke-width="1.8" stroke-linecap="round"/><circle cx="${f1(x0)}" cy="${f1(y0)}" r="1.8" fill="url(#tg-gold)" stroke="#8A5A10" stroke-width=".5"/>`);
+  }
+  front += crestSVG(st, st.gold ? outer + 1.8 : outer);
+  if (st.gem) front += gemSVG(60 + outer + (st.gold ? 2 : 0.8), st.gem, st.gem === 'di' ? 6.4 : 5.6);
   if (st.stars) {
-    const pos = [[16, 30, 3.2], [104, 28, 2.6], [12, 92, 2.2], [108, 94, 3], [30, 10, 2], [92, 12, 2.4]];
-    let st2 = '';
-    for (let i = 0; i < st.stars; i++) st2 += star(...pos[i], i % 2 ? '#E0F2FE' : '#FFFFFF');
-    front += `<g class="tf-stars">${st2}</g>`;
+    const pos = [[14, 30, 4.6], [106, 26, 3.8], [8, 82, 3.2], [112, 88, 4], [26, 6, 3.2], [96, 4, 3.6], [4, 52, 2.8]];
+    for (let i = 0; i < st.stars; i++) fx += sparkleSVG(...pos[i]);
   }
-  tierSvgCache[t] = `<svg class="tf" viewBox="0 0 120 120" aria-hidden="true"><g class="tf-back">${back}</g>${front}</svg>`;
+  tierSvgCache[t] = `<svg class="tf" viewBox="0 0 120 120" aria-hidden="true"><g class="tf-back">${back}</g>${ring}${front}<g class="tf-stars">${fx}</g></svg>`;
   return tierSvgCache[t];
 }
 // 그라데이션 모음 (한 번만 문서에 넣어 두고 모든 테두리가 같이 써요)
 function installTierDefs() {
   if (document.getElementById('tier-defs')) return;
-  const lg = (id, stops, x2 = 1, y2 = 1) => `<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}">${stops.map((c, i) => `<stop offset="${f1((i / Math.max(1, stops.length - 1)) * 100)}%" stop-color="${c}"/>`).join('')}</linearGradient>`;
-  const defs = TIER_STYLE.map((s, i) => lg(`tg-${i}`, s.ring)).join('') +
-    lg('tg-gold', ['#FFF4C2', '#F2C14E', '#B7791F', '#FBD38D']) + lg('tg-sun', ['#FFFBEB', '#FCD34D', '#F59E0B'], 0, 1) +
-    lg('tl-g', ['#A7F3D0', '#34A853', '#1E7A3C']) + lg('tl-t', ['#CCFBF1', '#14B8A6', '#0F766E']) + lg('tl-s', ['#FFFFFF', '#CBD5E1', '#64748B']) +
-    lg('tl-i', ['#FFFFFF', '#BAE6FD', '#38BDF8']) + lg('tl-k', ['#FFFFFF', '#DBEAFE', '#93C5FD']) +
-    lg('tm-s', ['#F8FAFC', '#94A3B8', '#475569'], 0, 1) + lg('tm-i', ['#F0F9FF', '#7DD3FC', '#0369A1'], 0, 1);
+  const lg = (id, stops, x1 = 0, y1 = 0, x2 = 1, y2 = 1) => `<linearGradient id="${id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stops.map(([o, c, a = 1]) => `<stop offset="${o}%" stop-color="${c}" stop-opacity="${a}"/>`).join('')}</linearGradient>`;
+  const rg = (id, stops, cx = 50, cy = 50, r = 50) => `<radialGradient id="${id}" cx="${cx}%" cy="${cy}%" r="${r}%">${stops.map(([o, c, a = 1]) => `<stop offset="${o}%" stop-color="${c}" stop-opacity="${a}"/>`).join('')}</radialGradient>`;
+  // 금속 고리: 밝음 → 중간 → 어둠 → 다시 반사 (금속 느낌)
+  const metal = TIER_STYLE.map((s, i) => lg(`tm-${i}`, [[0, s.m[0]], [22, s.m[1]], [48, s.m[2]], [62, s.m[3]], [78, s.m[2]], [92, s.m[1]], [100, s.m[0]]], 0, 0, 1, 1)).join('');
+  const leaf = (k, a, b, c) => lg(`tl-${k}`, [[0, a], [55, b], [100, c]], 0, 0, 1, 1) + lg(`tlo-${k}`, [[0, c], [100, c]]);
+  const wing = (k, a, b, c, o) => lg(`tw-${k}`, [[0, c], [62, b], [100, a]], 0, 0.5, 1, 0.5) + lg(`two-${k}`, [[0, o], [100, o]]);
+  const defs = metal +
+    lg('tg-gold', [[0, '#FFF6CC'], [25, '#F7D46B'], [50, '#C98A1B'], [70, '#F2C04E'], [100, '#FFF1B8']]) +
+    lg('tb-bevel', [[0, '#FFFFFF', 0.9], [42, '#FFFFFF', 0], [58, '#000000', 0], [100, '#000000', 0.45]], 0, 0, 0, 1) +
+    leaf('g', '#C2F5A4', '#3DA548', '#17602A') + leaf('t', '#D5FFF6', '#22B8A4', '#0B5E57') + leaf('j', '#C8FF8A', '#2E9E2E', '#0B4A17') + leaf('gold', '#FFF6CC', '#E9B949', '#94600F') +
+    wing('s', '#FBFCFE', '#C3CDDA', '#6B778A', '#3D4757') + wing('i', '#F2FBFF', '#8ED3FA', '#2C88D0', '#0B4F86') + wing('k', '#FFFFFF', '#A9D3FF', '#3F7FEA', '#1E4DB7') +
+    lg('tmt-s', [[0, '#FFFFFF'], [45, '#B7C2D0'], [100, '#4B5566']], 0, 0, 0, 1) + lg('tmt-i', [[0, '#FFFFFF'], [40, '#BDE7FF'], [100, '#1C77C3']], 0, 0, 0, 1) +
+    rg('tr-sun', [[0, '#FFFDF0'], [45, '#FFD84D'], [100, '#F08A0C']], 38, 35, 70) + rg('tr-halo', [[0, '#FFE58A', 0.85], [55, '#FFE58A', 0.25], [100, '#FFE58A', 0]]) +
+    rg('tr-gem-tq', [[0, '#E6FFFB'], [60, '#14B8A6'], [100, '#0B5E57']], 35, 35, 70) + rg('tg-glint', [[0, '#FFFFFF', 0.85], [100, '#BFE3FF', 0]]) +
+    lg('tc-cloud', [[0, '#FFFFFF'], [100, '#D8ECFF']], 0, 0, 0, 1);
   document.body.insertAdjacentHTML('beforeend', `<svg id="tier-defs" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${defs}</defs></svg>`);
 }
 // 아바타 + 칭호 테두리. g = 그 사람이 지금까지 아낀 탄소(g). 모르면 테두리 없이.
@@ -2492,7 +2603,7 @@ function rankingUsers(mKey) {
     used.add(name);
     // 포인트는 위로 갈수록 크게 (지수 분포)
     const pts = Math.round(40 + 4200 * Math.pow(rnd(), 2.6));
-    list.push({ id: `u${i}`, name, points: pts, photo: '', g: pts * 90 });
+    list.push({ id: `u${i}`, name, points: pts, photo: '', g: Math.round(pts * (8 + rnd() * 110)) });
   }
   return list;
 }
