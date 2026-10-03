@@ -1426,3 +1426,19 @@ textarea { font: inherit; color: inherit; }
 .eco { min-width: 0; }
 .eco > * { min-width: 0; max-width: 100%; }
 .eco-tree { margin-left: 0; }
+
+/* 메인 화면: 내가 참여한 캠페인 */
+.m-myc-card .m-h3 { font-size: 15px; }
+.mjc-mini { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.mjc-mini li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, .7); }
+.mjc-mini-ic { flex: none; font-size: 15px; }
+.mjc-mini-name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mjc-mini-kg { flex: none; font-size: 13px; font-weight: 800; color: var(--sky-strong); }
+
+/* 내가 참여한 캠페인 (목록 화면) */
+.mjc { padding-top: 4px; }
+.mjc-sum { margin: 0 0 16px; padding: 18px 20px; border-radius: 22px; background: var(--glass); border: 1px solid var(--glass-line); box-shadow: var(--shadow); }
+.mjc-sum .m-label { margin: 0; }
+.mjc-sum .m-big { margin-top: 6px; }
+.mjc-sum .m-big small { font-size: 13px; font-weight: 600; color: var(--muted); }
+.mjc .empty { text-align: center; }

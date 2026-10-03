@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.03-campjoin';
+const APP_VERSION = '2026.10.03-campmain';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -1473,6 +1473,7 @@ function userKey(u) {
 const isMine = (c) => (c.ownerId ? c.ownerId === userKey(state.user) : !!c.mine);
 const isPublic = (c) => !c.status || c.status === 'approved';
 const publicCampaigns = (list = campStore.load()) => list.filter(isPublic);
+const joinedCampaigns = (list = campStore.load()) => list.filter((c) => c.joined && isPublic(c)).sort((a, b) => (b.myG || 0) - (a.myG || 0) || (b.progressG - a.progressG));
 const pendingCampaigns = (list = campStore.load()) => list.filter((c) => c.status === 'pending').sort((a, b) => (a.submittedAt || a.createdAt) - (b.submittedAt || b.createdAt));
 const STATUS_LABEL = { pending: '검토 중', approved: '게시 중', rejected: '반려됨' };
 const REJECT_REASONS = ['탄소 절약·친환경 이동과 관련이 적어요', '내용이 짧거나 무엇을 하자는지 알기 어려워요', '목표량이 너무 크거나 작아요', '부적절한 사진이나 표현이 있어요', '광고·홍보 목적이에요'];
@@ -1597,6 +1598,8 @@ function mainHTML() {
   const quickTo = state.to ? esc(state.to.name) : '어디로 갈까요?';
   const quickFrom = state.from ? esc(state.from.name) : '현재 위치';
   const tops = topCampaigns(5);
+  const myJoined = joinedCampaigns();
+  const myJoinedG = myJoined.reduce((a, c) => a + (c.myG || 0), 0);
   return `<main class="main">
     <header class="m-top">
       <div class="m-brand">
@@ -1646,6 +1649,14 @@ function mainHTML() {
     </section>
 
     <section class="m-card kg-card" id="kg-card">${kgCardHTML(state.kgView || 'one', log.g)}</section>
+
+    ${myJoined.length ? `<section class="m-card m-myc-card" data-act="open-my-camps" role="button" tabindex="0" aria-label="내가 참여한 캠페인 보기">
+      <div class="m-card-head">
+        <div><p class="m-label">내가 참여한 캠페인</p><p class="m-h3">${myJoined.length}개 참여 중 · 총 ${kgText(myJoinedG)} 기여</p></div>
+        <span class="m-more">${ICON.chev}</span>
+      </div>
+      <ul class="mjc-mini">${myJoined.slice(0, 3).map((c) => `<li><span class="mjc-mini-ic">${tagOf(c.tag).icon}</span><span class="mjc-mini-name">${esc(c.title)}</span><span class="mjc-mini-kg">${kgText(c.myG || 0)}</span></li>`).join('')}</ul>
+    </section>` : ''}
 
     <section class="m-card m-week-card" data-act="open-calendar" role="button" tabindex="0" aria-label="그린 캘린더 열기">
       <div class="m-card-head">
@@ -1823,6 +1834,21 @@ function campaignsHTML() {
     <div class="c-list">${all.map(campCardHTML).join('')}</div>
   </main>
   ${tabBarHTML('camp')}`;
+}
+// ── 내가 참여한 캠페인 (메인 화면 > 캘린더 위 버튼) ──
+function myJoinedCampsHTML() {
+  const list = joinedCampaigns();
+  const totalG = list.reduce((a, c) => a + (c.myG || 0), 0);
+  return `${appBar('내가 참여한 캠페인', 'back')}
+    <main class="content mjc">
+      ${list.length ? `<section class="mjc-sum">
+        <p class="m-label">참여 중인 캠페인 <b>${list.length}개</b></p>
+        <p class="m-big"><b>${kgText(totalG)}</b> <small>내가 기여한 탄소</small></p>
+      </section>` : ''}
+      ${list.length ? `<div class="c-list">${list.map(campCardHTML).join('')}</div>`
+        : `<p class="empty">아직 참여한 캠페인이 없어요.<br>마음에 드는 캠페인에서 "캠페인 참여하기"를 눌러 보세요.</p>
+           <button type="button" class="btn primary" data-act="open-camps" style="margin-top:14px">캠페인 둘러보기</button>`}
+    </main>`;
 }
 function campCardHTML(c) {
   const pct = campPct(c);
@@ -3040,7 +3066,7 @@ function campDoneHTML() {
     ${cta('<button type="button" class="btn" data-act="go-main">홈으로 돌아가기</button><button type="button" class="btn primary" data-act="camp-back">캠페인 화면으로 돌아가기</button>')}`;
 }
 
-const VIEWS = { campdone: campDoneHTML, titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
+const VIEWS = { 'my-camps': myJoinedCampsHTML, campdone: campDoneHTML, titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
 
 // 화면 전체 그리기
 function render() {
@@ -3102,7 +3128,7 @@ function go(screen, dir) {
 // 뒤로 가면 나올 화면 (손가락으로 밀기·뒤로 버튼 공통)
 function backOf(screen) {
   return {
-    titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', home: state.campTrip ? 'campaign' : 'main', campdone: 'campaign', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
+    titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', 'my-camps': 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', home: state.campTrip ? 'campaign' : 'main', campdone: 'campaign', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
     'email-login': 'login', signup: 'login',
   }[screen] || null;
 }
@@ -3292,7 +3318,8 @@ const actions = {
   logout: () => logout(),
   'avatar-reset': () => { saveAvatar(''); render(); toast('기본 이미지로 바꿨어요'); },
   'open-camps': () => goTab('campaigns'),
-  'open-camp': (el) => { state.campId = el.dataset.id; state.campReturn = ['main', 'account', 'admin'].includes(state.screen) ? state.screen : 'campaigns'; go('campaign'); },
+  'open-my-camps': () => { state.campReturn = 'my-camps'; go('my-camps'); },
+  'open-camp': (el) => { state.campId = el.dataset.id; state.campReturn = ['main', 'account', 'admin', 'my-camps'].includes(state.screen) ? state.screen : 'campaigns'; go('campaign'); },
   'open-titles': () => { state.titlesReturn = ['account', 'done'].includes(state.screen) ? state.screen : 'main'; go('titles'); },
   'open-admin': () => { state.adminTab = 'pending'; go('admin'); },
   'admin-tab': (el) => { state.adminTab = el.dataset.id; render(); },
