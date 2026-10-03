@@ -1447,3 +1447,39 @@ textarea { font: inherit; color: inherit; }
 .mjc-sum .m-big { margin-top: 6px; }
 .mjc-sum .m-big small { font-size: 13px; font-weight: 600; color: var(--muted); }
 .mjc .empty { text-align: center; }
+
+/* ── 최근 7일 탄소 절약 그래프 (메인 카드 · 내 탄소 절약 화면) ── */
+.m-wk-card { cursor: pointer; transition: transform .12s; }
+.m-wk-card:active { transform: scale(.99); }
+#wk-card { view-transition-name: wk-card; }
+::view-transition-group(wk-card) { animation-duration: .45s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .3s; }
+.wk-title { margin: 0; font: 800 20px/1.4 var(--font-display); letter-spacing: -0.03em; color: var(--ink); }
+.wk-title b { color: var(--sky-strong, #1f5eff); }
+.wk-big .wk-title { font-size: 23px; }
+.wk-sky { position: relative; height: 168px; margin-top: 16px; padding: 12px 10px 0; border-radius: 18px; overflow: hidden;
+  background: #6fa9dc url('assets/sky-clouds.jpg') center / cover no-repeat; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .35); }
+.wk-sky.big { height: 236px; padding-top: 16px; }
+.wk-sky::after { content: ''; position: absolute; inset: auto 0 0; height: 36%; background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .18)); pointer-events: none; }
+.wk-bars { position: relative; z-index: 1; list-style: none; margin: 0; padding: 0; height: 100%; display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; align-items: end; }
+.wk-bars li { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; min-width: 0; }
+.wk-val { margin-bottom: 5px; font-size: 11.5px; font-weight: 800; color: #fff; white-space: nowrap; text-shadow: 0 1px 3px rgba(16, 58, 118, .55); }
+.wk-bars li.is-zero .wk-val { opacity: .8; font-weight: 700; }
+.wk-bars li.is-today .wk-val { padding: 2px 7px; border-radius: 99px; background: #fff; color: var(--sky-strong, #1f5eff); text-shadow: none; box-shadow: 0 4px 10px rgba(16, 58, 118, .2); }
+.wk-bar { display: block; width: 100%; max-width: 36px; height: calc(var(--h) * .78); min-height: 4px; border-radius: 10px 10px 3px 3px;
+  background: rgba(255, 255, 255, .82); box-shadow: 0 6px 14px rgba(16, 58, 118, .16); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transform-origin: bottom; }
+.wk-bars li.is-today .wk-bar { background: linear-gradient(180deg, #4d8bff, #1f5eff); box-shadow: 0 8px 18px rgba(31, 94, 255, .38); }
+.wk-sky.anim .wk-bar { animation: wkGrow .7s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 55ms + 80ms); }
+.wk-sky.anim .wk-val { animation: wkFade .5s ease both; animation-delay: calc(var(--i) * 55ms + 380ms); }
+@keyframes wkGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes wkFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.wk-days { list-style: none; margin: 8px 0 0; padding: 0 10px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.wk-days li.is-today { color: var(--sky-strong, #1f5eff); }
+.wk-done-h { margin: 0 0 14px; font: 800 18px/1.45 var(--font-display); letter-spacing: -0.03em; color: var(--ink); }
+.wk-done ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.wk-done li { display: flex; align-items: center; gap: 12px; }
+.wk-ic { flex: none; width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; font-size: 21px; background: rgba(255, 255, 255, .9); box-shadow: 0 4px 10px rgba(15, 22, 38, .06); }
+.wk-done b { display: block; font-size: 15.5px; color: var(--ink); }
+.wk-done b em { font-style: normal; color: var(--sky-strong, #1f5eff); }
+.wk-done small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .wk-sky.anim .wk-bar, .wk-sky.anim .wk-val { animation: none; } }

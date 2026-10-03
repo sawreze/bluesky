@@ -1621,12 +1621,43 @@ function weekInfo(log) {
   });
   return { week, count: week.filter((d) => d.done).length };
 }
+// ── 최근 7일 탄소 절약 그래프 (메인 카드 · 분석 화면) ──
+//  오늘까지 7일, 하루에 아낀 양을 막대로. 막대 뒤는 하늘 사진, 오늘 막대는 파란색
+function weekSeries(log) {
+  const now = new Date();
+  return [6, 5, 4, 3, 2, 1, 0].map((back) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - back);
+    const rec = dayRecord(log, dayKey(d));
+    return { key: dayKey(d), label: '일월화수목금토'[d.getDay()], today: back === 0, g: rec && rec.g ? rec.g : 0, n: rec ? rec.n : 0 };
+  });
+}
+function shortG(g) {
+  if (!(g > 0)) return '0g';
+  return g < 1000 ? `${Math.round(g)}g` : `${(g / 1000).toFixed(g >= 10000 ? 0 : 1)}kg`;
+}
+function weekHeadHTML(series) {
+  const avg = series.reduce((a, d) => a + d.g, 0) / 7;
+  return avg > 0
+    ? `<p class="wk-title">최근 7일 동안 하루<br>평균 <b>${shortG(avg)}</b> 절약했어요</p>`
+    : '<p class="wk-title">최근 7일 동안<br>아직 절약한 탄소가 없어요</p>';
+}
+function weekChartHTML(series, big) {
+  const max = Math.max(...series.map((d) => d.g), 1);
+  const anim = state.lastRendered !== state.screen; // 화면에 처음 들어올 때만 막대가 자라나요 (달 넘길 때는 그대로)
+  return `<div class="wk-sky ${big ? 'big' : ''} ${anim ? 'anim' : ''}">
+      <ol class="wk-bars">${series.map((d, i) => `<li class="${d.today ? 'is-today' : ''} ${d.g > 0 ? '' : 'is-zero'}" style="--i:${i}">
+        <span class="wk-val num">${shortG(d.g)}</span>
+        <span class="wk-bar" style="--h:${d.g > 0 ? Math.max(6, (d.g / max) * 100).toFixed(1) : 2.5}%"></span></li>`).join('')}</ol>
+    </div>
+    <ol class="wk-days">${series.map((d) => `<li class="${d.today ? 'is-today' : ''}">${d.label}</li>`).join('')}</ol>`;
+}
+
 function mainHTML() {
   const log = loadLog();
   const kg = log.g / 1000;
   const part = ((log.g % TREE_YEAR_G) / TREE_YEAR_G) * 100;
   const im = impact(log.g);
-  const wk = weekInfo(log);
+  const wk7 = weekSeries(log);
   const quickTo = state.to ? esc(state.to.name) : '어디로 갈까요?';
   const quickFrom = state.from ? esc(state.from.name) : '현재 위치';
   const tops = topCampaigns(5);
@@ -1690,12 +1721,9 @@ function mainHTML() {
       <ul class="mjc-mini">${myJoined.slice(0, 3).map((c) => `<li><span class="mjc-mini-ic">${tagOf(c.tag).icon}</span><span class="mjc-mini-name">${esc(c.title)}</span><span class="mjc-mini-kg">${kgText(c.myG || 0)}</span></li>`).join('')}</ul>
     </section>` : ''}
 
-    <section class="m-card m-week-card" data-act="open-calendar" role="button" tabindex="0" aria-label="그린 캘린더 열기">
-      <div class="m-card-head">
-        <div><p class="m-label">이번 주 그린 이동</p><p class="m-h3">${wk.count ? `${wk.count}일 이동했어요` : '이번 주 첫 이동을 시작해요'}</p></div>
-        <span class="m-more">달력 ${ICON.chev}</span>
-      </div>
-      <ol class="m-week">${wk.week.map((d) => `<li class="${d.done ? 'is-done' : ''} ${d.today ? 'is-today' : ''}"><span>${d.done ? ICON.check : ''}</span>${d.label}</li>`).join('')}</ol>
+    <section class="m-card m-wk-card" id="wk-card" data-act="open-week" role="button" tabindex="0" aria-label="최근 7일 탄소 절약 자세히 보기">
+      <div class="m-card-head">${weekHeadHTML(wk7)}<span class="m-more">자세히 ${ICON.chev}</span></div>
+      ${weekChartHTML(wk7)}
     </section>
   </main>
   ${tabBarHTML('route')}`;
@@ -1786,8 +1814,26 @@ function calendarHTML() {
   }
   const isThisMonth = cur.y === now.getFullYear() && cur.m === now.getMonth();
   const im = impact(monthG);
-  return `${appBar('그린 캘린더', 'back')}
+  const wk7 = weekSeries(log);
+  const wkG = wk7.reduce((a, d) => a + d.g, 0);
+  const wkTrips = wk7.reduce((a, d) => a + d.n, 0);
+  const wkDays = wk7.filter((d) => d.n > 0).length;
+  const who = state.user && state.user.name && !/사용자$/.test(state.user.name) ? `${state.user.name}님이` : '내가';
+  const wim = impact(wkG);
+  return `${appBar('내 탄소 절약', 'back')}
     <main class="content cal">
+      <section class="m-card wk-big" id="wk-card">
+        ${weekHeadHTML(wk7)}
+        ${weekChartHTML(wk7, true)}
+      </section>
+      <section class="m-card wk-done">
+        <p class="wk-done-h">${esc(who)} 지난 7일간<br>친환경으로 이동해 해낸 것들이에요</p>
+        <ul>
+          <li><span class="wk-ic" aria-hidden="true">🌿</span><div><b><em>${shortG(wkG)}</em>의 탄소를 아꼈어요</b><small>${wkG > 0 ? `${wim.icon} ${esc(wim.short)}` : '친환경 경로로 도착하면 쌓여요'}</small></div></li>
+          <li><span class="wk-ic" aria-hidden="true">🚌</span><div><b>친환경 이동 <em>${wkTrips}번</em> 했어요</b><small>7일 중 ${wkDays}일 이동</small></div></li>
+          <li><span class="wk-ic" aria-hidden="true">🚗</span><div><b>자동차 <em>${(wkG / FACTORS.car).toFixed(1)}km</em>만큼 줄였어요</b><small>혼자 자동차로 달릴 때 나오는 양 기준</small></div></li>
+        </ul>
+      </section>
       <section class="m-card cal-sum">
         <p class="m-label">${cur.m + 1}월 그린 이동</p>
         <p class="m-h3">${monthDays ? `${monthDays}일 · ${formatG(monthG)} 절약` : '아직 기록이 없어요'}</p>
@@ -3303,6 +3349,7 @@ function render() {
   } else {
     app.classList.remove('enter-fwd', 'enter-back');
   }
+  state.lastRendered = screen;
   if (screen === 'calendar') placeCalRing(false);
   if (screen === 'main') bindMain();
   mapCtl = null;
@@ -3625,6 +3672,12 @@ const actions = {
   'cn-mode': (el) => { saveDraftFromForm(); state.campDraft.mode = el.dataset.id; render(); },
   'cn-tag': (el) => { saveDraftFromForm(); state.campDraft.tag = el.dataset.id; state.campDraft.mode = TAG_MODE[el.dataset.id] || state.campDraft.mode; render(); },
   'cn-goal': (el) => { saveDraftFromForm(); state.campDraft.goalKg = Number(el.dataset.id); render(); },
+  'open-week': () => {
+    const open = () => { state.calReturn = 'main'; state.calMonth = null; state.calSel = dayKey(new Date()); };
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (document.startViewTransition && !reduce) { open(); document.startViewTransition(() => go('calendar', null)); }
+    else { open(); go('calendar'); }
+  },
   'open-calendar': () => { state.calReturn = state.screen === 'account' ? 'account' : 'main'; state.calMonth = null; state.calSel = dayKey(new Date()); go('calendar'); },
   'cal-prev': () => { const n = new Date(); const c = state.calMonth || { y: n.getFullYear(), m: n.getMonth() }; const d = new Date(c.y, c.m - 1, 1); state.calMonth = { y: d.getFullYear(), m: d.getMonth() }; state.calSel = null; render(); },
   'cal-next': () => { const n = new Date(); const c = state.calMonth || { y: n.getFullYear(), m: n.getMonth() }; const d = new Date(c.y, c.m + 1, 1); state.calMonth = { y: d.getFullYear(), m: d.getMonth() }; state.calSel = null; render(); },
