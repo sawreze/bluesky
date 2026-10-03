@@ -1520,9 +1520,11 @@ details.c-rule[open] summary i { transform: rotate(180deg); }
 /* ── 칭호(티어) 프로필 테두리 ── */
 .avf { position: relative; display: inline-grid; place-items: center; flex: none; isolation: isolate; }
 .avf > .tf { position: absolute; left: -25%; top: -25%; width: 150%; height: 150%; overflow: visible; pointer-events: none; z-index: 1; }
-/* 작은 아바타(메인 오른쪽 위 · 랭킹 목록)도 날개·월계관은 보여요. 날개만 조금 줄이고, 구름·반짝임은 빼요 */
+/* 작은 아바타(랭킹 목록 등)는 날개·월계관을 숨기고, 메인 오른쪽 위 프로필에서만 날개를 보여 줘요 */
+.avf.f-sm .tf-back { display: none; }
+.m-me .avf.f-sm .tf-back { display: inline; }
 .avf.f-sm .tf-clouds, .avf.f-sm .tf-stars { display: none; }
-.avf.f-sm .tf-wings { transform-box: view-box; transform-origin: 60px 64px; transform: scale(1.12); }
+.m-me .avf.f-sm .tf-wings { transform-box: view-box; transform-origin: 60px 64px; transform: scale(1.12); }
 /* 메인 오른쪽 위 버튼의 아이콘 크기 규칙(.m-round svg 22px)이 테두리까지 줄여서 날개가 안 보였어요 */
 .m-round .avf > svg.tf { width: 150%; height: 150%; }
 .avf.t5 > .tf { filter: drop-shadow(0 1px 2px rgba(6, 78, 59, .35)); }
@@ -1595,8 +1597,5 @@ details.c-rule[open] summary i { transform: rotate(180deg); }
 .au-acts .au-del { flex: none; width: 40px; background: #FFF1F1; color: #C62E2E; display: grid; place-items: center; }
 .au-acts .au-del svg { width: 16px; height: 16px; }
 
-/* 날개 달린 칭호(산 · 산맥 · 푸른하늘)는 목록에서 옆 글자와 겹치지 않게 간격을 더 둬요 */
-.rk-list .avf.t7, .rk-list .avf.t8, .rk-list .avf.t9, .cr-mine .avf.t7, .cr-mine .avf.t8, .cr-mine .avf.t9,
-.au-top .avf.t7, .au-top .avf.t8, .au-top .avf.t9, .rk-me .avf.t7, .rk-me .avf.t8, .rk-me .avf.t9 { margin: 0 18px 0 14px; }
 .m-me:has(.avf.t7), .m-me:has(.avf.t8), .m-me:has(.avf.t9) { margin-right: 10px; }
 .m-me .avf.t7, .m-me .avf.t8, .m-me .avf.t9 { z-index: 1; }
