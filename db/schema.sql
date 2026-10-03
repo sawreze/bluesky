@@ -3,6 +3,7 @@
 --  제3정규형(3NF): 모든 칸은 그 표의 기본키에만 기대고,
 --  계산으로 구할 수 있는 값(누적 kg, 참여자 수, 좋아요 수, 포인트 잔액 등)은 저장하지 않고 뷰(VIEW)로 계산해요.
 --  여러 번 실행해도 안전해요 (IF NOT EXISTS / ON CONFLICT DO NOTHING).
+--  이 파일을 고치면 `node db/build-schema.cjs` → 배포하면 서버가 바뀐 걸 알아채고 다시 실행해요.
 -- =====================================================================
 
 -- 1) 이동 수단 (참조표) — 탄소배출계수 출처: 서울시 자료(그린피스 코리아 인용)
@@ -105,6 +106,9 @@ CREATE TABLE IF NOT EXISTS trips (
   arrived_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   FOREIGN KEY (campaign_id, user_id) REFERENCES campaign_participants (campaign_id, user_id) ON DELETE SET NULL (campaign_id)
 );
+-- client_key: 앱이 이동마다 붙이는 고유 번호. 인터넷이 끊겨 다시 보내도 같은 이동이 두 번 저장되지 않게 해요.
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS client_key TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS trips_client_key_uq ON trips (user_id, client_key) WHERE client_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS trips_user_idx ON trips (user_id, arrived_at DESC);
 CREATE INDEX IF NOT EXISTS trips_campaign_idx ON trips (campaign_id) WHERE campaign_id IS NOT NULL;
 
@@ -148,7 +152,8 @@ GROUP BY t.id;
 CREATE OR REPLACE VIEW v_campaign_status AS
 SELECT c.id AS campaign_id,
        CASE WHEN r.reviewed_at IS NOT NULL AND r.reviewed_at >= c.submitted_at THEN r.decision ELSE 'pending' END AS status,
-       r.reason AS reject_reason, r.reviewed_at
+       CASE WHEN r.reviewed_at >= c.submitted_at AND r.decision = 'rejected' THEN r.reason END AS reject_reason, -- 다시 신청하면 예전 사유는 안 보여요
+       r.reviewed_at
 FROM campaigns c
 LEFT JOIN LATERAL (
   SELECT decision, reason, reviewed_at FROM campaign_reviews WHERE campaign_id = c.id ORDER BY reviewed_at DESC, id DESC LIMIT 1

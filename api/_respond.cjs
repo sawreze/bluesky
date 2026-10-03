@@ -6,7 +6,7 @@
 // =====================================================================
 const api = require('../api-core.cjs');
 
-const APP_VERSION = '2026.10.03-campmain'; // app.js 의 APP_VERSION 과 같게
+const APP_VERSION = '2026.10.03-db'; // app.js 의 APP_VERSION 과 같게
 
 function readKeys() {
   const keys = {};
@@ -15,7 +15,8 @@ function readKeys() {
 }
 
 // path: 이 경로가 처리할 고정 주소 (예: '/api/status', '/auth/kakao')
-function makeHandler(path) {
+// after(redirect, req, res): 다른 곳으로 보내기 전에 한 번 더 손볼 때 (카카오 로그인 → 회원 DB 기록)
+function makeHandler(path, after) {
   return async function handler(req, res) {
     const proto = req.headers['x-forwarded-proto'] || 'https';
     const origin = `${proto}://${req.headers.host}`;
@@ -28,6 +29,7 @@ function makeHandler(path) {
       where: 'vercel',
     });
     res.setHeader('Cache-Control', 'no-store');
+    if (r.redirect && after) r.redirect = await after(r.redirect, req, res);
     if (r.redirect) {
       res.writeHead(302, { Location: r.redirect });
       return res.end();

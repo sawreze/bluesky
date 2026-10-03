@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.03-campmain';
+const APP_VERSION = '2026.10.03-db';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -963,8 +963,9 @@ function createMap(el) {
 //  처음 켜면 로그인 화면이 나오고, 한 번 로그인하면 이 휴대폰에 기억해요.
 //  - 카카오: 진짜 카카오 로그인 (server.js 가 중계, 키는 private/keys.json)
 //            키를 넣기 전에는 체험용으로 바로 로그인돼요.
-//  - 이메일: 지금은 체험용이에요. 실제 서비스에서는 Firebase Authentication 같은 서버 인증으로 바꿔요.
+//  - 이메일: 서버 회원 DB(/api/auth/*)에 가입·로그인해요. DB가 없는 곳에서는 체험용이에요.
 //    비밀번호는 절대 이 앱(localStorage)에 저장하지 않아요.
+//  - 로그인하면 서버가 출입증 쿠키를 주고, 기록은 서버 DB에 저장돼요 (아래 "서버 DB 연결")
 // ---------------------------------------------------------------------
 const USER_KEY = 'pureun-user';
 function loadUser() {
@@ -992,18 +993,18 @@ async function authCall(kind, payload, demo) {
 }
 const AUTH = {
   // 카카오: server.js 에 키가 있으면 카카오 로그인 화면으로 이동, 없으면 체험용
-  kakao: () => (serverCheck || Promise.resolve()).then(() => {
+  kakao: (remember = true) => (serverCheck || Promise.resolve()).then(() => {
     if (!serverInfo.kakaoLogin) return { provider: 'kakao', name: '카카오 사용자', demo: true };
-    const st = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const st = Math.random().toString(36).slice(2) + Date.now().toString(36) + (remember ? '' : '.r0'); // .r0: 로그인 유지 안 함
     try { sessionStorage.setItem('pureun-kakao-state', st); } catch (e) { /* 무시 */ }
     window.location.href = `/api/kakao/start?state=${encodeURIComponent(st)}`;
     return new Promise(() => {}); // 카카오 화면으로 넘어가는 중
   }),
   // 이메일 로그인·가입: 서버 DB(/api/auth/*)에 저장해요. DB가 없는 곳(내 맥 server.js 등)에서는 체험용으로 동작해요.
-  email: (email, pw) => {
+  email: (email, pw, remember = true) => {
     if (!EMAIL_RE.test(email)) return Promise.reject(new Error('이메일 주소를 확인해 주세요.'));
     if (pw.length < 8) return Promise.reject(new Error('비밀번호는 8자 이상이에요.'));
-    return authCall('login', { email, pw }, { provider: 'email', email, name: email.split('@')[0] });
+    return authCall('login', { email, pw, remember }, { provider: 'email', email, name: email.split('@')[0] });
   },
   signup: (name, email, pw, pw2) => {
     if (!name) return Promise.reject(new Error('이름(닉네임)을 적어 주세요.'));
@@ -1018,6 +1019,8 @@ const AUTH = {
 // 7. 앱 상태
 // ---------------------------------------------------------------------
 const state = {
+  rank: null, // 이달의 랭킹 (서버 DB)
+  campRanks: {}, // 캠페인 참여자 랭킹 (서버 DB, 캠페인 번호별)
   kakao: null,
   naver: null,
   places: null, // 장소 검색 도우미
@@ -1306,8 +1309,7 @@ const ICON = {
 //  - 인기 캠페인: 목표가 크고(100kg 이상) 그 목표를 100% 달성한 캠페인
 //    → 만든 사람에게 탄소 포인트 보상 (1kg당 10P)
 //  - 메인 화면 TOP 5: 인기 캠페인 먼저 → 좋아요 많은 순 → 달성률 높은 순
-//  ※ 지금은 서버 DB가 없어서 이 휴대폰(브라우저)에만 저장돼요.
-//    여러 사람이 함께 보려면 campStore 의 load/save 만 Firebase 같은 DB로 바꾸면 돼요.
+//  ※ 서버 DB가 있으면 서버가 진짜 목록을 주고(campStore 는 그걸 받아 둔 것), 없으면 이 휴대폰에만 저장돼요.
 // ---------------------------------------------------------------------
 const POPULAR_MIN_KG = 100;
 const REWARD_P_PER_KG = 10;
@@ -1360,8 +1362,18 @@ function kgText(g) {
   return `${kg.toLocaleString(undefined, { maximumFractionDigits: kg >= 100 ? 0 : kg >= 10 ? 1 : 2 })}kg`;
 }
 // 캠페인 참여자 기여 랭킹
-//  ※ DB 전이라 다른 참여자는 가상 사용자예요. 다른 사람들의 몫(전체 - 내 몫)을 캠페인마다 고정된 비율로 나눠요.
+//  ※ 서버 DB가 있으면 진짜 참여자 순위를 받아 와요.
+//    DB가 없는 곳에서는 다른 참여자를 가상 사용자로 만들어 (전체 - 내 몫)을 고정된 비율로 나눠요.
 function campRanking(c) {
+  if (dbMode()) {
+    loadCampRank(c.id);
+    const rk = state.campRanks[c.id];
+    const all = (rk && rk.users ? rk.users : []).map((u) => ({ ...u, photo: u.me ? loadAvatar() : u.photo, name: u.me ? ((state.user && state.user.name) || u.name) : u.name }));
+    let me = all.find((u) => u.me) || null;
+    if (!me && rk && rk.me) me = { id: 'me', me: true, name: (state.user && state.user.name) || '나', g: rk.me.g, rank: rk.me.rank, photo: loadAvatar() };
+    if (!me && rk && rk.loading && (c.joined || c.myG > 0)) me = { id: 'me', me: true, name: (state.user && state.user.name) || '나', g: c.myG || 0, rank: 1, photo: loadAvatar() };
+    return { all, me };
+  }
   const myG = Math.max(0, c.myG || 0);
   const meIn = !!(c.joined || myG > 0);
   const othersN = Math.max(0, Math.min(400, (c.participants || 0) - (meIn ? 1 : 0)));
@@ -1385,7 +1397,8 @@ function campRanking(c) {
 }
 function campRankHTML(c) {
   const { all, me } = campRanking(c);
-  if (!all.length) return `<section class="m-card cr"><p class="m-label">참여자 기여 랭킹</p><p class="cr-empty">아직 참여한 사람이 없어요. 첫 번째로 참여해 보세요!</p></section>`;
+  const loading = dbMode() && state.campRanks[c.id] && state.campRanks[c.id].loading;
+  if (!all.length) return `<section class="m-card cr"><p class="m-label">참여자 기여 랭킹</p><p class="cr-empty">${loading ? '참여자 순위를 불러오는 중이에요…' : '아직 참여한 사람이 없어요. 첫 번째로 참여해 보세요!'}</p></section>`;
   const pod = (u, place) => (u ? `<div class="pod pod-${place}">
       ${place === 1 ? '<span class="crown" aria-hidden="true">👑</span>' : ''}
       <div class="medal m${place}">${avatarHTML(u.name, u.photo, 'av-lg')}</div>
@@ -1437,6 +1450,7 @@ const campStore = {
       const list = JSON.parse(localStorage.getItem(CAMP_KEY) || 'null');
       if (Array.isArray(list)) return list;
     } catch (e) { /* 무시 */ }
+    if (dbMode()) return []; // 서버 DB: 진짜 캠페인만 (서버에서 받아 오는 중)
     const seeded = seedCampaigns();
     this.save(seeded);
     return seeded;
@@ -1477,7 +1491,7 @@ const campReward = (c) => c.goalKg * REWARD_P_PER_KG;
 // ── 관리자 검토 ──
 //  새 캠페인은 status 'pending'(검토 대기) → 관리자가 'approved'(게시) 또는 'rejected'(반려, 사유 포함)
 //  예시 캠페인처럼 status 가 없으면 이미 게시된 캠페인이에요.
-//  ※ DB 전이라 관리자 확인도 이 휴대폰 안에서만 돼요 (진짜 서비스는 서버에서 권한을 확인해야 해요).
+//  ※ 서버 DB가 있으면 승인·반려는 서버가 관리자인지 다시 확인해요 (users.role = 'admin').
 const ADMIN_EMAILS = (CFG.ADMIN_EMAILS || ['admin@bluesky.kr']).map((e) => String(e).trim().toLowerCase());
 // 관리자: 회원 DB에서 role = 'admin' 인 계정 (또는 config.js 의 관리자 이메일)
 const isAdmin = () => !!(state.user && (String(state.user.role || '').trim() === 'admin' || (state.user.email && ADMIN_EMAILS.includes(String(state.user.email).toLowerCase()))));
@@ -1487,7 +1501,7 @@ function userKey(u) {
   if (u.id) return `k:${u.id}`;
   return `n:${u.name || ''}`;
 }
-const isMine = (c) => (c.ownerId ? c.ownerId === userKey(state.user) : !!c.mine);
+const isMine = (c) => (c.ownerId === '@me' || (c.ownerId ? c.ownerId === userKey(state.user) : !!c.mine));
 const isPublic = (c) => !c.status || c.status === 'approved';
 const publicCampaigns = (list = campStore.load()) => list.filter(isPublic);
 const joinedCampaigns = (list = campStore.load()) => list.filter((c) => c.joined && isPublic(c)).sort((a, b) => (b.myG || 0) - (a.myG || 0) || (b.progressG - a.progressG));
@@ -1502,6 +1516,7 @@ function rankCampaigns(list) {
 function topCampaigns(n) { return rankCampaigns(publicCampaigns()).slice(0, n); }
 // 인기 캠페인이 되면 만든 사람에게 보상 (내가 만든 거면 내 포인트에 바로 더해요)
 function checkRewards(list) {
+  if (dbMode()) return []; // 서버 DB: 보상은 서버가 계산해서 줘요
   const won = [];
   list.forEach((c) => {
     if (!isPublic(c) || !isPopular(c) || c.rewarded) return;
@@ -2036,6 +2051,7 @@ function submitCampaign() {
   state.campErr = err;
   if (err) { render(); return; }
   const fields = { tag: d.tag, mode: d.mode || TAG_MODE[d.tag] || 'bus', title: d.title.trim(), sub: d.sub.trim(), body: d.body.trim(), goalKg: Math.round(d.goalKg), cover: d.cover || '' };
+  if (dbMode()) { submitCampaignDb(fields); return; }
   const list = campStore.load();
   const old = state.campEditId && list.find((x) => x.id === state.campEditId && isMine(x));
   let c;
@@ -2053,6 +2069,24 @@ function submitCampaign() {
   state.campDraft = null; state.campErr = ''; state.campEditId = null;
   state.campId = c.id;
   state.campReturn = 'account'; // 검토 상태는 계정정보 > 내 캠페인에서 봐요
+  go('campaign');
+  toast('검토 요청을 보냈어요! 승인되면 알려 드릴게요');
+}
+
+// 서버 DB: 서버에 올리고 → 서버 기록으로 맞춘 뒤 → 올린 캠페인 화면으로
+async function submitCampaignDb(fields) {
+  if (state.campBusy) return;
+  state.campBusy = true;
+  const btn = document.querySelector('#camp-form [type="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = '올리는 중…'; }
+  const r = await dataApi('camp-save', { id: state.campEditId || undefined, ...fields });
+  state.campBusy = false;
+  if (r.status === 401) { needRelogin(); return; }
+  if (r.status !== 200) { state.campErr = r.data.error || '올리지 못했어요. 잠시 후 다시 시도해 주세요.'; render(); return; }
+  await syncFromServer({ quiet: true });
+  state.campDraft = null; state.campErr = ''; state.campEditId = null;
+  state.campId = r.data.id;
+  state.campReturn = 'account';
   go('campaign');
   toast('검토 요청을 보냈어요! 승인되면 알려 드릴게요');
 }
@@ -2096,6 +2130,12 @@ function adminHTML() {
 }
 // 승인 / 반려 처리
 function reviewCampaign(id, status, reason) {
+  if (dbMode()) {
+    if (!isAdmin()) return;
+    dbWrite('camp-review', { id, decision: status, reason }, status === 'approved' ? '승인했어요. 캠페인 목록에 올라갔어요' : '반려했어요. 만든 사람에게 사유가 전달돼요')
+      .then((ok) => { if (ok && state.screen === 'campaign') goBack(); });
+    return;
+  }
   const list = campStore.load();
   const c = list.find((x) => x.id === id);
   if (!c || !isAdmin()) return;
@@ -2146,6 +2186,7 @@ function showCampNotices() {
   if (!n && !won.length) return;
   if (n) n.notice.seen = true;
   campStore.save(list);
+  if (n && dbMode()) dataApi('camp-seen', { id: n.id });
   if (won.length) toast(`내 캠페인이 인기 캠페인이 됐어요 +${campReward(won[0]).toLocaleString()}P`);
   if (!n) return;
   const ok = n.notice.type === 'approved';
@@ -2206,8 +2247,7 @@ function readAvatar(file) {
 
 // ---------------------------------------------------------------------
 // 랭킹: 이달의 절약왕 (그달에 탄소 포인트를 가장 많이 모은 사람)
-//  ※ 아직 DB가 없어서 다른 사용자는 가상 사용자예요 (달마다 같은 결과가 나오게 고정).
-//    DB를 붙이면 rankingUsers() 만 서버에서 받아오게 바꾸면 돼요.
+//  ※ 서버 DB가 있으면 진짜 회원끼리 순위를 매겨요. DB가 없는 곳에서는 가상 사용자와 비교해요.
 // ---------------------------------------------------------------------
 const NICK_A = ['초록', '맑은', '푸른', '느린', '바람', '햇살', '조용한', '반짝', '산뜻한', '가벼운', '새벽', '하늘', '숲속', '파란', '상쾌한', '든든한'];
 const NICK_B = ['버스', '자전거', '산책러', '여우', '고래', '해달', '참새', '나무', '펭귄', '다람쥐', '지하철', '라이더', '구름', '토끼', '곰', '두루미'];
@@ -2228,6 +2268,14 @@ function rankingUsers(mKey) {
 }
 function monthRanking(mKey = monthKey()) {
   const me = { id: 'me', me: true, name: (state.user && state.user.name) || '나', points: loadMonthPoints(mKey), photo: loadAvatar() };
+  if (dbMode()) {
+    const rk = state.rank && state.rank.month === mKey ? state.rank : null;
+    const others = rk ? rk.users.filter((u) => !u.me).map((u) => ({ ...u })) : [];
+    const all = others.concat(me).sort((a, b) => (b.points - a.points) || (a.me ? -1 : b.me ? 1 : 0) || a.name.localeCompare(b.name));
+    all.forEach((u, i) => { u.rank = i + 1; });
+    if (rk && rk.myRank && !rk.users.some((u) => u.me)) me.rank = Math.max(me.rank, rk.myRank); // 100위 밖
+    return { all, me };
+  }
   const all = rankingUsers(mKey).concat(me).sort((a, b) => (b.points - a.points) || a.name.localeCompare(b.name));
   all.forEach((u, i) => { u.rank = i + 1; });
   return { all, me: all.find((u) => u.me) };
@@ -2508,12 +2556,143 @@ function openProfile() {
     if (e.target.closest('[data-logout]')) { close(); askLogout(); }
   });
 }
+// ---------------------------------------------------------------------
+// 서버 DB 연결 (Vercel + Neon)
+//  - 로그인하면 서버가 출입증 쿠키를 줘요. 앱을 켜거나 기록이 바뀔 때마다 서버에서 내 기록을 받아
+//    이 휴대폰의 저장 공간(localStorage)에 그대로 덮어써요. 화면은 지금처럼 저장 공간을 읽어서 그려요.
+//  - 이동·캠페인·프로필을 바꾸면 화면에 먼저 보여 주고 서버에 저장한 뒤 다시 받아 와요.
+//  - DB가 없는 곳(내 맥 server.js 등)에서는 예전처럼 이 휴대폰에만 저장해요.
+// ---------------------------------------------------------------------
+const DB_FLAG_KEY = 'pureun-db';         // '1' 이면 서버 DB를 쓰는 중
+const PENDING_KEY = 'pureun-pending-trips'; // 인터넷이 끊겨 아직 못 보낸 이동
+const dbMode = () => { try { return localStorage.getItem(DB_FLAG_KEY) === '1'; } catch (e) { return false; } };
+function setDbMode(on) { try { on ? localStorage.setItem(DB_FLAG_KEY, '1') : localStorage.removeItem(DB_FLAG_KEY); } catch (e) { /* 무시 */ } }
+const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } catch (e) { /* 무시 */ } };
+const rememberedLogin = () => { try { return !!localStorage.getItem(USER_KEY); } catch (e) { return true; } };
+
+// 서버 호출 → { status, data }. 인터넷이 끊기면 status 0
+async function dataApi(a, body, query = '') {
+  try {
+    const res = await fetch(`/api/data?a=${a}${query}`, body === undefined
+      ? { credentials: 'same-origin' }
+      : { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* 무시 */ }
+    return { status: res.status, data: data || {} };
+  } catch (e) { return { status: 0, data: { error: '인터넷 연결을 확인해 주세요.' } }; }
+}
+// 출입증이 없거나 만료됐을 때: 로그인 화면으로 (한 번만 다시 로그인하면 돼요)
+function needRelogin() {
+  if (!state.user) return;
+  clearServerCache();
+  saveUser(null);
+  state.user = null;
+  state.auth = { busy: false, message: '기록을 서버에 안전하게 저장하려고 해요. 한 번만 다시 로그인해 주세요.' };
+  go('login');
+}
+function clearServerCache() {
+  [LOG_KEY, POINT_KEY, POINT_MONTH_KEY, CAMP_KEY, AVATAR_KEY].forEach((k) => lsSet(k, null));
+  state.rank = null; state.campRanks = {};
+}
+// 서버에서 받은 내 기록을 저장 공간에 덮어쓰기
+function applySync(d) {
+  setDbMode(true);
+  lsSet(LOG_KEY, d.log);
+  lsSet(POINT_KEY, String(d.points || 0));
+  lsSet(POINT_MONTH_KEY, d.monthPoints || {});
+  lsSet(CAMP_KEY, d.camps || []);
+  lsSet(AVATAR_KEY, d.user && d.user.avatar ? d.user.avatar : null);
+  state.rank = d.rank || null;
+  state.campRanks = {};
+  if (state.user && d.user) {
+    const { avatar, ...u } = d.user;
+    state.user = { ...state.user, ...u };
+    saveUser(state.user, rememberedLogin());
+  }
+}
+let syncing = null;
+const MAP_SCREENS_DB = ['home', 'search', 'result', 'nav']; // 지도 화면은 다시 그리지 않아요 (지도·입력이 초기화돼서)
+// 서버와 맞추기: 못 보낸 이동부터 보내고 → 내 기록 받아 오기
+function syncFromServer({ quiet = false } = {}) {
+  if (!state.user || state.user.demo) return Promise.resolve(false);
+  if (syncing) return syncing;
+  syncing = (async () => {
+    await flushTrips();
+    const r = await dataApi('sync');
+    if (r.status === 200) {
+      applySync(r.data);
+      if (!quiet && !MAP_SCREENS_DB.includes(state.screen) && state.screen !== 'login') render();
+      return true;
+    }
+    if (r.status === 401) { needRelogin(); return false; }
+    if (r.status === 404 || r.status === 503) setDbMode(false); // 이 서버엔 DB가 없어요 → 예전처럼 휴대폰에만
+    return false;
+  })().finally(() => { syncing = null; });
+  return syncing;
+}
+
+// ── 이동 저장 (못 보내면 모아 두었다가 다음에) ──
+function loadPending() { try { const l = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
+function queueTrip(chosen) {
+  const t = {
+    key: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+    uid: state.user && state.user.uid,
+    from: state.from && { name: state.from.name, lat: state.from.lat, lng: state.from.lng },
+    to: state.to && { name: state.to.name, lat: state.to.lat, lng: state.to.lng },
+    minutes: chosen.minutes, savedG: Math.max(0, chosen.saving || 0),
+    segments: (chosen.segments || []).map((s) => ({ mode: s.mode, km: s.km })),
+    campaignId: state.campTrip ? state.campTrip.campId : null,
+  };
+  lsSet(PENDING_KEY, loadPending().concat(t).slice(-50));
+}
+let flushing = null;
+function flushTrips() {
+  if (flushing) return flushing;
+  flushing = (async () => {
+    for (const t of loadPending()) {
+      if (!state.user || t.uid !== state.user.uid) continue; // 다른 계정이 남긴 건 그 계정으로 로그인하면 보내요
+      const r = await dataApi('trip', t);
+      if (r.status === 0 || r.status >= 500) break; // 인터넷·서버 문제: 다음에 다시
+      if (r.status === 401) break;
+      lsSet(PENDING_KEY, loadPending().filter((x) => x.key !== t.key)); // 저장됐거나(200) 잘못된 기록(4xx)이면 목록에서 빼요
+      if (r.status === 200 && r.data.reward) toast(`내 캠페인 "${r.data.reward.title}"이(가) 인기 캠페인이 됐어요 +${r.data.reward.points.toLocaleString()}P`);
+    }
+  })().finally(() => { flushing = null; });
+  return flushing;
+}
+
+// ── 화면에서 쓰는 서버 저장 도우미 ──
+//  성공하면 서버에서 다시 받아 오고, 실패하면 알려 준 뒤 서버 기록으로 되돌려요.
+async function dbWrite(a, body, okMsg) {
+  const r = await dataApi(a, body);
+  if (r.status === 401) { needRelogin(); return null; }
+  if (r.status !== 200) { toast(r.data.error || '저장하지 못했어요. 잠시 후 다시 시도해 주세요.'); syncFromServer(); return null; }
+  if (okMsg) toast(okMsg);
+  await syncFromServer();
+  return r.data;
+}
+
+// 캠페인 참여자 랭킹 (서버) — 처음 볼 때 받아 와요
+function loadCampRank(id) {
+  state.campRanks = state.campRanks || {};
+  if (state.campRanks[id]) return;
+  state.campRanks[id] = { loading: true, users: [], me: null };
+  dataApi('camp-rank', undefined, `&id=${encodeURIComponent(id)}`).then((r) => {
+    if (r.status !== 200) { delete state.campRanks[id]; return; }
+    state.campRanks[id] = r.data;
+    if (['campaign', 'campdone'].includes(state.screen)) render();
+  });
+}
+
 // 로그아웃 확인 (예 / 아니요)
 function askLogout() {
   confirmSheet('정말로 로그아웃 하시겠습니까?', '다시 들어오려면 로그인해야 해요.', '예', '아니요').then((ok) => { if (ok) logout(); });
 }
-// 로그아웃: 저장된 로그인만 지워요 (이동 기록·나의 숲은 이 휴대폰에 그대로)
+// 로그아웃: 저장된 로그인을 지워요.
+//  서버 DB를 쓰는 중이면 출입증도 지우고, 이 휴대폰에 받아 둔 기록도 지워요 (다음 사람이 못 보게).
+//  DB가 없는 곳에서는 예전처럼 이동 기록·나의 숲이 이 휴대폰에 그대로 남아요.
 function logout() {
+  if (dbMode()) { dataApi('logout', {}); clearServerCache(); }
   saveUser(null);
   state.user = null;
   state.auth = { busy: false, message: '' };
@@ -3216,6 +3395,8 @@ function finishTrip() {
       const res = addSavingToCampaign(state.campTrip.campId, g);
       state.campResult = res ? { campId: state.campTrip.campId, mode: state.campTrip.mode, g, beforeG: res.beforeG } : null;
     }
+    // 서버 DB: 이동을 저장하고(인터넷이 끊겨도 모아 뒀다가 다음에) 서버 기록으로 맞춰요
+    if (dbMode() && state.user && state.user.uid) { queueTrip(chosen); syncFromServer({ quiet: true }); }
     state.recorded = true;
   }
   if (state.campTrip && state.campResult) { state.campId = state.campResult.campId; go('campdone'); return; }
@@ -3300,7 +3481,11 @@ function runAuth(promise, draft) {
   state.auth = { busy: true, message: '', draft: draft || {} };
   render();
   promise
-    .then((user) => { state.user = user; saveUser(user, !draft || draft.remember !== false); state.auth = { busy: false, message: '' }; go('main'); setTimeout(showCampNotices, 400); })
+    .then((user) => {
+      state.user = user; saveUser(user, !draft || draft.remember !== false); state.auth = { busy: false, message: '' };
+      go('main');
+      syncFromServer().finally(() => setTimeout(showCampNotices, 300)); // 서버 DB가 있으면 내 기록을 받아 와요
+    })
     .catch((err) => { state.auth = { busy: false, message: err.message || '로그인하지 못했어요. 다시 시도해 주세요.', draft: draft || {} }; render(); });
 }
 function goAuth(screen) {
@@ -3314,7 +3499,7 @@ const actions = {
     const box = document.querySelector('#login-form [name="remember"]');
     const remember = box ? box.checked : true;
     try { sessionStorage.setItem('pureun-remember', remember ? '1' : '0'); } catch (e) { /* 무시 */ }
-    runAuth(AUTH.kakao(), { remember });
+    runAuth(AUTH.kakao(remember), { remember });
   },
   'login-lang': (el) => { state.loginLang = el.dataset.id; try { localStorage.setItem('bluesky_lang', state.loginLang); } catch (e) { /* 무시 */ } keepLoginDraft(); render(); },
   'toggle-pw': () => {
@@ -3338,7 +3523,7 @@ const actions = {
   'open-rank': () => goTab('rank'),
   'open-account': () => goTab('account'),
   logout: () => askLogout(),
-  'avatar-reset': () => { saveAvatar(''); render(); toast('기본 이미지로 바꿨어요'); },
+  'avatar-reset': () => { if (dbMode()) { dbWrite('profile', { avatar: '' }, '기본 이미지로 바꿨어요'); return; } saveAvatar(''); render(); toast('기본 이미지로 바꿨어요'); },
   'open-camps': () => goTab('campaigns'),
   'open-my-camps': () => { state.campReturn = 'my-camps'; go('my-camps'); },
   'open-camp': (el) => { state.campId = el.dataset.id; state.campReturn = ['main', 'account', 'admin', 'my-camps'].includes(state.screen) ? state.screen : 'campaigns'; go('campaign'); },
@@ -3357,6 +3542,7 @@ const actions = {
     if (!c || !isMine(c)) return;
     confirmSheet('캠페인을 삭제할까요?', `"${c.title}" 캠페인과 참여·좋아요 기록이 모두 사라지고 되돌릴 수 없어요.`, '삭제하기').then((ok) => {
       if (!ok) return;
+      if (dbMode()) { dbWrite('camp-del', { id }, '캠페인을 삭제했어요').then((r) => { if (r && state.screen === 'campaign') goBack(); }); return; }
       campStore.save(campStore.load().filter((x) => x.id !== id));
       toast('캠페인을 삭제했어요');
       if (state.screen === 'campaign') goBack(); else render();
@@ -3369,6 +3555,18 @@ const actions = {
     c.liked = !c.liked; c.likes += c.liked ? 1 : -1; campStore.save(list);
     el.classList.toggle('on', c.liked); el.setAttribute('aria-pressed', String(c.liked));
     el.querySelector('span').textContent = c.likes.toLocaleString();
+    if (dbMode()) {
+      const id = c.id; const on = c.liked;
+      dataApi('camp-like', { id, on }).then((r) => {
+        if (r.status === 401) return needRelogin();
+        const l2 = campStore.load(); const c2 = l2.find((x) => x.id === id); if (!c2) return;
+        if (r.status === 200) { c2.likes = r.data.likes; c2.liked = r.data.liked; }
+        else { c2.liked = !on; c2.likes += on ? -1 : 1; toast(r.data.error || '좋아요를 저장하지 못했어요'); }
+        campStore.save(l2);
+        const b = document.querySelector(`[data-act="camp-like"][data-id="${id}"]`);
+        if (b) { b.classList.toggle('on', c2.liked); b.setAttribute('aria-pressed', String(c2.liked)); b.querySelector('span').textContent = c2.likes.toLocaleString(); }
+      });
+    }
   },
   // 캠페인 참여하기 → 그 캠페인 이동 수단으로만 길찾기
   'camp-join': (el) => {
@@ -3470,7 +3668,8 @@ appEl.addEventListener('submit', (e) => {
     try { remember = !!localStorage.getItem(USER_KEY); } catch (er) { /* 무시 */ }
     state.user = { ...state.user, name };
     saveUser(state.user, remember);
-    toast('닉네임을 저장했어요');
+    if (dbMode()) dbWrite('profile', { name }, '닉네임을 저장했어요');
+    else toast('닉네임을 저장했어요');
   }
   if (e.target.id === 'login-form' || e.target.id === 'signup-form') {
     e.preventDefault();
@@ -3483,7 +3682,7 @@ appEl.addEventListener('submit', (e) => {
       draft.remember = !!f.get('remember');
       const fail = !em ? ['errEmailEmpty', 'email'] : !EMAIL_RE.test(em) ? ['errEmailFormat', 'email'] : !pw ? ['errPwEmpty', 'pw'] : pw.length < 8 ? ['errPwShort', 'pw'] : null;
       if (fail) { state.auth = { busy: false, errKey: fail[0], errField: fail[1], draft }; render(); const el = document.querySelector(`#login-form [name="${fail[1] === 'pw' ? 'pw' : 'email'}"]`); if (el) el.focus(); return; }
-      runAuth(AUTH.email(em, pw), draft);
+      runAuth(AUTH.email(em, pw, draft.remember), draft);
     }
     else runAuth(AUTH.signup(v('name'), v('email'), String(f.get('pw') || ''), String(f.get('pw2') || '')), draft);
   }
@@ -3511,7 +3710,11 @@ appEl.addEventListener('input', (e) => {
 appEl.addEventListener('change', (e) => {
   if (e.target.id === 'avatar-input') {
     readAvatar(e.target.files[0])
-      .then((url) => { if (!saveAvatar(url)) throw new Error('저장 공간이 부족해요.'); render(); toast('프로필 사진을 바꿨어요'); })
+      .then((url) => {
+        if (dbMode()) return dbWrite('profile', { avatar: url }, '프로필 사진을 바꿨어요');
+        if (!saveAvatar(url)) throw new Error('저장 공간이 부족해요.');
+        render(); toast('프로필 사진을 바꿨어요');
+      })
       .catch((err) => toast(err.message));
   }
   if (e.target.id === 'camp-cover') {
@@ -3619,26 +3822,20 @@ appEl.addEventListener('touchcancel', endSwipe);
   } else if (!data.ok) {
     state.auth = { busy: false, message: data.error || '카카오 로그인에 실패했어요.' };
   } else {
-    state.user = { provider: 'kakao', id: data.id, name: data.name };
+    // 서버가 회원 DB에 기록하고 회원 번호(uid)·권한(role)을 같이 보내 줘요 (DB가 없는 곳이면 uid 없음)
+    state.user = { provider: 'kakao', id: data.id, name: data.name, uid: data.uid, role: data.role };
     let remember = true;
     try { remember = sessionStorage.getItem('pureun-remember') !== '0'; sessionStorage.removeItem('pureun-remember'); } catch (e) { /* 무시 */ }
     saveUser(state.user, remember);
-    // 회원 DB에 기록하고 권한(관리자 여부)을 받아 와요 (실패해도 로그인은 유지)
-    fetch('/api/auth/social', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'kakao', id: data.id, name: data.name }) })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d || !d.user || !state.user || state.user.id !== data.id) return;
-        state.user.role = d.user.role;
-        saveUser(state.user, remember);
-        render();
-      })
-      .catch(() => {});
     state.screen = 'main';
   }
 })();
 
 try { render(); } catch (err) { reportError(err); }
-setTimeout(showCampNotices, 500);
+if (state.user) syncFromServer().finally(() => setTimeout(showCampNotices, 300)); // 서버 DB가 있으면 내 기록을 받아 와요
+// 다른 앱에 갔다가 돌아오면 다시 맞춰요 (다른 기기에서 바꾼 것·못 보낸 이동)
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.user && dbMode()) syncFromServer(); });
+window.addEventListener('online', () => { if (state.user && dbMode()) syncFromServer(); });
 
 serverCheck = checkServer();
 serverCheck.then(() => { if (state.screen === 'login') render(); });

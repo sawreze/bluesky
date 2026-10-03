@@ -7,3 +7,4 @@ START.command
 .vscode
 private
 db
+test

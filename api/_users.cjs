@@ -1,4 +1,5 @@
-// 회원가입·로그인 처리 로직 (DB 부분은 _db.cjs 의 store 를 받아서 써요)
+// 회원가입·로그인 처리 로직 (DB 부분은 _db.cjs 를 받아서 써요)
+//  성공하면 출입증 쿠키를 같이 줘요.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const body = (req) => {
   let b = req.body;
@@ -25,12 +26,15 @@ const signup = async (b, res, db) => {
   if (!EMAIL_RE.test(email)) return res.status(400).json({ error: '이메일 주소를 확인해 주세요.' });
   if (pw.length < 8 || pw.length > 100) return res.status(400).json({ error: '비밀번호는 8자 이상으로 만들어 주세요.' });
   if (await db.store.findEmail(email)) return res.status(409).json({ error: '이미 가입된 이메일이에요. 로그인해 주세요.' });
+  let u;
   try {
-    return res.status(200).json({ user: db.pub(await db.store.createEmail(name, email, pw)) });
+    u = await db.store.createEmail(name, email, pw);
   } catch (e) {
     if (e && e.code === '23505') return res.status(409).json({ error: '이미 가입된 이메일이에요. 로그인해 주세요.' });
     throw e;
   }
+  db.setSession(res, u.id, b.remember !== false);
+  return res.status(200).json({ user: db.pub(u) });
 };
 const login = async (b, res, db) => {
   const email = str(b.email, 120).toLowerCase(), pw = String(b.pw || '');
@@ -38,12 +42,8 @@ const login = async (b, res, db) => {
   if (!EMAIL_RE.test(email) || !pw) return bad();
   const u = await db.store.findEmail(email);
   if (!u || !db.checkPw(pw, u.pw_hash)) return bad();
+  db.setSession(res, u.id, b.remember !== false);
   return res.status(200).json({ user: db.pub(u) });
 };
-const social = async (b, res, db) => {
-  const provider = str(b.provider, 20), pid = str(b.id, 80), name = str(b.name, 40) || '사용자';
-  if (provider !== 'kakao' || !pid) return res.status(400).json({ error: '잘못된 요청이에요.' });
-  return res.status(200).json({ user: db.pub(await db.store.upsertSocial(provider, pid, name)) });
-};
 
-module.exports = { wrap, signup, login, social };
+module.exports = { wrap, signup, login };
