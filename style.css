@@ -1502,3 +1502,54 @@ textarea { font: inherit; color: inherit; }
 .cd-review.ending b { color: #067647; }
 .cd-review.ended p, .cd-review.ending p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.5; color: #475569; }
 .cd-join[disabled] { background: #E5E7EB; color: #64748B; box-shadow: none; }
+
+/* ── 캠페인 탭: 인기 캠페인 TOP 5 금·은·동 + "어떻게 정해질까?" 펼치기 ── */
+.c-top-n.gold, .c-top-n.silver, .c-top-n.bronze { color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, .25); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), inset 0 -2px 0 rgba(0, 0, 0, .12), 0 3px 8px rgba(0, 0, 0, .14); }
+.c-top-n.gold { background: radial-gradient(circle at 32% 28%, #FFF3B0 0 14%, #F7C948 42%, #D99A0B 100%); color: #5A3B00; text-shadow: 0 1px 0 rgba(255, 255, 255, .5); }
+.c-top-n.silver { background: radial-gradient(circle at 32% 28%, #FFFFFF 0 14%, #D3DAE3 45%, #8E9AAB 100%); color: #2F3A4A; text-shadow: 0 1px 0 rgba(255, 255, 255, .6); }
+.c-top-n.bronze { background: radial-gradient(circle at 32% 28%, #FFD9B8 0 14%, #D98C55 45%, #9A5427 100%); }
+details.c-rule { margin-top: 12px; padding: 0; overflow: hidden; }
+details.c-rule summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px; cursor: pointer; font-size: 14.5px; font-weight: 800; color: #5B4300; }
+details.c-rule summary::-webkit-details-marker { display: none; }
+details.c-rule summary i { display: grid; transition: transform .2s; color: #8A6A10; }
+details.c-rule summary i svg { width: 18px; height: 18px; transform: rotate(90deg); }
+details.c-rule[open] summary i { transform: rotate(180deg); }
+.c-rule-body { padding: 0 16px 14px; display: grid; gap: 6px; animation: wkFade .25s ease both; }
+.c-rule-body p { margin: 0; font-size: 13px; line-height: 1.6; color: #6B5414; }
+
+/* ── 칭호(티어) 프로필 테두리 ── */
+.avf { position: relative; display: inline-grid; place-items: center; flex: none; isolation: isolate; }
+.avf > .tf { position: absolute; left: -25%; top: -25%; width: 150%; height: 150%; overflow: visible; pointer-events: none; z-index: 1; }
+.avf.f-sm .tf-back, .avf.f-sm .tf-stars { display: none; }   /* 목록 속 작은 아바타는 고리·문장만 */
+.avf.t5 > .tf { filter: drop-shadow(0 1px 2px rgba(6, 78, 59, .35)); }
+.avf.t6 > .tf { filter: drop-shadow(0 0 4px rgba(20, 184, 166, .55)); }
+.avf.t7 > .tf { filter: drop-shadow(0 0 4px rgba(100, 116, 139, .55)); }
+.avf.t8 > .tf { filter: drop-shadow(0 0 6px rgba(56, 189, 248, .65)); }
+.avf.t9 > .tf { animation: tfGlow 2.8s ease-in-out infinite; }
+.tf-spin { transform-box: view-box; transform-origin: 60px 60px; animation: tfSpin 7s linear infinite; }
+.tf-star { transform-box: fill-box; transform-origin: center; animation: tfTwinkle 2.4s ease-in-out infinite; }
+.tf-star:nth-child(2n) { animation-delay: .8s; } .tf-star:nth-child(3n) { animation-delay: 1.5s; }
+@keyframes tfSpin { to { transform: rotate(360deg); } }
+@keyframes tfTwinkle { 0%, 100% { opacity: .35; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes tfGlow { 0%, 100% { filter: drop-shadow(0 0 5px rgba(59, 130, 246, .55)); } 50% { filter: drop-shadow(0 0 11px rgba(125, 211, 252, .95)); } }
+@media (prefers-reduced-motion: reduce) { .tf-spin, .tf-star, .avf.t9 > .tf { animation: none; } }
+.m-me { overflow: visible; }
+.m-me .avf, .m-me .avf .av { width: 100%; height: 100%; }
+.rk-list .avf, .cr-mine .avf, .rk-me .avf { margin: 0 4px; }
+/* 시상대: 메달 고리는 순위, 오른쪽 아래 배지는 칭호 */
+.avf-b { position: relative; display: inline-grid; }
+.avf-badge { position: absolute; right: -6px; bottom: -4px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; font-style: normal; background: #fff; border: 2.5px solid var(--tc, #CDB492); box-shadow: 0 3px 8px rgba(15, 22, 38, .2); z-index: 2; }
+.tb-0 { --tc: #CDB492; } .tb-1 { --tc: #8BD16A; } .tb-2 { --tc: #43A047; } .tb-3 { --tc: #8B5A2B; } .tb-4 { --tc: #10B981; }
+.tb-5 { --tc: #059669; } .tb-6 { --tc: #14B8A6; } .tb-7 { --tc: #94A3B8; } .tb-8 { --tc: #38BDF8; }
+.tb-9 { --tc: #3B82F6; box-shadow: 0 0 0 3px rgba(125, 211, 252, .45), 0 3px 8px rgba(15, 22, 38, .2); }
+/* 칭호 화면 */
+.ttl-me { display: grid; place-items: center; padding: 26px 0 12px; }
+.ttl-ic.tf-prev { width: 52px; height: 52px; background: transparent; border-radius: 0; }
+.av.av-md { width: 38px; height: 38px; } .av.av-md i { font-size: 18px; }
+.ttl-list li.lock .tf-prev { filter: grayscale(.85); }
+
+/* ── 관리자 포인트 지급 ── */
+.acc-admin + .acc-admin { margin-top: 8px; }
+.ap .ap-l { display: grid; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.ap-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ap .rj-err { margin: 0; }

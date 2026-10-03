@@ -11,14 +11,15 @@
 //  POST a=camp-review              (관리자) 승인 · 반려
 //  POST a=profile                  닉네임 · 프로필 사진
 //  POST a=logout                   출입증 쿠키 지우기
-//  POST a=demo-seed | demo-clear   (관리자) 예시 회원 100명 넣기 · 지우기 (_seed.cjs)
+//  POST a=demo-seed | demo-clear   (관리자) 예시 회원 100명 + 내 캘린더 시연 기록 넣기 · 지우기 (_seed.cjs)
+//  POST a=admin-points             (관리자) 포인트 직접 지급
 //
 //  누구인지는 출입증 쿠키로만 확인해요. 포인트도 서버가 계산해요.
 // =====================================================================
 const PT_PER_KG = 10;          // 아낀 탄소 1kg당 포인트 (app.js 와 같게)
 const PT_PER_KM = 1;           // 친환경 이동 1km당 포인트
 const POPULAR_MIN_KG = 100;    // 인기 캠페인이 되려면 목표가 이 이상
-const REWARD_P_PER_KG = 10;    // 인기 캠페인 보상: 목표 1kg당
+const REWARD_P_PER_KG = 10;    // 인기 캠페인 보상: 만든 사람은 목표 1kg당, 참여자는 내가 기여한 1kg당
 const END_DAYS = 7;            // 목표 달성 후 이 날짜가 지나면 캠페인이 목록에서 내려가요
 const CAR_G_PER_KM = 210;
 const TAGS = ['transit', 'walk', 'bike', 'carfree', 'together'];
@@ -117,7 +118,8 @@ module.exports = function makeData(db) {
   async function monthRank(uid, mKey) {
     const [{ m }] = mKey ? [{ m: mKey }] : await sql()`SELECT to_char(now() AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') AS m`;
     const rows = await sql()`
-      SELECT u.id, u.name, left(md5(COALESCE(u.avatar_url, '')), 10) AS av, (COALESCE(u.avatar_url, '') <> '') AS has_av, SUM(p.amount) AS pts
+      SELECT u.id, u.name, left(md5(COALESCE(u.avatar_url, '')), 10) AS av, (COALESCE(u.avatar_url, '') <> '') AS has_av, SUM(p.amount) AS pts,
+             (SELECT saved_g FROM v_user_stats v WHERE v.user_id = u.id) AS total_g
       FROM point_transactions p JOIN users u ON u.id = p.user_id
       WHERE to_char(p.created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = ${m}
       GROUP BY u.id ORDER BY pts DESC, u.name LIMIT 100`;
@@ -128,7 +130,7 @@ module.exports = function makeData(db) {
              1 + (SELECT COUNT(*) FROM t WHERE pts > COALESCE((SELECT pts FROM t WHERE user_id = ${uid}), 0)) AS rank`;
     return {
       month: m,
-      users: rows.map((r) => ({ id: `u${r.id}`, me: Number(r.id) === Number(uid), name: r.name, points: num(r.pts), photo: r.has_av ? imgUrl('a', r.id, r.av) : '' })),
+      users: rows.map((r) => ({ id: `u${r.id}`, me: Number(r.id) === Number(uid), name: r.name, points: num(r.pts), g: num(r.total_g), photo: r.has_av ? imgUrl('a', r.id, r.av) : '' })),
       myPoints: num(mine && mine.pts),
       myRank: num(mine && mine.rank),
     };
@@ -143,25 +145,49 @@ module.exports = function makeData(db) {
   async function sync(me) {
     const [s, camps, rank] = await Promise.all([summary(me.id), campaigns(me), monthRank(me.id)]);
     const out = { user: userOut(me), ...s, camps, rank };
-    if (isAdminRow(me)) out.demoUsers = num((await sql()`SELECT COUNT(*) AS n FROM users WHERE provider = 'seed'`)[0].n);
+    if (isAdminRow(me)) { const d = await demoCounts(me.id); out.demoUsers = d.users; out.demoCal = d.cal; }
     return out;
   }
 
   // ── 예시 데이터 (관리자) ──
+  // 넣기: 예시 회원 100명(없을 때만) + 관리자 본인 캘린더 시연 기록(없을 때만)
+  async function demoCounts(uid) {
+    const [r] = await sql()`SELECT (SELECT COUNT(*) FROM users WHERE provider = 'seed') AS u,
+      (SELECT COUNT(*) FROM trips t JOIN users x ON x.id = t.user_id WHERE x.provider = 'seed') AS t,
+      (SELECT COUNT(*) FROM trips WHERE user_id = ${uid} AND client_key LIKE 'demo-cal-%') AS c`;
+    return { users: num(r.u), trips: num(r.t), cal: num(r.c) };
+  }
   async function demoSeed(me) {
     if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
-    try { await sql().query(SEED.SEED_SQL); } catch (e) {
-      if (/SEED_EXISTS/.test(e.message)) bad('예시 회원이 이미 있어요. 먼저 지운 뒤 다시 넣어 주세요.', 409);
-      throw e;
-    }
-    const [r] = await sql()`SELECT (SELECT COUNT(*) FROM users WHERE provider = 'seed') AS u,
-      (SELECT COUNT(*) FROM trips t JOIN users x ON x.id = t.user_id WHERE x.provider = 'seed') AS t`;
-    return { ok: true, users: num(r.u), trips: num(r.t) };
+    const before = await demoCounts(me.id);
+    if (before.users && before.cal) bad('예시 데이터가 이미 있어요. 먼저 지운 뒤 다시 넣어 주세요.', 409);
+    if (!before.users) await sql().query(SEED.SEED_SQL);
+    if (!before.cal) await sql().query(SEED.calSql(me.id));
+    return { ok: true, ...(await demoCounts(me.id)) };
   }
   async function demoClear(me) {
     if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
     const rows = await sql().query(`${SEED.CLEAR_SQL} RETURNING id`);
-    return { ok: true, removed: rows.length };
+    const cal = await sql().query(`${SEED.CAL_CLEAR(me.id)} RETURNING id`);
+    return { ok: true, removed: rows.length, calRemoved: cal.length };
+  }
+
+  // ── 관리자: 포인트 직접 지급 (받는 사람 닉네임, 비우면 나) ──
+  async function adminPoints(me, b) {
+    if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
+    const amount = Math.round(num(b.amount));
+    if (!(amount >= 1 && amount <= 1000000)) bad('1 ~ 1,000,000P 사이로 적어 주세요.');
+    const name = str(b.name, 40);
+    let target = me;
+    if (name) {
+      const found = await sql()`SELECT id, name FROM users WHERE lower(trim(name)) = lower(${name}) ORDER BY id LIMIT 2`;
+      if (!found.length) bad(`"${name}" 닉네임의 회원을 찾지 못했어요.`, 404);
+      if (found.length > 1) bad(`"${name}" 닉네임이 여러 명이에요. 더 정확한 닉네임으로 적어 주세요.`, 409);
+      target = found[0];
+    }
+    await sql()`INSERT INTO point_transactions (user_id, amount, reason) VALUES (${target.id}, ${amount}, 'admin_grant')`;
+    const [st] = await sql()`SELECT points FROM v_user_stats WHERE user_id = ${target.id}`;
+    return { ok: true, name: target.name, me: Number(target.id) === Number(me.id), amount, total: num(st && st.points) };
   }
 
   // ── 이동 저장 ──
@@ -223,13 +249,23 @@ module.exports = function makeData(db) {
       const [c] = await sql()`SELECT st.goal_kg, st.progress_g, st.status, c.creator_id, c.title
         FROM v_campaign_stats st JOIN campaigns c ON c.id = st.campaign_id WHERE st.campaign_id = ${campId}`;
       out.campaign = { id: String(campId), beforeG: num(before[0] && before[0].progress_g), afterG: num(c.progress_g) };
-      // 인기 캠페인 보상: 목표 100kg 이상을 100% 달성하면 만든 사람에게 한 번만
+      // 인기 캠페인 보상: 목표 100kg 이상을 100% 달성하는 순간 한 번만
+      //  - 만든 사람: 목표 1kg당 10P
+      //  - 참여자: 목표를 채우는 데 기여한 만큼 1kg당 10P (만든 사람도 직접 이동했으면 받아요)
       if (c.status === 'approved' && num(c.goal_kg) >= POPULAR_MIN_KG && num(c.progress_g) >= num(c.goal_kg) * 1000) {
         const amount = Math.round(num(c.goal_kg) * REWARD_P_PER_KG);
         const won = await sql()`INSERT INTO point_transactions (user_id, amount, reason, campaign_id)
           VALUES (${c.creator_id}, ${amount}, 'campaign_reward', ${campId})
           ON CONFLICT (campaign_id) WHERE reason = 'campaign_reward' DO NOTHING RETURNING user_id`;
-        if (won.length && Number(won[0].user_id) === Number(uid)) out.reward = { title: c.title, points: amount };
+        if (won.length) {
+          if (Number(won[0].user_id) === Number(uid)) out.reward = { title: c.title, points: amount };
+          const bonus = await sql()`INSERT INTO point_transactions (user_id, amount, reason, campaign_id)
+            SELECT user_id, ROUND(SUM(saved_g) / 1000 * ${REWARD_P_PER_KG})::int, 'campaign_bonus', ${campId}::int
+            FROM trips WHERE campaign_id = ${campId} GROUP BY user_id HAVING ROUND(SUM(saved_g) / 1000 * ${REWARD_P_PER_KG}) > 0
+            ON CONFLICT (campaign_id, user_id) WHERE reason = 'campaign_bonus' DO NOTHING RETURNING user_id, amount`;
+          const mine = bonus.find((x) => Number(x.user_id) === Number(uid));
+          if (mine) out.bonus = { title: c.title, points: num(mine.amount) };
+        }
       }
     }
     return out;
@@ -329,11 +365,12 @@ module.exports = function makeData(db) {
     const [c] = await campaigns(me, id);
     if (!c) bad('캠페인을 찾지 못했어요.', 404);
     const rows = await sql()`
-      SELECT r.user_id, r.name, r.contributed_g, r.rank, (COALESCE(u.avatar_url, '') <> '') AS has_av, left(md5(COALESCE(u.avatar_url, '')), 10) AS av
+      SELECT r.user_id, r.name, r.contributed_g, r.rank, (COALESCE(u.avatar_url, '') <> '') AS has_av, left(md5(COALESCE(u.avatar_url, '')), 10) AS av,
+             (SELECT saved_g FROM v_user_stats v WHERE v.user_id = r.user_id) AS total_g
       FROM v_campaign_ranking r JOIN users u ON u.id = r.user_id
       WHERE r.campaign_id = ${id} ORDER BY r.rank, r.name LIMIT 50`;
     const [mine] = await sql()`SELECT contributed_g, rank FROM v_campaign_ranking WHERE campaign_id = ${id} AND user_id = ${me.id}`;
-    const toU = (r) => ({ id: `u${r.user_id}`, me: Number(r.user_id) === Number(me.id), name: r.name, g: num(r.contributed_g), rank: num(r.rank), photo: r.has_av ? imgUrl('a', r.user_id, r.av) : '' });
+    const toU = (r) => ({ id: `u${r.user_id}`, me: Number(r.user_id) === Number(me.id), name: r.name, g: num(r.contributed_g), tg: num(r.total_g), rank: num(r.rank), photo: r.has_av ? imgUrl('a', r.user_id, r.av) : '' });
     return { ok: true, id: String(id), users: rows.map(toU), me: mine ? { g: num(mine.contributed_g), rank: num(mine.rank) } : null, total: c.participants };
   }
 
@@ -362,7 +399,7 @@ module.exports = function makeData(db) {
     return res.status(200).send(Buffer.from(m[2], 'base64'));
   }
 
-  const POSTS = { 'demo-seed': demoSeed, 'demo-clear': demoClear, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-join': joinCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
+  const POSTS = { 'demo-seed': demoSeed, 'demo-clear': demoClear, 'admin-points': adminPoints, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-join': joinCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
 
   return async function handler(req, res) {
     const q = req.query || {};

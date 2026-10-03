@@ -126,15 +126,26 @@ CREATE TABLE IF NOT EXISTS point_transactions (
   id            SERIAL PRIMARY KEY,
   user_id       INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   amount        INT NOT NULL CHECK (amount > 0),
-  reason        TEXT NOT NULL CHECK (reason IN ('trip', 'campaign_reward')),
+  reason        TEXT NOT NULL,
   trip_id       INT UNIQUE REFERENCES trips(id) ON DELETE CASCADE,
   campaign_id   INT REFERENCES campaigns(id) ON DELETE CASCADE,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CHECK ((reason = 'trip' AND trip_id IS NOT NULL AND campaign_id IS NULL)
-      OR (reason = 'campaign_reward' AND campaign_id IS NOT NULL AND trip_id IS NULL))
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- 사유별 규칙 (예전 규칙은 지우고 다시 만들어요 — 여러 번 실행해도 같은 결과)
+--   trip           이동 포인트        → 이동(trip_id)만
+--   campaign_reward 인기 캠페인 보상   → 만든 사람, 캠페인당 1번
+--   campaign_bonus  인기 캠페인 참여 보상 → 목표 달성까지 기여한 참여자, 캠페인·회원당 1번
+--   admin_grant     관리자가 직접 지급
+ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_transactions_reason_check;
+ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_transactions_check;
+ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_reason_ck;
+ALTER TABLE point_transactions ADD CONSTRAINT point_reason_ck CHECK (
+     (reason = 'trip' AND trip_id IS NOT NULL AND campaign_id IS NULL)
+  OR (reason IN ('campaign_reward', 'campaign_bonus') AND campaign_id IS NOT NULL AND trip_id IS NULL)
+  OR (reason = 'admin_grant' AND trip_id IS NULL AND campaign_id IS NULL));
 CREATE INDEX IF NOT EXISTS point_transactions_user_idx ON point_transactions (user_id, created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS point_reward_once_uq ON point_transactions (campaign_id) WHERE reason = 'campaign_reward';
+CREATE UNIQUE INDEX IF NOT EXISTS point_bonus_once_uq ON point_transactions (campaign_id, user_id) WHERE reason = 'campaign_bonus';
 
 -- ===================== 계산용 뷰 (저장 안 하고 그때그때 계산) =====================
 

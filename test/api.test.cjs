@@ -158,12 +158,14 @@ const trip = (km, savedG, extra = {}) => ({
 
   console.log('4) 인기 캠페인 보상');
   r = await post('trip', sky, trip(300, 100000, { key: 'k2', campaignId: campId }));
-  ok('목표 100kg 달성 이동 (보상은 만든 사람에게, 나에겐 알림 없음)', r.statusCode === 200 && !r.body.reward && r.body.campaign.afterG >= 100000, r.body);
+  ok('목표 100kg 달성 이동: 만든 사람 보상은 내 게 아님', r.statusCode === 200 && !r.body.reward && r.body.campaign.afterG >= 100000, r.body);
+  ok('참여자 보상: 내가 기여한 100.6kg × 10P = 1006P', r.body.bonus && r.body.bonus.points === 1006, r.body);
   s = (await api('sync', jimin)).body;
   ok('만든 사람(지민)에게 1000P 보상', s.points === 1000, s.points);
   ok('보상 받음 표시', s.camps.find((x) => x.id === campId).rewarded === true);
   await post('trip', sky, trip(10, 1000, { key: 'k3', campaignId: campId }));
   ok('보상은 한 번만', (await api('sync', jimin)).body.points === 1000);
+  ok('참여자 보상도 한 번만', Number((await sql()`SELECT COUNT(*) AS n FROM point_transactions WHERE reason = 'campaign_bonus'`)[0].n) === 1);
 
   console.log('5) 좋아요 · 랭킹 · 프로필');
   r = await post('camp-like', jimin, { id: campId, on: true });
@@ -176,7 +178,20 @@ const trip = (km, savedG, extra = {}) => ({
   r = await api('camp-rank', sky, { query: { id: campId } });
   ok('캠페인 기여 랭킹: 하늘 1위, 지민 2위(0g)', r.body.users[0].name === '하늘' && r.body.users[0].me && r.body.users[1].name === '김지민' && r.body.me.rank === 1, r.body);
   s = (await api('sync', admin)).body;
-  ok('이달의 랭킹: 하늘 1위(이동 포인트 1357P), 지민 2위(보상 1000P), 관리자 0P 3위', s.rank.users[0].name === '하늘' && s.rank.users[0].points === 1357 && s.rank.users[1].name === '김지민' && s.rank.users[1].points === 1000 && s.rank.myPoints === 0 && s.rank.myRank === 3, s.rank);
+  ok('이달의 랭킹: 하늘 1위(이동 1357P + 참여 보상 1006P), 지민 2위(1000P), 관리자 0P 3위', s.rank.users[0].name === '하늘' && s.rank.users[0].points === 2363 && s.rank.users[1].name === '김지민' && s.rank.users[1].points === 1000 && s.rank.myPoints === 0 && s.rank.myRank === 3, s.rank);
+  ok('랭킹에 칭호 테두리용 총 절약량', s.rank.users[0].g > 100000 && s.rank.users[1].g === 0, s.rank.users);
+
+  console.log('5-0) 관리자 포인트 지급');
+  r = await post('admin-points', sky, { amount: 500 });
+  ok('관리자 아니면 지급 불가 (403)', r.statusCode === 403);
+  r = await post('admin-points', admin, { amount: 0 });
+  ok('0P 거부', r.statusCode === 400);
+  r = await post('admin-points', admin, { amount: 300 });
+  ok('이름 비우면 나에게 300P', r.statusCode === 200 && r.body.me && r.body.total === 300, r.body);
+  r = await post('admin-points', admin, { amount: 50, name: '김지민' });
+  ok('닉네임으로 다른 사람에게 50P', r.statusCode === 200 && r.body.name === '김지민' && r.body.total === 1050, r.body);
+  r = await post('admin-points', admin, { amount: 50, name: '없는사람' });
+  ok('없는 닉네임 404', r.statusCode === 404);
   r = await post('profile', sky, { name: '푸른하늘이', avatar: 'data:image/jpeg;base64,/9j/BBBB' });
   ok('닉네임 + 프로필 사진 저장', r.statusCode === 200 && r.body.user.name === '푸른하늘이' && /k=a/.test(r.body.user.avatar), r.body);
   r = await post('profile', sky, { name: 'x' });

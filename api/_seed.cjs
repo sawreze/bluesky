@@ -157,9 +157,66 @@ BEGIN
   ) x ON x.reached_at IS NOT NULL
   WHERE c.id = ANY (okc) AND c.goal_kg >= 100
   ON CONFLICT (campaign_id) WHERE reason = 'campaign_reward' DO NOTHING;
+
+  -- 참여자 보상 (목표를 채운 순간까지 기여한 만큼 1kg당 10P)
+  INSERT INTO point_transactions (user_id, amount, reason, campaign_id, created_at)
+  SELECT t.user_id, round(SUM(t.saved_g) / 1000 * 10)::int, 'campaign_bonus', r.campaign_id, r.created_at
+  FROM point_transactions r JOIN trips t ON t.campaign_id = r.campaign_id AND t.arrived_at <= r.created_at
+  WHERE r.reason = 'campaign_reward' AND r.campaign_id = ANY (okc)
+  GROUP BY t.user_id, r.campaign_id, r.created_at HAVING round(SUM(t.saved_g) / 1000 * 10) > 0
+  ON CONFLICT (campaign_id, user_id) WHERE reason = 'campaign_bonus' DO NOTHING;
 END
 $seed$`;
 
 const CLEAR_SQL = `DELETE FROM users WHERE provider = 'seed'`;
 
-module.exports = { SEED_SQL, CLEAR_SQL, NICKS };
+// 관리자 본인의 캘린더 시연 기록: 올해 8월 1일부터 오늘까지 불규칙하게
+//  하루 절약량이 캘린더 4단계(500g 미만 · 500g~2kg · 2~5kg · 5kg 이상)에 고루 퍼지게,
+//  이동이 없는 날도 섞어요. client_key 'demo-cal-…' 로 표시해서 지울 때 이것만 지워요.
+const calSql = (uid) => `DO $cal$
+DECLARE
+  pn text[] := ${arr(PLACES.map((p) => p[0]))};
+  plat float8[] := ${arr(PLACES.map((p) => p[1]), String)};
+  plng float8[] := ${arr(PLACES.map((p) => p[2]), String)};
+  d date; today date; r float8; target numeric; n int; j int; part numeric;
+  kind text; fac numeric; km numeric; wkm numeric; saved numeric; pts int; at timestamptz; o int; dd int; tid int; seq int := 0;
+BEGIN
+  today := (now() AT TIME ZONE 'Asia/Seoul')::date;
+  PERFORM setseed(0.808);
+  FOR d IN SELECT g::date FROM generate_series(make_date(extract(year FROM today)::int, 8, 1), today, interval '1 day') g LOOP
+    IF random() < 0.32 THEN CONTINUE; END IF;              -- 쉬는 날
+    r := random();                                        -- 그날 절약량 단계
+    target := CASE WHEN r < 0.24 THEN 150 + random() * 330
+                   WHEN r < 0.58 THEN 520 + random() * 1450
+                   WHEN r < 0.84 THEN 2050 + random() * 2900
+                   ELSE 5100 + random() * 3600 END;
+    n := 1 + floor(random() * 3)::int;
+    FOR j IN 1..n LOOP
+      part := target / n;
+      IF part < 600 THEN kind := CASE WHEN random() < 0.6 THEN 'walk' ELSE 'bike' END;
+      ELSIF part < 2200 THEN kind := CASE WHEN random() < 0.7 THEN 'bus' ELSE 'bike' END;
+      ELSE kind := CASE WHEN random() < 0.65 THEN 'subway' ELSE 'bus' END; END IF;
+      fac := CASE kind WHEN 'bus' THEN 27.7 WHEN 'subway' THEN 1.53 ELSE 0 END;
+      wkm := CASE WHEN kind IN ('bus', 'subway') THEN round((0.2 + random() * 0.5)::numeric, 1) ELSE 0 END;
+      km := round(GREATEST(0.3, (part - wkm * 235.2) / (235.2 - fac))::numeric, 1);
+      saved := round(((km + wkm) * 1.12 * 210 - km * fac)::numeric, 1);
+      pts := round(saved / 1000 * 10)::int + round(km + wkm)::int;
+      at := (d + make_interval(hours => 7 + floor(random() * 14)::int, mins => floor(random() * 60)::int)) AT TIME ZONE 'Asia/Seoul';
+      IF at > now() THEN at := now() - make_interval(mins => 5 + floor(random() * 50)::int); END IF;
+      o := 1 + floor(random() * array_length(pn, 1))::int;
+      dd := 1 + ((o + floor(random() * (array_length(pn, 1) - 1))::int) % array_length(pn, 1));
+      seq := seq + 1;
+      INSERT INTO trips (user_id, origin_name, origin_lat, origin_lng, dest_name, dest_lat, dest_lng, minutes, saved_g, arrived_at, client_key)
+      VALUES (${Number(uid)}, pn[o], plat[o], plng[o], pn[dd], plat[dd], plng[dd],
+              round(CASE kind WHEN 'walk' THEN km * 14 WHEN 'bike' THEN km * 4 ELSE km * 2.6 + 8 END)::int + 5, saved, at, 'demo-cal-' || seq)
+      RETURNING id INTO tid;
+      IF wkm > 0 THEN INSERT INTO trip_segments (trip_id, seq, mode_code, km) VALUES (tid, 1, 'walk', wkm), (tid, 2, kind, km);
+      ELSE INSERT INTO trip_segments (trip_id, seq, mode_code, km) VALUES (tid, 1, kind, km); END IF;
+      IF pts > 0 THEN INSERT INTO point_transactions (user_id, amount, reason, trip_id, created_at) VALUES (${Number(uid)}, pts, 'trip', tid, at); END IF;
+    END LOOP;
+  END LOOP;
+END
+$cal$`;
+const CAL_CLEAR = (uid) => `DELETE FROM trips WHERE user_id = ${Number(uid)} AND client_key LIKE 'demo-cal-%'`;
+
+module.exports = { SEED_SQL, CLEAR_SQL, NICKS, calSql, CAL_CLEAR };

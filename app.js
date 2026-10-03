@@ -1385,7 +1385,7 @@ function campRanking(c) {
     let name; let n = 0;
     do { name = NICK_A[Math.floor(rnd() * NICK_A.length)] + NICK_B[Math.floor(rnd() * NICK_B.length)] + (rnd() < 0.4 || n > 3 ? Math.floor(rnd() * 90 + 10) : ''); n++; } while (used.has(name));
     used.add(name);
-    people.push({ id: `p${i}`, name, w: Math.pow(rnd(), 3.4) + 0.02, photo: '' });
+    people.push({ id: `p${i}`, name, w: Math.pow(rnd(), 3.4) + 0.02, photo: '', tg: Math.round(Math.pow(rnd(), 2) * 400000) });
   }
   if (people.length && !isMine(c) && c.creator && !used.has(c.creator)) { people[0].name = c.creator; people[0].w += 0.6; } // 만든 사람도 열심히 참여
   const sumW = people.reduce((a, u) => a + u.w, 0) || 1;
@@ -1401,7 +1401,7 @@ function campRankHTML(c) {
   if (!all.length) return `<section class="m-card cr"><p class="m-label">참여자 기여 랭킹</p><p class="cr-empty">${loading ? '참여자 순위를 불러오는 중이에요…' : '아직 참여한 사람이 없어요. 첫 번째로 참여해 보세요!'}</p></section>`;
   const pod = (u, place) => (u ? `<div class="pod pod-${place}">
       ${place === 1 ? '<span class="crown" aria-hidden="true">👑</span>' : ''}
-      <div class="medal m${place}">${avatarHTML(u.name, u.photo, 'av-lg')}</div>
+      <div class="medal m${place}">${tierAvatarHTML(u.name, u.photo, 'av-lg', u.me ? loadLog().g : u.tg, 'badge')}</div>
       <b class="pod-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</b>
       <span class="pod-pt">${kgText(u.g)}</span>
       <div class="step"><span>${place}</span></div>
@@ -1410,13 +1410,13 @@ function campRankHTML(c) {
   const meOut = me && me.rank > 50;
   return `<section class="m-card cr" id="camp-rank">
     <div class="cr-head"><p class="m-label">참여자 기여 랭킹</p><small>${(dbMode() && state.campRanks[c.id] && state.campRanks[c.id].total ? state.campRanks[c.id].total : all.length).toLocaleString()}명 · 아낀 탄소 많은 순</small></div>
-    ${me ? `<p class="cr-mine">${avatarHTML(me.name, me.photo)}<span>내 기여 <b>${kgText(me.g)}</b></span><em>${me.rank.toLocaleString()}위</em></p>` : ''}
+    ${me ? `<p class="cr-mine">${tierAvatarHTML(me.name, me.photo, '', loadLog().g)}<span>내 기여 <b>${kgText(me.g)}</b></span><em>${me.rank.toLocaleString()}위</em></p>` : ''}
     <div class="podium cr-podium" aria-label="1~3위">${pod(all[1], 2)}${pod(all[0], 1)}${pod(all[2], 3)}</div>
     ${rest.length ? `<ol class="rk-list cr-list">${rest.map((u) => `<li class="${u.me ? 'is-me' : ''}">
-      <span class="rk-n">${u.rank}</span>${avatarHTML(u.name, u.photo)}
+      <span class="rk-n">${u.rank}</span>${tierAvatarHTML(u.name, u.photo, '', u.me ? loadLog().g : u.tg)}
       <span class="rk-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</span>
       <span class="rk-pt">${kgText(u.g)}</span></li>`).join('')}
-      ${meOut ? `<li class="is-me cr-gap"><span class="rk-n">${me.rank}</span>${avatarHTML(me.name, me.photo)}<span class="rk-name">${esc(me.name)} <em>나</em></span><span class="rk-pt">${kgText(me.g)}</span></li>` : ''}</ol>` : ''}
+      ${meOut ? `<li class="is-me cr-gap"><span class="rk-n">${me.rank}</span>${tierAvatarHTML(me.name, me.photo, '', loadLog().g)}<span class="rk-name">${esc(me.name)} <em>나</em></span><span class="rk-pt">${kgText(me.g)}</span></li>` : ''}</ol>` : ''}
     ${all.length > 50 || (dbMode() && state.campRanks[c.id] && state.campRanks[c.id].total > 50) ? `<p class="rk-note">50위까지 보여 드려요</p>` : ''}
   </section>`;
 }
@@ -1530,9 +1530,11 @@ function checkRewards(list) {
     if (c.ownerId && !isMine(c)) return; // 만든 사람이 로그인했을 때 지급해요
     c.rewarded = true;
     if (isMine(c)) { addPoints(campReward(c)); won.push(c); }
+    if (c.myG > 0) { const b = Math.round((c.myG / 1000) * REWARD_P_PER_KG); if (b > 0) { addPoints(b); c.myBonus = b; won.push({ ...c, bonus: b }); } } // 참여자 보상
   });
   return won;
 }
+const wonText = (w) => (w.bonus ? `"${w.title}" 목표 달성! 참여 보상 +${w.bonus.toLocaleString()}P` : `내 캠페인이 인기 캠페인이 됐어요 +${campReward(w).toLocaleString()}P`);
 // 캠페인 길찾기로 도착하면: 그 캠페인에 아낀 탄소를 더하고 내 기여로 기록해요
 function addSavingToCampaign(id, g) {
   g = Math.max(0, Math.round(g || 0));
@@ -1547,7 +1549,7 @@ function addSavingToCampaign(id, g) {
   if (!c.joined) { c.joined = true; c.participants += 1; }
   const won = checkRewards(list);
   campStore.save(list);
-  if (won.length) setTimeout(() => toast(`내 캠페인이 인기 캠페인이 됐어요 +${campReward(won[0]).toLocaleString()}P`), 600);
+  if (won.length) setTimeout(() => toast(wonText(won[0])), 600);
   return { beforeG, afterG: c.progressG };
 }
 // 캠페인 카드 배경 (올린 사진이 있으면 사진, 없으면 분류별 하늘·초록 그라데이션)
@@ -1592,7 +1594,7 @@ function titlesHTML() {
   return `${appBar('내 칭호', 'back')}
     <main class="content ttl">
       <section class="ttl-hero">
-        <span class="ttl-big" aria-hidden="true">${t.icon}</span>
+        <span class="ttl-me">${tierAvatarHTML((state.user && state.user.name) || '나', loadAvatar(), 'av-xl', log.g)}</span>
         <p class="ttl-lv">LV.${t.level} · 지금까지 ${kg >= 100 ? kg.toFixed(0) : kg.toFixed(1)}kg 아낌</p>
         <h2>${esc((state.user && state.user.name) || '나')} <span>${esc(t.name)}</span></h2>
         <p class="ttl-desc">${esc(t.desc)}</p>
@@ -1604,7 +1606,7 @@ function titlesHTML() {
       <ol class="ttl-list">${TITLES.map((x, i) => {
         const got = i < t.level;
         return `<li class="${got ? 'got' : 'lock'} ${i === t.level - 1 ? 'now' : ''}">
-          <span class="ttl-ic" aria-hidden="true">${got ? x.icon : '🔒'}</span>
+          <span class="ttl-ic tf-prev" aria-hidden="true"><span class="avf t${i} f-md"><span class="av av-md" style="background:${got ? '#F1F7F3' : '#E5E7EB'}"><i>${got ? x.icon : '🔒'}</i></span>${tierFrameSVG(i)}</span></span>
           <span class="ttl-txt"><b>${esc(x.name)}${i === t.level - 1 ? ' <em>지금</em>' : ''}</b><small>${esc(x.desc)}</small></span>
           <span class="ttl-kg num">${x.kg ? `${x.kg.toLocaleString()}kg` : '시작'}</span>
         </li>`;
@@ -1677,7 +1679,7 @@ function mainHTML() {
         <span class="m-logo"><span class="brand-mark" aria-hidden="true"></span></span>
         <span><b>푸른하늘</b><small>BETTER WAY, BETTER AIR</small></span>
       </div>
-      <button type="button" class="m-round m-me" data-act="open-account" aria-label="계정 설정">${loadAvatar() ? avatarHTML('', loadAvatar()) : ICON.user}</button>
+      <button type="button" class="m-round m-me" data-act="open-account" aria-label="계정 설정">${tierAvatarHTML((state.user && state.user.name) || '나', loadAvatar(), '', loadLog().g)}</button>
     </header>
 
     <p class="m-hello">${esc(greetingText())}</p>
@@ -1902,14 +1904,20 @@ function campaignsHTML() {
       <div><p class="m-kicker">${ICON.spark}푸른하늘 캠페인</p><h1 class="m-title sm">같이 참여하고<br>탄소 줄이기</h1></div>
       <button type="button" class="m-new" data-act="camp-new">${ICON.plus}<span>만들기</span></button>
     </header>
-    <section class="c-rule">
-      <b>🏆 인기 캠페인은 이렇게 정해져요</b>
-      <p>새 캠페인은 <strong>관리자 검토</strong>를 거쳐 올라가요. 목표 <strong>${POPULAR_MIN_KG}kg 이상</strong>을 참여자들이 <strong>100% 달성</strong>하면 인기 캠페인이 되고, 만든 사람에게 <strong>탄소 포인트(1kg당 ${REWARD_P_PER_KG}P)</strong>를 드려요. 메인 화면에는 인기 캠페인 → 좋아요 순으로 TOP 5가 올라가요.</p>
-    </section>
-    <h2 class="c-h">지금 메인에 올라간 TOP 5</h2>
+    <h2 class="c-h">인기 캠페인 TOP 5</h2>
     <ol class="c-top">${tops.map((c, i) => `<li><button type="button" data-act="open-camp" data-id="${c.id}">
-      <span class="c-top-n">${i + 1}</span><span class="c-top-t">${esc(c.title)}</span>
+      <span class="c-top-n ${['gold', 'silver', 'bronze'][i] || ''}">${i + 1}</span><span class="c-top-t">${esc(c.title)}</span>
       <span class="c-top-m">${isPopular(c) ? '<em>인기</em>' : ''}♥ ${c.likes}</span></button></li>`).join('')}</ol>
+    <details class="c-rule">
+      <summary><span>🏆 인기 캠페인은 어떻게 정해질까?</span><i aria-hidden="true">${ICON.chev}</i></summary>
+      <div class="c-rule-body">
+        <p>새 캠페인은 <strong>관리자 검토</strong>를 거쳐 올라가요.</p>
+        <p>목표 <strong>${POPULAR_MIN_KG}kg 이상</strong>을 참여자들이 <strong>100% 달성</strong>하면 인기 캠페인이 돼요.</p>
+        <p>인기 캠페인이 되면 <strong>만든 사람</strong>은 목표 1kg당 ${REWARD_P_PER_KG}P, 목표를 채우는 데 <strong>함께한 참여자</strong>는 내가 아낀 1kg당 ${REWARD_P_PER_KG}P를 탄소 포인트로 받아요.</p>
+        <p>목표를 달성하고 <strong>${CAMP_END_DAYS}일</strong>이 지나면 캠페인이 마무리돼요.</p>
+        <p>메인 화면에는 인기 캠페인 → 좋아요 순으로 TOP 5가 올라가요.</p>
+      </div>
+    </details>
     <div class="c-list-head">
       <h2 class="c-h">전체 캠페인 <small>${list.length}개</small></h2>
       <div class="c-sort">
@@ -1986,7 +1994,7 @@ function campaignHTML() {
       ${pub || ended ? campRankHTML(c) : ''}
       <section class="cd-reward ${pop ? 'won' : ''}">
         <b>${pop ? '🏆 인기 캠페인 선정 · 보상 지급 완료' : c.goalKg >= POPULAR_MIN_KG ? '🎯 목표를 달성하면 인기 캠페인!' : `ℹ️ 목표가 ${POPULAR_MIN_KG}kg 미만이라 인기 캠페인 대상이 아니에요`}</b>
-        <p>${c.goalKg >= POPULAR_MIN_KG ? `만든 사람(${esc(c.creator)})에게 탄소 포인트 <strong>${campReward(c).toLocaleString()}P</strong>${pop ? '를 드렸어요' : '를 드려요'}` : '목표를 크게 잡을수록 인기 캠페인이 될 수 있어요'}</p>
+        <p>${c.goalKg >= POPULAR_MIN_KG ? `만든 사람(${esc(c.creator)})에게 <strong>${campReward(c).toLocaleString()}P</strong>, 목표를 채운 참여자에게는 <strong>내가 아낀 1kg당 ${REWARD_P_PER_KG}P</strong>${pop ? '를 드렸어요' : '를 드려요'}` : '목표를 크게 잡을수록 인기 캠페인이 될 수 있어요'}</p>
       </section>
       <article class="cd-body">
         <p class="c-by">by <b>${esc(c.creator)}</b> · ${new Date(c.createdAt).toLocaleDateString('ko-KR')}</p>
@@ -2189,14 +2197,53 @@ function adminHTML() {
 }
 // 예시 데이터: 사람이 많을 때 랭킹·캠페인이 어떻게 보이는지 확인용 (관리자만)
 function demoHTML() {
-  const n = state.demoUsers || 0;
+  const n = state.demoUsers || 0; const cal = state.demoCal || 0;
+  const busy = state.demoBusy ? 'disabled' : '';
   return `<section class="ad-demo">
       <b>🧪 예시 데이터</b>
-      <p>사람이 많을 때 랭킹·캠페인이 어떻게 보이는지 보려고 가상 회원 100명과 이동 기록(약 1,200번), 캠페인 8개를 넣어요. 가상 회원은 로그인할 수 없고, 진짜 회원 기록은 건드리지 않아요.</p>
-      ${n ? `<p class="ad-demo-now">지금 예시 회원 <b>${n.toLocaleString()}명</b>이 들어 있어요</p>
-        <button type="button" class="btn rv-no" data-act="demo-clear" ${state.demoBusy ? 'disabled' : ''}>${state.demoBusy ? '지우는 중…' : '예시 데이터 모두 지우기'}</button>`
-      : `<button type="button" class="btn primary" data-act="demo-seed" ${state.demoBusy ? 'disabled' : ''}>${state.demoBusy ? '넣는 중…' : '예시 회원 100명 넣기'}</button>`}
+      <p>시연용이에요. ① 가상 회원 100명과 이동 기록(약 1,200번)·캠페인 8개 ② <b>내 계정</b>에 8월 1일부터 오늘까지 불규칙한 이동 기록(그린 캘린더 색이 고루 보이게)을 넣어요. 가상 회원은 로그인할 수 없고, 진짜 회원 기록은 건드리지 않아요.</p>
+      ${n || cal ? `<p class="ad-demo-now">${n ? `예시 회원 <b>${n.toLocaleString()}명</b>` : '예시 회원 없음'} · ${cal ? `내 캘린더 예시 이동 <b>${cal.toLocaleString()}번</b>` : '내 캘린더 예시 없음'}</p>` : ''}
+      ${!n || !cal ? `<button type="button" class="btn primary" data-act="demo-seed" ${busy}>${state.demoBusy ? '넣는 중…' : n || cal ? '빠진 예시 데이터 넣기' : '예시 데이터 넣기'}</button>` : ''}
+      ${n || cal ? `<button type="button" class="btn rv-no" data-act="demo-clear" ${busy}>${state.demoBusy ? '지우는 중…' : '예시 데이터 모두 지우기'}</button>` : ''}
     </section>`;
+}
+// 관리자: 포인트 지급 (받는 사람 닉네임, 비우면 나)
+function adminPointsSheet() {
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-wrap';
+  sheet.innerHTML = `<div class="sheet-bg" data-no></div>
+    <section class="sheet-card ap" role="dialog" aria-label="포인트 지급">
+      <span class="sheet-grab" aria-hidden="true"></span>
+      <div class="sheet-ask"><b>💰 포인트 지급</b><p>받는 사람 닉네임을 비우면 내 계정에 들어가요.</p></div>
+      <label class="ap-l">받는 사람<input class="input" id="ap-name" maxlength="40" placeholder="닉네임 (비우면 나)"></label>
+      <label class="ap-l">포인트<input class="input num" id="ap-amount" type="number" inputmode="numeric" min="1" max="1000000" placeholder="예: 1000"></label>
+      <div class="ap-chips">${[100, 500, 1000, 5000, 10000].map((v) => `<button type="button" class="rj-chip" data-add="${v}">+${v.toLocaleString()}</button>`).join('')}</div>
+      <p class="rj-err" id="ap-err" hidden></p>
+      <button type="button" class="btn primary" data-yes>지급하기</button>
+      <button type="button" class="btn sheet-cancel" data-no>취소</button>
+    </section>`;
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => sheet.classList.add('open'));
+  const close = () => { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); };
+  const amt = sheet.querySelector('#ap-amount'); const err = sheet.querySelector('#ap-err');
+  sheet.addEventListener('click', async (e) => {
+    const add = e.target.closest('[data-add]');
+    if (add) { amt.value = String((Number(amt.value) || 0) + Number(add.dataset.add)); return; }
+    if (e.target.closest('[data-no]')) return close();
+    const yes = e.target.closest('[data-yes]');
+    if (!yes) return;
+    const amount = Math.round(Number(amt.value));
+    const name = sheet.querySelector('#ap-name').value.trim();
+    if (!(amount >= 1 && amount <= 1000000)) { err.textContent = '1 ~ 1,000,000P 사이로 적어 주세요.'; err.hidden = false; return; }
+    if (!dbMode()) { if (name) { err.textContent = '서버 DB가 없는 곳에서는 내 계정에만 줄 수 있어요.'; err.hidden = false; return; } addPoints(amount); close(); render(); toast(`+${amount.toLocaleString()}P 지급했어요`); return; }
+    yes.disabled = true; yes.textContent = '지급하는 중…';
+    const r = await dataApi('admin-points', { amount, name });
+    if (r.status === 401) { close(); return needRelogin(); }
+    if (r.status !== 200) { yes.disabled = false; yes.textContent = '지급하기'; err.textContent = r.data.error || '지급하지 못했어요.'; err.hidden = false; return; }
+    close();
+    toast(`${r.data.me ? '내 계정' : `${r.data.name}님`}에 +${r.data.amount.toLocaleString()}P 지급했어요 (총 ${r.data.total.toLocaleString()}P)`);
+    syncFromServer();
+  });
 }
 // 승인 / 반려 처리
 function reviewCampaign(id, status, reason) {
@@ -2257,7 +2304,7 @@ function showCampNotices() {
   if (n) n.notice.seen = true;
   campStore.save(list);
   if (n && dbMode()) dataApi('camp-seen', { id: n.id });
-  if (won.length) toast(`내 캠페인이 인기 캠페인이 됐어요 +${campReward(won[0]).toLocaleString()}P`);
+  if (won.length) toast(wonText(won[0]));
   if (!n) return;
   const ok = n.notice.type === 'approved';
   setTimeout(() => confirmSheet(ok ? '🎉 캠페인이 승인됐어요' : '캠페인이 반려됐어요',
@@ -2292,6 +2339,119 @@ function avatarHTML(name, photo, cls = '') {
   if (photo) return `<span class="av ${cls}" style="background-image:url('${photo}')"></span>`;
   const [a, b] = AV_COLORS[hashStr(name) % AV_COLORS.length];
   return `<span class="av ${cls}" style="background:linear-gradient(135deg,${a},${b})"><i>${esc(String(name || '?').trim().slice(0, 1))}</i></span>`;
+}
+// ---------------------------------------------------------------------
+// 칭호(티어) 프로필 테두리 — 게임 티어처럼 칭호가 오를수록 테두리가 화려해져요
+//  씨앗 → 새싹 → 묘목 → 나무 → 작은 숲 → 숲 → 큰 숲 → 산 → 산맥 → 푸른하늘
+//  SVG 한 장(120×120)에 아바타(지름 80)를 가운데 두고 고리·잎·월계관·문장·날개를 그려요.
+// ---------------------------------------------------------------------
+const TIER_STYLE = [
+  { ring: ['#EFE6D6', '#CDB492'], w: 3 },                                                     // 씨앗
+  { ring: ['#E4F9D2', '#9AD873', '#6BBF45'], w: 3.5, sprout: 1 },                             // 새싹
+  { ring: ['#C9F0B4', '#58B85C', '#2E7D32'], w: 4, leaves: 2, leaf: 'g' },                     // 묘목
+  { ring: ['#D7A879', '#8B5A2B', '#5D3A1A', '#B07A45'], w: 5, outer: '#7CC46A', top: 3, leaf: 'g' }, // 나무
+  { ring: ['#8AF0C6', '#10B981', '#047857', '#6EE7B7'], w: 5, dots: 1, laurel: 4, leaf: 'g' },   // 작은 숲
+  { ring: ['#4ADE9F', '#059669', '#064E3B', '#34D399'], w: 6, trim: 1, laurel: 6, leaf: 'g', gem: 'em' }, // 숲
+  { ring: ['#7FF3E1', '#14B8A6', '#0F766E', '#99F6E4'], w: 6, trim: 1, laurel: 7, leaf: 't', crestLeaf: 1, gem: 'tq', glow: 'rgba(20,184,166,.55)' }, // 큰 숲
+  { ring: ['#FFFFFF', '#CBD5E1', '#64748B', '#E2E8F0', '#94A3B8'], w: 6.5, trim: 's', mount: 's', wings: 3, leaf: 's', gem: 'sv', glow: 'rgba(100,116,139,.5)' }, // 산
+  { ring: ['#F0F9FF', '#7DD3FC', '#0284C7', '#BAE6FD', '#38BDF8'], w: 7, trim: 1, mount: 'i', wings: 5, leaf: 'i', gem: 'di', stars: 3, glow: 'rgba(56,189,248,.6)' }, // 산맥
+  { ring: ['#FFF7D1', '#7DD3FC', '#2563EB', '#A5F3FC', '#FFFFFF', '#60A5FA'], w: 7.5, trim: 1, sun: 1, wings: 6, leaf: 'k', gem: 'di', stars: 6, spin: 1, glow: 'rgba(59,130,246,.7)' }, // 푸른하늘
+];
+const LEAF_FILL = { g: 'url(#tl-g)', t: 'url(#tl-t)', s: 'url(#tl-s)', i: 'url(#tl-i)', k: 'url(#tl-k)' };
+const tierOfG = (g) => (g == null || !Number.isFinite(Number(g)) ? null : titleOf(Number(g)).level - 1);
+const f1 = (n) => Math.round(n * 10) / 10;
+function leafPath(x, y, deg, len, fill, vein = true) {
+  const w = len * 0.42;
+  return `<g transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(deg)})"><path d="M0 0Q${f1(len * 0.45)} ${f1(-w)} ${f1(len)} 0Q${f1(len * 0.45)} ${f1(w)} 0 0Z" fill="${fill}" stroke="rgba(0,0,0,.18)" stroke-width=".5"/>${vein ? `<path d="M${f1(len * 0.12)} 0H${f1(len * 0.8)}" stroke="rgba(255,255,255,.55)" stroke-width=".7" stroke-linecap="round"/>` : ''}</g>`;
+}
+function star(x, y, r, fill = '#fff') {
+  const p = [];
+  for (let i = 0; i < 8; i++) { const a = (Math.PI / 4) * i - Math.PI / 2; const rr = i % 2 ? r * 0.32 : r; p.push(`${f1(x + Math.cos(a) * rr)} ${f1(y + Math.sin(a) * rr)}`); }
+  return `<path class="tf-star" d="M${p.join('L')}Z" fill="${fill}"/>`;
+}
+const tierSvgCache = {};
+function tierFrameSVG(t) {
+  if (tierSvgCache[t]) return tierSvgCache[t];
+  const st = TIER_STYLE[t]; const R = 40 + st.w / 2 + 0.8; const outerR = R + st.w / 2;
+  const L = LEAF_FILL[st.leaf] || LEAF_FILL.g;
+  let back = ''; let front = '';
+  // 날개 (뒤쪽)
+  if (st.wings) {
+    // 깃털: 아래쪽은 짧고 옆으로, 위쪽으로 갈수록 길고 위로 (펼친 날개)
+    const n = st.wings; const big = n > 4 ? 1 : 0;
+    for (let i = 0; i < n; i++) {
+      const k = n === 1 ? 1 : i / (n - 1);
+      const a = 168 + k * (big ? 72 : 58);            // 168°(옆·살짝 아래) → 240°(위로)
+      const len = (big ? 21 : 18) + k * (big ? 15 : 11);
+      const by = 66 - k * 10; const bx = outerR - 7;
+      back += leafPath(60 - bx, by, a, len, L, false) + leafPath(60 + bx, by, 180 - a, len, L, false);
+    }
+  }
+  // 월계관 (아래 양쪽)
+  if (st.laurel) {
+    for (let i = 0; i < st.laurel; i++) {
+      const th = (100 + i * (st.laurel > 5 ? 17 : 20)) * Math.PI / 180; const rr = outerR + 3.5;
+      const lx = 60 + Math.cos(th) * rr; const ly = 60 + Math.sin(th) * rr; const deg = (th * 180) / Math.PI + 90 + 25;
+      const rx = 60 - Math.cos(th) * rr; const rdeg = 180 - deg;
+      back += leafPath(lx, ly, deg, 12 - i * 0.4, L) + leafPath(rx, ly, rdeg, 12 - i * 0.4, L);
+    }
+  }
+  // 고리
+  front += `<circle cx="60" cy="60" r="${f1(R)}" fill="none" stroke="url(#tg-${t})" stroke-width="${st.w}"${st.spin ? ' class="tf-spin"' : ''}/>`;
+  front += `<circle cx="60" cy="60" r="${f1(40.6)}" fill="none" stroke="rgba(255,255,255,.75)" stroke-width=".9"/>`;
+  if (st.trim) front += `<circle cx="60" cy="60" r="${f1(outerR + 0.9)}" fill="none" stroke="${st.trim === 's' ? '#94A3B8' : 'url(#tg-gold)'}" stroke-width="1.6"/>`;
+  if (st.outer) front += `<circle cx="60" cy="60" r="${f1(outerR + 1.6)}" fill="none" stroke="${st.outer}" stroke-width="1.6"/>`;
+  if (st.dots) front += `<circle cx="60" cy="60" r="${f1(outerR + 3)}" fill="none" stroke="#10B981" stroke-width="1.6" stroke-dasharray="0.1 5.2" stroke-linecap="round"/>`;
+  // 새싹 · 잎
+  if (st.sprout) front += `<path d="M60 ${f1(60 + outerR + 1)}v-4" stroke="#5DAE3B" stroke-width="1.6" stroke-linecap="round"/>${leafPath(60, 60 + outerR - 3, -40, 8, 'url(#tl-g)', false)}${leafPath(60, 60 + outerR - 3, -140, 8, 'url(#tl-g)', false)}`;
+  if (st.leaves) front += leafPath(60 - 4, 60 + outerR, 160, 12, L) + leafPath(60 + 4, 60 + outerR, 20, 12, L);
+  if (st.top) front += leafPath(60, 60 - outerR + 1, -90, 13, L) + leafPath(58, 60 - outerR + 2, -130, 11, L) + leafPath(62, 60 - outerR + 2, -50, 11, L);
+  if (st.crestLeaf) front += `<g transform="translate(60 ${f1(60 - outerR - 1)})"><path d="M-9 4Q0 -16 9 4Z" fill="url(#tg-gold)" stroke="rgba(0,0,0,.2)" stroke-width=".6"/>${leafPath(0, 2, -90, 14, L)}</g>`;
+  // 산 문장
+  if (st.mount) {
+    const y = 60 - outerR + 3; const fill = st.mount === 's' ? 'url(#tm-s)' : 'url(#tm-i)';
+    front += `<g transform="translate(60 ${f1(y)})"><path d="M-17 2L-8 -11L-3 -5L3 -17L9 -8L17 2Z" fill="${fill}" stroke="${st.mount === 's' ? '#475569' : '#0369A1'}" stroke-width="1" stroke-linejoin="round"/><path d="M3 -17L0 -12L2 -11L5 -14ZM-8 -11L-10 -8L-8 -8L-6 -9Z" fill="#fff" opacity=".95"/>${st.trim === 1 ? '<path d="M-17 2H17" stroke="url(#tg-gold)" stroke-width="2"/>' : ''}</g>`;
+  }
+  // 태양 문장
+  if (st.sun) {
+    const y = 60 - outerR - 6; let rays = '';
+    for (let i = 0; i < 12; i++) { const a = (Math.PI / 6) * i; rays += `<path d="M${f1(Math.cos(a) * 8.5)} ${f1(Math.sin(a) * 8.5)}L${f1(Math.cos(a + 0.12) * 13)} ${f1(Math.sin(a + 0.12) * 13)}L${f1(Math.cos(a - 0.12) * 13)} ${f1(Math.sin(a - 0.12) * 13)}Z" fill="url(#tg-gold)"/>`; }
+    front += `<g transform="translate(60 ${f1(y)})" class="tf-sun">${rays}<circle r="7.5" fill="url(#tg-sun)" stroke="#D97706" stroke-width=".8"/><circle r="3" cx="-2" cy="-2" fill="#fff" opacity=".6"/></g>`;
+  }
+  // 보석 (아래)
+  if (st.gem) {
+    const gc = { em: ['#6EE7B7', '#047857'], tq: ['#99F6E4', '#0F766E'], sv: ['#F1F5F9', '#64748B'], di: ['#E0F2FE', '#2563EB'] }[st.gem];
+    front += `<g transform="translate(60 ${f1(60 + outerR + 0.5)}) rotate(45)"><rect x="-4.2" y="-4.2" width="8.4" height="8.4" rx="1.2" fill="${gc[1]}" stroke="url(#tg-gold)" stroke-width="1.2"/><rect x="-2.6" y="-2.6" width="3.6" height="3.6" fill="${gc[0]}" opacity=".9"/></g>`;
+  }
+  // 반짝이
+  if (st.stars) {
+    const pos = [[16, 30, 3.2], [104, 28, 2.6], [12, 92, 2.2], [108, 94, 3], [30, 10, 2], [92, 12, 2.4]];
+    let st2 = '';
+    for (let i = 0; i < st.stars; i++) st2 += star(...pos[i], i % 2 ? '#E0F2FE' : '#FFFFFF');
+    front += `<g class="tf-stars">${st2}</g>`;
+  }
+  tierSvgCache[t] = `<svg class="tf" viewBox="0 0 120 120" aria-hidden="true"><g class="tf-back">${back}</g>${front}</svg>`;
+  return tierSvgCache[t];
+}
+// 그라데이션 모음 (한 번만 문서에 넣어 두고 모든 테두리가 같이 써요)
+function installTierDefs() {
+  if (document.getElementById('tier-defs')) return;
+  const lg = (id, stops, x2 = 1, y2 = 1) => `<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}">${stops.map((c, i) => `<stop offset="${f1((i / Math.max(1, stops.length - 1)) * 100)}%" stop-color="${c}"/>`).join('')}</linearGradient>`;
+  const defs = TIER_STYLE.map((s, i) => lg(`tg-${i}`, s.ring)).join('') +
+    lg('tg-gold', ['#FFF4C2', '#F2C14E', '#B7791F', '#FBD38D']) + lg('tg-sun', ['#FFFBEB', '#FCD34D', '#F59E0B'], 0, 1) +
+    lg('tl-g', ['#A7F3D0', '#34A853', '#1E7A3C']) + lg('tl-t', ['#CCFBF1', '#14B8A6', '#0F766E']) + lg('tl-s', ['#FFFFFF', '#CBD5E1', '#64748B']) +
+    lg('tl-i', ['#FFFFFF', '#BAE6FD', '#38BDF8']) + lg('tl-k', ['#FFFFFF', '#DBEAFE', '#93C5FD']) +
+    lg('tm-s', ['#F8FAFC', '#94A3B8', '#475569'], 0, 1) + lg('tm-i', ['#F0F9FF', '#7DD3FC', '#0369A1'], 0, 1);
+  document.body.insertAdjacentHTML('beforeend', `<svg id="tier-defs" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${defs}</defs></svg>`);
+}
+// 아바타 + 칭호 테두리. g = 그 사람이 지금까지 아낀 탄소(g). 모르면 테두리 없이.
+//  mode 'badge': 테두리 대신 오른쪽 아래 작은 칭호 배지 (랭킹 시상대처럼 이미 메달 고리가 있는 곳)
+function tierAvatarHTML(name, photo, cls = '', g = null, mode = '') {
+  const t = tierOfG(g);
+  const av = avatarHTML(name, photo, cls);
+  if (t == null) return av;
+  if (mode === 'badge') return `<span class="avf-b">${av}<i class="avf-badge tb-${t}" title="${esc(TITLES[t].name)}">${TITLES[t].icon}</i></span>`;
+  return `<span class="avf t${t} ${cls ? cls.replace('av-', 'f-') : 'f-sm'}" title="${esc(TITLES[t].name)}">${av}${tierFrameSVG(t)}</span>`;
 }
 // 프로필 사진: 가운데를 정사각형으로 잘라 320px 로 저장
 function readAvatar(file) {
@@ -2332,7 +2492,7 @@ function rankingUsers(mKey) {
     used.add(name);
     // 포인트는 위로 갈수록 크게 (지수 분포)
     const pts = Math.round(40 + 4200 * Math.pow(rnd(), 2.6));
-    list.push({ id: `u${i}`, name, points: pts, photo: '' });
+    list.push({ id: `u${i}`, name, points: pts, photo: '', g: pts * 90 });
   }
   return list;
 }
@@ -2358,7 +2518,7 @@ function rankHTML() {
   const left = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
   const pod = (u, place) => u ? `<div class="pod pod-${place}">
       ${place === 1 ? '<span class="crown" aria-hidden="true">👑</span>' : ''}
-      <div class="medal m${place}">${avatarHTML(u.name, u.photo, 'av-lg')}</div>
+      <div class="medal m${place}">${tierAvatarHTML(u.name, u.photo, 'av-lg', u.me ? loadLog().g : u.g, 'badge')}</div>
       <b class="pod-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</b>${u.me ? titleChipHTML(titleOf(loadLog().g), 'sm') : ''}
       <span class="pod-pt">${u.points.toLocaleString()}P</span>
       <div class="step"><span>${place}</span></div>
@@ -2376,11 +2536,11 @@ function rankHTML() {
       <p>친환경 경로로 도착하면 <b>아낀 탄소 1kg당 ${PT_PER_KG}P</b> + <b>버스·지하철·걷기·자전거로 이동한 거리 1km당 ${PT_PER_KM}P</b>를 받아요. 인기 캠페인 보상도 함께 쌓이고, 매달 1일에 새로 시작해요.</p>
     </details>
     <ol class="rk-list">${top.slice(3).map((u) => `<li class="${u.me ? 'is-me' : ''}">
-      <span class="rk-n">${u.rank}</span>${avatarHTML(u.name, u.photo)}
+      <span class="rk-n">${u.rank}</span>${tierAvatarHTML(u.name, u.photo, '', u.me ? loadLog().g : u.g)}
       <span class="rk-name">${esc(u.name)}${u.me ? ` <em>나</em> ${titleChipHTML(titleOf(loadLog().g), 'sm')}` : ''}</span>
       <span class="rk-pt">${u.points.toLocaleString()}P</span></li>`).join('')}</ol>
     <div class="rk-me">
-      <span class="rk-n">${me.rank > 999 ? '999+' : me.rank}</span>${avatarHTML(me.name, me.photo)}
+      <span class="rk-n">${me.rank > 999 ? '999+' : me.rank}</span>${tierAvatarHTML(me.name, me.photo, '', loadLog().g)}
       <span class="rk-name">내 순위${me.rank <= 3 ? ' 🏅' : ''} ${titleChipHTML(titleOf(loadLog().g), 'sm')}</span>
       <span class="rk-pt">${me.points.toLocaleString()}P</span>
     </div>
@@ -2445,7 +2605,7 @@ function accountHTML() {
       <section class="acc-top">
         <label class="acc-photo" aria-label="프로필 사진 바꾸기">
           <input type="file" id="avatar-input" accept="image/*" hidden>
-          ${avatarHTML(u.name || '나', photo, 'av-xl')}
+          ${tierAvatarHTML(u.name || '나', photo, 'av-xl', loadLog().g)}
           <span class="acc-cam" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
         </label>
         <p class="acc-who"><b>${esc(u.name || '나')}</b><button type="button" class="ttl-btn" data-act="open-titles" aria-label="내 칭호 보기">${titleChipHTML(titleOf(loadLog().g))}</button></p>
@@ -2464,7 +2624,8 @@ function accountHTML() {
       </section>
       ${myCampaignsHTML()}
       <section class="m-card acc-list">
-        ${isAdmin() ? `<button type="button" class="acc-admin" data-act="open-admin"><span>🛡️ 캠페인 검토 <em>관리자</em></span><span class="acc-cnt">${pendingCampaigns().length ? `<i>${pendingCampaigns().length}</i>` : ''}${ICON.chev}</span></button>` : ''}
+        ${isAdmin() ? `<button type="button" class="acc-admin" data-act="open-admin"><span>🛡️ 캠페인 검토 <em>관리자</em></span><span class="acc-cnt">${pendingCampaigns().length ? `<i>${pendingCampaigns().length}</i>` : ''}${ICON.chev}</span></button>
+        <button type="button" class="acc-admin" data-act="admin-points"><span>💰 포인트 지급 <em>관리자</em></span><span class="acc-cnt">${ICON.chev}</span></button>` : ''}
         <button type="button" data-act="open-rank"><span>🏆 이달의 절약왕 랭킹</span>${ICON.chev}</button>
         <button type="button" data-act="open-calendar"><span>📅 그린 캘린더</span>${ICON.chev}</button>
         <div class="acc-info"><span>로그인 방식</span><b>${esc(how)}${u.demo ? ' (체험용)' : ''}</b></div>
@@ -2675,6 +2836,7 @@ function applySync(d) {
   state.rank = d.rank || null;
   state.campRanks = {};
   state.demoUsers = d.demoUsers || 0; // 관리자에게만: 예시 회원 수
+  state.demoCal = d.demoCal || 0;     // 관리자에게만: 내 캘린더 예시 이동 수
   if (Array.isArray(d.recentPlaces)) lsSet(RECENT_KEY, mergeRecent(d.recentPlaces, loadRecent())); // 다른 기기에서 간 곳도
   if (state.user && d.user) {
     const { avatar, ...u } = d.user;
@@ -2728,6 +2890,7 @@ function flushTrips() {
       if (r.status === 401) break;
       lsSet(PENDING_KEY, loadPending().filter((x) => x.key !== t.key)); // 저장됐거나(200) 잘못된 기록(4xx)이면 목록에서 빼요
       if (r.status === 200 && r.data.reward) toast(`내 캠페인 "${r.data.reward.title}"이(가) 인기 캠페인이 됐어요 +${r.data.reward.points.toLocaleString()}P`);
+      if (r.status === 200 && r.data.bonus) setTimeout(() => toast(`"${r.data.bonus.title}" 목표 달성! 참여 보상 +${r.data.bonus.points.toLocaleString()}P`), r.data.reward ? 2600 : 0);
     }
   })().finally(() => { flushing = null; });
   return flushing;
@@ -3637,19 +3800,20 @@ const actions = {
   'open-titles': () => { state.titlesReturn = ['account', 'done'].includes(state.screen) ? state.screen : 'main'; go('titles'); },
   'open-admin': () => { state.adminTab = 'pending'; go('admin'); },
   'admin-tab': (el) => { state.adminTab = el.dataset.id; render(); },
-  'demo-seed': () => confirmSheet('예시 회원 100명을 넣을까요?', '가상 회원 100명과 이동 기록·캠페인 8개가 랭킹과 캠페인 목록에 보여요. 언제든 한 번에 지울 수 있어요.', '넣기', '취소', 'primary').then(async (ok) => {
+  'admin-points': () => { if (isAdmin()) adminPointsSheet(); },
+  'demo-seed': () => confirmSheet('예시 데이터를 넣을까요?', '가상 회원 100명·이동 기록·캠페인 8개, 그리고 내 계정에 8월부터의 이동 기록이 들어가요. 언제든 한 번에 지울 수 있어요.', '넣기', '취소', 'primary').then(async (ok) => {
     if (!ok) return;
     state.demoBusy = true; render();
     const r = await dbWrite('demo-seed', {});
     state.demoBusy = false; render();
-    if (r) toast(`예시 회원 ${r.users}명 · 이동 ${r.trips.toLocaleString()}번을 넣었어요`);
+    if (r) toast(`예시 회원 ${r.users}명 · 내 캘린더 이동 ${r.cal}번을 넣었어요`);
   }),
-  'demo-clear': () => confirmSheet('예시 데이터를 모두 지울까요?', '가상 회원과 그 사람들의 이동·포인트·캠페인·좋아요가 지워져요. 진짜 회원 기록은 그대로예요.', '모두 지우기').then(async (ok) => {
+  'demo-clear': () => confirmSheet('예시 데이터를 모두 지울까요?', '가상 회원과 그 사람들의 기록, 내 계정에 넣은 캘린더 예시 이동이 지워져요. 내가 직접 한 이동과 진짜 회원 기록은 그대로예요.', '모두 지우기').then(async (ok) => {
     if (!ok) return;
     state.demoBusy = true; render();
     const r = await dbWrite('demo-clear', {});
     state.demoBusy = false; render();
-    if (r) toast(`예시 회원 ${r.removed}명을 지웠어요`);
+    if (r) toast(`예시 회원 ${r.removed}명 · 내 캘린더 예시 ${r.calRemoved}번을 지웠어요`);
   }),
   'camp-approve': (el) => reviewCampaign(el.dataset.id, 'approved'),
   'camp-reject': (el) => {
@@ -3972,6 +4136,7 @@ appEl.addEventListener('touchcancel', endSwipe);
   }
 })();
 
+installTierDefs();
 try { render(); } catch (err) { reportError(err); }
 if (state.user) syncFromServer().finally(() => setTimeout(showCampNotices, 300)); // 서버 DB가 있으면 내 기록을 받아 와요
 // 다른 앱에 갔다가 돌아오면 다시 맞춰요 (다른 기기에서 바꾼 것·못 보낸 이동)
