@@ -53,11 +53,17 @@ module.exports = function makeData(db) {
       FROM trips WHERE user_id = ${uid} GROUP BY 1 ORDER BY 1`;
     const months = await sql()`SELECT to_char(created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') AS m, SUM(amount) AS p
       FROM point_transactions WHERE user_id = ${uid} GROUP BY 1`;
+    // 최근 출발지·도착지 (실제로 이동한 기록에서, 장소별 가장 최근 15곳)
+    const places = await sql()`SELECT name, lat, lng, MAX(at) AS at FROM (
+        SELECT origin_name AS name, origin_lat AS lat, origin_lng AS lng, arrived_at AS at FROM trips WHERE user_id = ${uid}
+        UNION ALL SELECT dest_name, dest_lat, dest_lng, arrived_at FROM trips WHERE user_id = ${uid}
+      ) x WHERE name NOT IN ('내 위치', '현재 위치', '위치') GROUP BY name, lat, lng ORDER BY MAX(at) DESC LIMIT 15`;
     const log = { g: num(st && st.saved_g), trips: num(st && st.trip_count), days: daily.map((r) => r.d), daily: {} };
     daily.forEach((r) => { log.daily[r.d] = { g: num(r.g), n: num(r.n) }; });
     const monthPoints = {};
     months.forEach((r) => { monthPoints[r.m] = num(r.p); });
-    return { log, points: num(st && st.points), monthPoints };
+    const recentPlaces = places.map((r) => ({ name: r.name, lat: Number(r.lat), lng: Number(r.lng), at: ms(r.at) }));
+    return { log, points: num(st && st.points), monthPoints, recentPlaces };
   }
 
   // ── 캠페인 목록 (게시 중인 것 + 내가 만든 것, 관리자는 전부) ──

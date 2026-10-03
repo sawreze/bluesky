@@ -1483,3 +1483,12 @@ textarea { font: inherit; color: inherit; }
 .wk-done b em { font-style: normal; color: var(--sky-strong, #1f5eff); }
 .wk-done small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .wk-sky.anim .wk-bar, .wk-sky.anim .wk-val { animation: none; } }
+
+/* ── 최근 출발지·도착지 (검색 화면, 검색어가 비었을 때) ── */
+.recent-h { margin: 6px 4px 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+.results.recent button { grid-template-columns: 38px 1fr; align-items: center; gap: 10px; min-height: 58px; }
+.recent-ic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(120, 134, 156, .12); color: #7b8798; }
+.recent-ic svg { width: 18px; height: 18px; }
+.recent-txt { display: grid; gap: 2px; min-width: 0; }
+.recent-txt strong { font-size: 15px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recent-txt span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

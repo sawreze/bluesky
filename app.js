@@ -2649,7 +2649,7 @@ function needRelogin() {
   go('login');
 }
 function clearServerCache() {
-  [LOG_KEY, POINT_KEY, POINT_MONTH_KEY, CAMP_KEY, AVATAR_KEY].forEach((k) => lsSet(k, null));
+  [LOG_KEY, POINT_KEY, POINT_MONTH_KEY, CAMP_KEY, AVATAR_KEY, RECENT_KEY].forEach((k) => lsSet(k, null));
   state.rank = null; state.campRanks = {};
 }
 // 서버에서 받은 내 기록을 저장 공간에 덮어쓰기
@@ -2663,6 +2663,7 @@ function applySync(d) {
   state.rank = d.rank || null;
   state.campRanks = {};
   state.demoUsers = d.demoUsers || 0; // 관리자에게만: 예시 회원 수
+  if (Array.isArray(d.recentPlaces)) lsSet(RECENT_KEY, mergeRecent(d.recentPlaces, loadRecent())); // 다른 기기에서 간 곳도
   if (state.user && d.user) {
     const { avatar, ...u } = d.user;
     state.user = { ...state.user, ...u };
@@ -2848,10 +2849,43 @@ function searchHTML() {
       <div id="search-out">${searchOutHTML()}</div>
     </main>`;
 }
+// ── 최근 출발지·도착지 (최대 15개, 새로 고른 게 맨 위) ──
+//  출발지·도착지로 고르면 이 휴대폰에 기록하고, 서버 DB가 있으면 실제로 이동한 기록과 합쳐요.
+const RECENT_KEY = 'pureun-recent-places';
+const RECENT_MAX = 15;
+const placeKey = (p) => `${p.name}|${Number(p.lat).toFixed(4)}|${Number(p.lng).toFixed(4)}`;
+const isMyPos = (p) => !p || /^(내 위치|현재 위치|위치)$/.test(String(p.name || '').trim());
+function loadRecent() { try { const l = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
+function mergeRecent(...lists) {
+  const map = new Map();
+  lists.flat().forEach((p) => {
+    if (!p || isMyPos(p) || !Number.isFinite(Number(p.lat)) || !Number.isFinite(Number(p.lng))) return;
+    const k = placeKey(p); const old = map.get(k);
+    if (!old || (p.at || 0) > (old.at || 0)) map.set(k, { name: p.name, address: p.address || (old && old.address) || '', lat: Number(p.lat), lng: Number(p.lng), at: p.at || 0 });
+  });
+  return [...map.values()].sort((a, b) => b.at - a.at).slice(0, RECENT_MAX);
+}
+function rememberPlace(p) {
+  if (isMyPos(p)) return;
+  lsSet(RECENT_KEY, mergeRecent([{ ...p, at: Date.now() }], loadRecent()));
+}
+const ICON_CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+function recentHTML() {
+  const list = loadRecent();
+  if (!list.length) return '';
+  return `<p class="recent-h">최근 출발지·도착지</p>
+    <ul class="results recent">${list.map((p, i) => `
+      <li><button type="button" data-act="pick-recent" data-i="${i}">
+        <span class="recent-ic">${ICON_CLOCK}</span>
+        <span class="recent-txt"><strong>${esc(p.name)}</strong>${p.address ? `<span>${esc(p.address)}</span>` : ''}</span>
+      </button></li>`).join('')}</ul>`;
+}
+
 // 검색 결과 목록 (입력한 글자를 굵게 표시)
 function searchOutHTML() {
   const s = state.search;
   const q = s.query.trim();
+  if (!q && !s.busy && !s.results.length) return `${s.message ? `<p class="hint">${esc(s.message)}</p>` : ''}${recentHTML()}`;
   const mark = (t) => {
     const text = esc(t);
     if (!q) return text;
@@ -3491,6 +3525,7 @@ function pickPlace(place) {
   }
   if (state.search.which === 'from') state.from = place;
   else state.to = place;
+  rememberPlace(place);
   findRoutes();
   // 결과 화면에서 바꾸러 왔으면 결과로, 아니면 홈으로 (둘 다 정해지면 바로 결과로)
   go(state.searchReturn === 'result' || (state.from && state.to) ? 'result' : 'home');
@@ -3704,6 +3739,7 @@ const actions = {
   'open-search-from': () => openSearch('from'),
   'open-search-to': () => openSearch('to'),
   pick: (el) => pickPlace(state.search.results[Number(el.dataset.i)]),
+  'pick-recent': (el) => { const p = loadRecent()[Number(el.dataset.i)]; if (p) pickPlace({ name: p.name, address: p.address, lat: p.lat, lng: p.lng }); },
   mine: () => useMyLocation(),
   swap: () => { [state.from, state.to] = [state.to, state.from]; findRoutes(); render(); },
   'to-result': () => go('result'),

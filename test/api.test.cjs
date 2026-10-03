@@ -139,6 +139,7 @@ const trip = (km, savedG, extra = {}) => ({
   const today = Object.keys(s.log.daily)[0];
   ok('달력용 날짜별 기록', s.log.days.length === 1 && s.log.daily[today].n === 2, s.log);
   ok('이번 달 포인트', Object.values(s.monthPoints)[0] === 35, s.monthPoints);
+  ok('최근 출발지·도착지: 이동한 장소 2곳, 중복 없이', s.recentPlaces.length === 2 && s.recentPlaces.map((x) => x.name).sort().join() === '안양역,평촌역' && s.recentPlaces[0].at > 0, s.recentPlaces);
   c = s.camps.find((x) => x.id === campId);
   ok('캠페인: 자동 참여, 내 기여 600g, 참여 2명', c.joined && c.myG === 600 && c.participants === 2 && c.progressG === 600, c);
 
