@@ -1477,7 +1477,7 @@ const campReward = (c) => c.goalKg * REWARD_P_PER_KG;
 //  ※ DB 전이라 관리자 확인도 이 휴대폰 안에서만 돼요 (진짜 서비스는 서버에서 권한을 확인해야 해요).
 const ADMIN_EMAILS = (CFG.ADMIN_EMAILS || ['admin@bluesky.kr']).map((e) => String(e).trim().toLowerCase());
 // 관리자: 회원 DB에서 role = 'admin' 인 계정 (또는 config.js 의 관리자 이메일)
-const isAdmin = () => !!(state.user && (state.user.role === 'admin' || (state.user.email && ADMIN_EMAILS.includes(String(state.user.email).toLowerCase()))));
+const isAdmin = () => !!(state.user && (String(state.user.role || '').trim() === 'admin' || (state.user.email && ADMIN_EMAILS.includes(String(state.user.email).toLowerCase()))));
 function userKey(u) {
   if (!u) return '';
   if (u.email) return `e:${String(u.email).toLowerCase()}`;
