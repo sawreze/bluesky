@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.03-mapfix';
+const APP_VERSION = '2026.10.03-icons';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -50,12 +50,18 @@ const EQUIV_SOURCE = '소나무 흡수량: 국립산림과학원(2019) 중부지
 // 평균 속도(km/h) — API가 없는 구간을 추정할 때 사용
 const SPEED = { walk: 4.5, bike: 15, bus: 18, subway: 33, car: 25 };
 
+// 이동수단 아이콘 (선 아이콘 · 글자 색을 따라가요)
+const MI = {
+  subway: '<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 2.9c3.2-.7 6.4-.7 9.6 0A2.8 2.8 0 0 1 19 5.6v9.4a2.8 2.8 0 0 1-2.8 2.8H7.8A2.8 2.8 0 0 1 5 15V5.6a2.8 2.8 0 0 1 2.2-2.7z"/><path d="M10.8 4.9h2.4"/><rect x="7.6" y="7" width="8.8" height="4.2" rx=".6"/><circle cx="9.2" cy="14.4" r="1"/><circle cx="14.8" cy="14.4" r="1"/><path d="M8.7 17.8 6.9 21.2M15.3 17.8l1.8 3.4M8.1 19.6h7.8"/></svg>',
+  bus: '<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.6" y="2.6" width="12.8" height="15" rx="2.3"/><path d="M10.4 4.7h3.2M5.6 6.8h12.8M5.6 12.4h12.8"/><path d="M5.6 7.8H4.4v3.2h1.2M18.4 7.8h1.2v3.2h-1.2"/><circle cx="8.7" cy="15" r=".85"/><circle cx="15.3" cy="15" r=".85"/><path d="M11.2 15h1.6"/><path d="M7.7 17.6v1.6a.8.8 0 0 0 .8.8h.9a.8.8 0 0 0 .8-.8v-1.6M13.8 17.6v1.6a.8.8 0 0 0 .8.8h.9a.8.8 0 0 0 .8-.8v-1.6"/></svg>',
+  car: '<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 17.2v-5.8c0-.4.1-.8.3-1.1l1.8-4.7a2 2 0 0 1 1.9-1.3h7a2 2 0 0 1 1.9 1.3l1.8 4.7c.2.3.3.7.3 1.1v5.8z"/><path d="M7.3 9.4l1.1-3a.8.8 0 0 1 .8-.6h5.6a.8.8 0 0 1 .8.6l1.1 3z"/><path d="M11.7 8.2l1.5-1.2"/><path d="M4.9 9.4H3.7a.8.8 0 0 1 0-1.6h1.5M19.1 9.4h1.2a.8.8 0 0 0 0-1.6h-1.5"/><circle cx="7.4" cy="13.3" r=".95"/><circle cx="16.6" cy="13.3" r=".95"/><path d="M10.3 13.3h3.4"/><path d="M6.1 17.2v1.5h2.2v-1.5M15.7 17.2v1.5h2.2v-1.5M2.8 20.6h18.4"/></svg>',
+};
 const MODES = {
   walk: { label: '도보', color: '#8a97a5', icon: '🚶' },
   bike: { label: '자전거', color: '#127a52', icon: '🚲' },
-  bus: { label: '버스', color: '#2f7fd0', icon: '🚌' },
-  subway: { label: '지하철', color: '#5b4bb7', icon: '🚇' },
-  car: { label: '자차', color: '#a24b3c', icon: '🚗' },
+  bus: { label: '버스', color: '#2f7fd0', icon: MI.bus },
+  subway: { label: '지하철', color: '#5b4bb7', icon: MI.subway },
+  car: { label: '자동차', color: '#a24b3c', icon: MI.car },
 };
 
 // 지하철 노선 색 (이름에 포함된 글자로 찾아요. 위에서부터 먼저 맞는 것)
@@ -654,7 +660,7 @@ function transitFromOdsay(p, idx, from, to) {
   };
 }
 
-// ODsay 경로 하나 → "자차로 첫 지하철역까지 + 나머지 대중교통" (조금 절약용)
+// ODsay 경로 하나 → "자동차로 첫 지하철역까지 + 나머지 대중교통" (조금 절약용)
 function parkRideFromOdsay(p, idx, from, to) {
   const subs = p.subPath || [];
   const k = subs.findIndex((sp) => sp.trafficType === 1);
@@ -667,11 +673,11 @@ function parkRideFromOdsay(p, idx, from, to) {
   const stName = `${subs[k].startName}역`;
   return {
     id: `parkride-${idx}`,
-    name: ['자차', ...t.legs.map((l) => l.name)].join(' → '),
+    name: ['자동차', ...t.legs.map((l) => l.name)].join(' → '),
     kind: 'car',
     real: 'partial',
-    segments: [{ mode: 'car', km: carKm, min: carMin, name: '자차', color: MODES.car.color }, ...t.segments],
-    legs: [{ mode: 'car', name: '자차', color: MODES.car.color, start: from.name, end: stName }, ...t.legs],
+    segments: [{ mode: 'car', km: carKm, min: carMin, name: '자동차', color: MODES.car.color }, ...t.segments],
+    legs: [{ mode: 'car', name: '자동차', color: MODES.car.color, start: from.name, end: stName }, ...t.legs],
     steps: [
       { mode: 'car', text: `${stName} 근처 주차장까지 차로 가요`, sub: `약 ${carKm.toFixed(1)}km · ${carMin}분 (주차 포함, 추정)`, target: station, radius: 80 },
       ...t.steps,
@@ -728,8 +734,8 @@ function carRoutes(car, km, from, to) {
       };
   const make = (id, name, people, extraMin, firstStep) => ({
     id, name, kind: 'car', real: base.real,
-    segments: [{ mode: 'car', km: base.km, min: base.minutes + extraMin, name: people > 1 ? `${people}명 함께` : '자차', color: MODES.car.color }],
-    legs: [{ mode: 'car', name: people > 1 ? `자차 ${people}명` : '자차', color: MODES.car.color, start: from ? from.name : '출발지', end: to ? to.name : '도착지' }],
+    segments: [{ mode: 'car', km: base.km, min: base.minutes + extraMin, name: people > 1 ? `${people}명 함께` : '자동차', color: MODES.car.color }],
+    legs: [{ mode: 'car', name: people > 1 ? `자동차 ${people}명` : '자동차', color: MODES.car.color, start: from ? from.name : '출발지', end: to ? to.name : '도착지' }],
     steps: firstStep ? [firstStep, ...base.steps] : base.steps,
     lines: base.lines, marks: [], km: base.km,
     minutes: base.minutes + extraMin, walkM: 0, transfers: 0, people, kakaoMode: 'car',
@@ -770,7 +776,7 @@ function activeRoutes(km, from, to) {
   ];
 }
 
-// 이동수단별 시간 합계 (대중교통 / 도보 / 자차 / 자전거)
+// 이동수단별 시간 합계 (대중교통 / 도보 / 자동차 / 자전거)
 function timeByMode(route) {
   const t = { transit: 0, walk: 0, car: 0, bike: 0 };
   route.segments.forEach((s) => {
@@ -798,7 +804,7 @@ function rankRoutes(raw, prefs) {
     let blocked = null;
     if (r.kind === 'bike' && !prefs.canBike) blocked = '자전거 끔';
     else if (r.kind === 'bike' && r.km > 15) blocked = '15km 초과';
-    else if (r.kind === 'car' && !prefs.hasCar) blocked = '자차 끔';
+    else if (r.kind === 'car' && !prefs.hasCar) blocked = '자동차 끔';
     else if (r.walkM > prefs.maxWalkM) blocked = `도보 ${formatM(prefs.maxWalkM)} 초과`;
     return { ...r, emission, saving, savingPct, time: timeByMode(r), tier: TIER_BY_SAVING.find((t) => savingPct >= t.min) || null, blocked };
   });
@@ -1291,7 +1297,7 @@ const REWARD_P_PER_KG = 10;
 const CAMP_KEY = 'pureun-campaigns';
 const POINT_KEY = 'pureun-points';
 const CAMP_TAGS = [
-  { id: 'transit', label: '대중교통', tone: 'sky', icon: '🚌', bg: 'linear-gradient(160deg,#7fb6e8 0%,#a8d4c0 50%,#4f8a5b 100%)' },
+  { id: 'transit', label: '대중교통', tone: 'sky', icon: MI.bus, bg: 'linear-gradient(160deg,#7fb6e8 0%,#a8d4c0 50%,#4f8a5b 100%)' },
   { id: 'walk', label: '걷기', tone: 'sun', icon: '🚶', bg: 'linear-gradient(160deg,#9cc3e6 0%,#c9d9c4 50%,#6f8f72 100%)' },
   { id: 'bike', label: '자전거', tone: 'mint', icon: '🚲', bg: 'linear-gradient(160deg,#a9c6e0 0%,#b9d3b0 50%,#4d7a57 100%)' },
   { id: 'carfree', label: '차 없는 날', tone: 'violet', icon: '🏙️', bg: 'linear-gradient(160deg,#b5c9dc 0%,#d6d2c4 50%,#6d7f73 100%)' },
@@ -1308,8 +1314,8 @@ function seedCampaigns() {
     { id: 'seed-2', tag: 'walk', title: '한 정거장 먼저 내려 걸어요', sub: '하루 10분 걷기로 탄소도 줄이고 건강도 챙기기',
       body: '집이나 회사에 가는 길, 한 정거장만 먼저 내려서 걸어보세요. 약 600m, 걸어서 8~10분이에요.\n\n버스가 덜 달린 거리만큼 탄소가 줄고, 하루 1,000보가 저절로 채워져요.\n\n목표는 참여자 모두 합쳐 200kg! 오늘 퇴근길부터 시작해요.',
       goalKg: 200, progressG: 151200, participants: 96, likes: 241, creator: '산책하는해달', createdAt: now - 14 * day },
-    { id: 'seed-3', tag: 'carfree', title: '금요일엔 차 두고 출근하기', sub: '매주 금요일은 자차 대신 대중교통 출근',
-      body: '일주일에 하루만 자동차를 집에 두고 출근해 보면 어떨까요?\n\n출퇴근 왕복 30km를 자차 대신 지하철로 다니면 하루에 CO₂ 약 6kg을 줄일 수 있어요. 한 사람이 1년 동안 금요일마다 실천하면 나무 30그루를 심은 것과 같은 효과예요.\n\n목표 1,000kg 달성했어요. 계속 참여할 수 있어요.',
+    { id: 'seed-3', tag: 'carfree', title: '금요일엔 차 두고 출근하기', sub: '매주 금요일은 자동차 대신 대중교통 출근',
+      body: '일주일에 하루만 자동차를 집에 두고 출근해 보면 어떨까요?\n\n출퇴근 왕복 30km를 자동차 대신 지하철로 다니면 하루에 CO₂ 약 6kg을 줄일 수 있어요. 한 사람이 1년 동안 금요일마다 실천하면 나무 30그루를 심은 것과 같은 효과예요.\n\n목표 1,000kg 달성했어요. 계속 참여할 수 있어요.',
       goalKg: 1000, progressG: 1042000, participants: 214, likes: 198, creator: '금요일의지하철', createdAt: now - 30 * day },
     { id: 'seed-4', tag: 'bike', title: '가까운 거리는 자전거로', sub: '5km 이내는 자전거로 이동하기',
       body: '5km 이내 가까운 거리는 자전거가 가장 빠르고 깨끗한 이동 수단이에요. 자전거는 탄소가 나오지 않아요.\n\n공공자전거를 이용해도 좋아요. 자전거도로를 따라 달리며 우리 동네의 몰랐던 길을 발견해 보세요.\n\n목표는 300kg이에요.',
@@ -1511,7 +1517,7 @@ function kgTiles(g) {
       ? { icon: '🌳', tone: 'mint', big: n(days), unit: '일', text: '나무 한 그루가 흡수하는 기간' }
       : { icon: '🌳', tone: 'mint', big: n(g / TREE_YEAR_G), unit: '그루', text: '나무가 1년 동안 흡수하는 양' },
     { icon: '📱', tone: 'violet', big: n(g / EQUIV.phoneG), unit: '번', text: '휴대폰 완충할 때 나오는 양' },
-    { icon: '🚗', tone: 'sun', big: n(g / FACTORS.car), unit: 'km', text: '혼자 자동차로 달릴 때 나오는 양' },
+    { icon: MI.car, tone: 'sun', big: n(g / FACTORS.car), unit: 'km', text: '혼자 자동차로 달릴 때 나오는 양' },
   ];
 }
 const MIN_MINE_G = 50;
@@ -2404,8 +2410,8 @@ function timeBarHTML(route) {
 function modeTimesHTML(route) {
   const t = route.time;
   const items = [
-    ['transit', '🚇', '대중교통', t.transit], ['walk', '🚶', '도보', t.walk],
-    ['car', '🚗', '자차', t.car], ['bike', '🚲', '자전거', t.bike],
+    ['transit', MI.subway, '대중교통', t.transit], ['walk', '🚶', '도보', t.walk],
+    ['car', MI.car, '자동차', t.car], ['bike', '🚲', '자전거', t.bike],
   ].filter((x) => x[3] > 0 || x[0] !== 'bike');
   return `<div class="mtimes">${items.map(([k, ic, label, v]) =>
     `<span class="mt mt-${k} ${v > 0 ? '' : 'zero'}"><i aria-hidden="true">${ic}</i>${label} <b class="num">${formatMin(v)}</b></span>`).join('')}</div>`;
@@ -2440,7 +2446,7 @@ function routeCardHTML(r, selected, baseEm) {
   return `<article class="rcard ${selected ? 'sel' : ''}" data-act="select" data-id="${r.id}" aria-selected="${selected}">
     <div class="rc-top">
       ${(r.badges || []).map((b) => `<span class="rc-badge">${b}</span>`).join('')}
-      ${r.real === true ? '' : `<span class="rc-est">${r.real === 'partial' ? '자차 구간 추정' : '추정'}</span>`}
+      ${r.real === true ? '' : `<span class="rc-est">${r.real === 'partial' ? '자동차 구간 추정' : '추정'}</span>`}
     </div>
     <div class="rc-main">
       <span class="rc-min num">${formatMin(r.minutes)}</span>
@@ -2456,25 +2462,54 @@ function routeCardHTML(r, selected, baseEm) {
     ${open ? `<ol class="detail">${r.steps.map((s) => `<li style="--c:${s.color || MODES[s.mode].color}"><strong>${esc(s.text)}</strong>${s.sub ? `<span>${esc(s.sub)}</span>` : ''}</li>`).join('')}</ol>` : ''}
   </article>`;
 }
+// 자동차로 갈 때와 비교: "혼자 자동차로 가면 OOkg" 을 기준으로, 각 방법이 탄소를 몇 kg 아끼는지 + 나무 비유
+//  - 이름이 같은 경로(버스, 버스 → 버스 …)는 가장 많이 아끼는 것 하나만 보여줘요
+//  - 많이 아끼는 순서, 막대가 길수록 많이 아껴요
+// 나무 비유: 1그루 1년치(9.8kg)보다 적으면 "나무 한 그루가 N일 동안 흡수하는 양"으로 (차이가 잘 보이게)
+function treeText(g) {
+  if (g >= TREE_YEAR_G) return impact(g).short;
+  const d = Math.max(1, Math.round(g / EQUIV.pineDayG));
+  return `나무 한 그루가 ${d.toLocaleString()}일 동안 흡수하는 양`;
+}
+function cmpKg(g) {
+  const kg = g / 1000;
+  return kg >= 100 ? `${Math.round(kg)}kg` : kg >= 1 ? `${kg.toFixed(1)}kg` : `${Math.round(g)}g`;
+}
 function compareHTML(ranked, chosenId) {
-  const rows = [ranked.baseline, ...ranked.all.slice().sort((a, b) => b.emission - a.emission)];
-  const max = Math.max(...rows.map((r) => r.emission), 1);
-  return `<details class="compare">
-    <summary class="label">자동차로 갈 때와 비교 <small>(${rows.length}가지 방법)</small></summary>
+  const base = ranked.baseline.emission;
+  const best = new Map();
+  ranked.all.forEach((r) => {
+    const cur = best.get(r.name);
+    const score = (x) => (x.id === chosenId ? 2e9 : 0) + (x.blocked ? 0 : 1e9) + x.saving; // 선택한 것 > 막히지 않은 것 > 많이 아끼는 것
+    const better = !cur || score(r) > score(cur);
+    if (better) best.set(r.name, r);
+  });
+  const rows = [...best.values()].sort((a, b) => (!!a.blocked - !!b.blocked) || (b.saving - a.saving));
+  return `<details class="compare cmp2">
+    <summary class="label">자동차 대신 가면 얼마나 아낄까요? <small>(${rows.length}가지)</small></summary>
+    <div class="cmp-base">
+      <span class="cmp-base-ic" aria-hidden="true">${MI.car}</span>
+      <div><b>혼자 자동차로 가면 CO₂ ${cmpKg(base)}</b><small>${esc(base >= TREE_YEAR_G ? `나무 ${impact(base).short.match(/나무 (\S+)그루/)[1]}그루가 1년 동안 흡수해야 하는 양이에요` : `나무 한 그루가 ${Math.max(1, Math.round(base / EQUIV.pineDayG))}일 동안 흡수해야 하는 양이에요`)}</small></div>
+    </div>
     <ul>${rows.map((r) => {
-      const tierId = r.id === 'car' || !r.tier ? 'base' : r.tier.id;
-      const icon = r.id === 'car' ? '🚗' : r.tier ? r.tier.sky : '';
-      return `<li class="c-row ${r.id === chosenId ? 'me' : ''} ${r.blocked ? 'off' : ''}">
-        <span class="c-name">${icon} ${esc(r.name)}${r.blocked ? `<small>${esc(r.blocked)}</small>` : ''}</span>
-        <span class="num c-val">${r.id === 'car' ? formatG(r.emission) : vsCarText(r.emission, ranked.baseline.emission)}</span>
-        <span class="c-track"><span class="c-bar bar-${tierId}" style="width:${Math.max(1, (r.emission / max) * 100)}%"></span></span>
+      const pct = Math.max(0, Math.min(100, r.savingPct));
+      const icon = r.tier ? r.tier.sky : MI.car;
+      const saved = Math.max(0, r.saving);
+      const tiny = saved < 50;
+      return `<li class="cmp-row ${r.id === chosenId ? 'me' : ''} ${r.blocked ? 'off' : ''}">
+        <span class="cmp-name">${icon} ${esc(r.name)}${r.id === chosenId ? '<em>선택</em>' : ''}${r.blocked ? `<small>${esc(r.blocked)}</small>` : ''}</span>
+        <span class="cmp-save num">${tiny ? '거의 같아요' : `−${cmpKg(saved)}`}</span>
+        <span class="cmp-track"><span class="cmp-bar" style="width:${pct.toFixed(1)}%"></span></span>
+        <span class="cmp-sub">${tiny ? '자동차와 비슷하게 나와요' : `🌳 ${esc(treeText(saved))}`}</span>
+        <span class="cmp-pct num">${tiny ? '' : `${Math.round(pct)}% 줄여요`}</span>
       </li>`;
     }).join('')}</ul>
+    <p class="cmp-note">막대가 길수록 탄소를 많이 아껴요 · 나무 1그루는 1년에 CO₂ 약 9.8kg을 흡수해요</p>
   </details>`;
 }
 // "CO₂ 1kg은 얼마나?" — 단위 자체를 처음 보는 사람을 위한 설명
 function kgGuideHTML() {
-  const items = [...senseList(1000), { icon: '🚗', text: `혼자 자동차로 약 ${(1000 / FACTORS.car).toFixed(1)}km 달릴 때 나오는 양` }];
+  const items = [...senseList(1000), { icon: MI.car, text: `혼자 자동차로 약 ${(1000 / FACTORS.car).toFixed(1)}km 달릴 때 나오는 양` }];
   return `<details class="kgguide">
     <summary>ⓘ CO₂ 1kg은 얼마나 될까요?</summary>
     <ul>${items.map((s) => `<li><span aria-hidden="true">${s.icon}</span>${esc(s.text)}</li>`).join('')}</ul>

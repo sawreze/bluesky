@@ -1235,3 +1235,36 @@ textarea { font: inherit; color: inherit; }
   background: linear-gradient(180deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, 0) 55%); }
 .m-tabs.dragging .m-tab-ind { scale: 1.1 1.06; opacity: .9; }
 @media (prefers-reduced-motion: reduce) { .m-tab-ind, .m-tabs { transition: none; } }
+
+/* ── 자동차와 비교 (아낀 양 + 나무 비유) ── */
+.cmp2 ul { gap: 14px; }
+.cmp-base { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #F4F1EE; margin-bottom: 4px; }
+.cmp-base-ic { flex: none; width: 40px; height: 40px; border-radius: 12px; background: #fff; display: grid; place-items: center; font-size: 22px; }
+.cmp-base b { display: block; font-size: 15px; font-weight: 800; color: var(--ink); }
+.cmp-base small { display: block; margin-top: 2px; font-size: 12.5px; color: #8A7B6E; }
+.cmp-row { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; align-items: center; font-size: 14px; }
+.cmp-row.off { opacity: .45; }
+.cmp-name { font-weight: 600; color: var(--ink); min-width: 0; }
+.cmp-name em { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--sky-soft, #E8F0FF); color: var(--sky-strong, #1F5EFF); font-style: normal; font-size: 11px; font-weight: 800; vertical-align: 1px; }
+.cmp-name small { margin-left: 6px; font-size: 12px; color: var(--muted); font-weight: 500; }
+.cmp-save { font-size: 17px; font-weight: 800; color: #127a52; letter-spacing: -0.01em; }
+.cmp-row.me .cmp-save { color: var(--sky-strong, #1F5EFF); }
+.cmp-track { grid-column: 1 / -1; height: 10px; border-radius: 999px; background: var(--bg, #EEF3F8); overflow: hidden; }
+.cmp-bar { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #8FD3B0, #2E9E6B); }
+.cmp-row.me .cmp-bar { background: linear-gradient(90deg, #8DB8FF, #1F5EFF); }
+.cmp-sub { font-size: 12.5px; color: #2E7D57; font-weight: 600; }
+.cmp-pct { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.cmp-note { margin: 4px 0 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
+
+/* ── 이동수단 선 아이콘 (버스·지하철·자동차) ── */
+.mi { display: inline-block; flex: none; width: 1.15em; height: 1.15em; vertical-align: -0.22em; }
+.tseg b .mi { width: 13px; height: 13px; vertical-align: -2px; }
+.turn-mode { color: #fff; }
+.turn-mode .mi { width: .95em; height: .95em; vertical-align: middle; }
+.m-camp-art .mi, .cd-art .mi, .c-cover > span .mi, .acc-camp-cover .mi { color: #fff; width: 1em; height: 1em; vertical-align: top; }
+.m-camp-more .m-camp-art .mi { color: inherit; }
+.kg-ic .mi { color: #6B5B4E; }
+.cmp-base-ic .mi { color: #6B5B4E; width: 24px; height: 24px; }
+.mt i .mi { vertical-align: -0.25em; }
+.legs li { grid-template-columns: minmax(92px, max-content) 1fr; }
+.leg-chip { white-space: nowrap; max-width: none; display: inline-flex; align-items: center; gap: 3px; }
