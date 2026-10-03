@@ -160,12 +160,17 @@ LEFT JOIN LATERAL (
 ) r ON true;
 
 -- 캠페인 집계: 누적 아낀 탄소, 달성률, 참여자 수, 좋아요 수
+-- reached_at: 누적이 목표를 처음 넘은 이동의 도착 시각 (저장하지 않고 이동 기록에서 계산)
+--   목표 달성 후 7일이 지나면 캠페인이 목록에서 내려가요 (앱 서버가 이 값으로 판단)
 CREATE OR REPLACE VIEW v_campaign_stats AS
 SELECT c.id AS campaign_id, c.title, c.goal_kg, st.status,
        COALESCE((SELECT SUM(saved_g) FROM trips WHERE campaign_id = c.id), 0) AS progress_g,
        ROUND(COALESCE((SELECT SUM(saved_g) FROM trips WHERE campaign_id = c.id), 0) / (c.goal_kg * 10), 1) AS progress_pct,
        (SELECT COUNT(*) FROM campaign_participants WHERE campaign_id = c.id) AS participants,
-       (SELECT COUNT(*) FROM campaign_likes WHERE campaign_id = c.id) AS likes
+       (SELECT COUNT(*) FROM campaign_likes WHERE campaign_id = c.id) AS likes,
+       (SELECT MIN(t.arrived_at) FROM (
+          SELECT arrived_at, SUM(saved_g) OVER (ORDER BY arrived_at, id) AS cum FROM trips WHERE campaign_id = c.id
+        ) t WHERE t.cum >= c.goal_kg * 1000) AS reached_at
 FROM campaigns c
 JOIN v_campaign_status st ON st.campaign_id = c.id;
 

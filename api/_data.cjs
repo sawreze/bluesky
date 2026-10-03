@@ -19,6 +19,7 @@ const PT_PER_KG = 10;          // 아낀 탄소 1kg당 포인트 (app.js 와 같
 const PT_PER_KM = 1;           // 친환경 이동 1km당 포인트
 const POPULAR_MIN_KG = 100;    // 인기 캠페인이 되려면 목표가 이 이상
 const REWARD_P_PER_KG = 10;    // 인기 캠페인 보상: 목표 1kg당
+const END_DAYS = 7;            // 목표 달성 후 이 날짜가 지나면 캠페인이 목록에서 내려가요
 const CAR_G_PER_KM = 210;
 const TAGS = ['transit', 'walk', 'bike', 'carfree', 'together'];
 const CAMP_MODES = ['bus', 'subway', 'bike', 'walk'];
@@ -73,7 +74,8 @@ module.exports = function makeData(db) {
     const rows = await sql()`
       SELECT c.id, c.creator_id, u.name AS creator, c.tag_code, c.mode_code, c.title, c.subtitle, c.body,
              (COALESCE(c.cover_url, '') <> '') AS has_cover, c.goal_kg, c.created_at, c.submitted_at,
-             st.status, st.progress_g, st.participants, st.likes, s.reject_reason, s.reviewed_at,
+             st.status, st.progress_g, st.participants, st.likes, s.reject_reason, s.reviewed_at, st.reached_at,
+             (st.reached_at IS NOT NULL AND st.reached_at < now() - make_interval(days => ${END_DAYS})) AS ended,
              EXISTS (SELECT 1 FROM campaign_likes l WHERE l.campaign_id = c.id AND l.user_id = ${uid}) AS liked,
              EXISTS (SELECT 1 FROM campaign_participants p WHERE p.campaign_id = c.id AND p.user_id = ${uid}) AS joined,
              COALESCE((SELECT SUM(saved_g) FROM trips t WHERE t.campaign_id = c.id AND t.user_id = ${uid}), 0) AS my_g,
@@ -87,7 +89,10 @@ module.exports = function makeData(db) {
       LEFT JOIN LATERAL (
         SELECT decision, seen_at, reviewed_at FROM campaign_reviews r WHERE r.campaign_id = c.id ORDER BY reviewed_at DESC, id DESC LIMIT 1
       ) lr ON true
-      WHERE (st.status = 'approved' OR c.creator_id = ${uid} OR ${admin}::boolean)
+      -- 게시 중(종료 전)인 것 + 내가 만든 것 + 내가 참여했던 것(종료돼도 보여요), 관리자는 전부
+      WHERE ((st.status = 'approved' AND (st.reached_at IS NULL OR st.reached_at >= now() - make_interval(days => ${END_DAYS})))
+          OR c.creator_id = ${uid} OR ${admin}::boolean
+          OR EXISTS (SELECT 1 FROM campaign_participants p WHERE p.campaign_id = c.id AND p.user_id = ${uid}))
         AND (${onlyId}::int IS NULL OR c.id = ${onlyId}::int)
       ORDER BY c.submitted_at DESC
       LIMIT 500`;
@@ -103,6 +108,7 @@ module.exports = function makeData(db) {
         createdAt: ms(r.created_at), submittedAt: ms(r.submitted_at), reviewedAt: ms(r.reviewed_at),
         liked: !!r.liked, joined: !!r.joined, myG: num(r.my_g), myTrips: num(r.my_trips), rewarded: !!r.rewarded,
         notice: unseen ? { type: r.last_decision, seen: false } : null,
+        reachedAt: ms(r.reached_at), ended: !!r.ended,
       };
     });
   }
@@ -185,8 +191,9 @@ module.exports = function makeData(db) {
     if (b.campaignId != null && b.campaignId !== '') {
       const cid = Number(b.campaignId);
       if (Number.isInteger(cid) && cid > 0) {
-        const [c] = await sql()`SELECT status FROM v_campaign_status WHERE campaign_id = ${cid}`;
-        if (c && c.status === 'approved') {
+        const [c] = await sql()`SELECT status, (reached_at IS NOT NULL AND reached_at < now() - make_interval(days => ${END_DAYS})) AS ended
+          FROM v_campaign_stats WHERE campaign_id = ${cid}`;
+        if (c && c.status === 'approved' && !c.ended) {
           await sql()`INSERT INTO campaign_participants (campaign_id, user_id) VALUES (${cid}, ${uid}) ON CONFLICT DO NOTHING`;
           campId = cid;
         }
@@ -275,8 +282,9 @@ module.exports = function makeData(db) {
   async function likeCamp(me, b) {
     const id = intId(b.id);
     if (b.on) {
-      const [c] = await sql()`SELECT status FROM v_campaign_status WHERE campaign_id = ${id}`;
-      if (!c || c.status !== 'approved') bad('게시 중인 캠페인만 좋아요를 누를 수 있어요.');
+      const [c] = await sql()`SELECT status, (reached_at IS NOT NULL AND reached_at < now() - make_interval(days => ${END_DAYS})) AS ended
+        FROM v_campaign_stats WHERE campaign_id = ${id}`;
+      if (!c || c.status !== 'approved' || c.ended) bad('게시 중인 캠페인만 좋아요를 누를 수 있어요.');
       await sql()`INSERT INTO campaign_likes (campaign_id, user_id) VALUES (${id}, ${me.id}) ON CONFLICT DO NOTHING`;
     } else {
       await sql()`DELETE FROM campaign_likes WHERE campaign_id = ${id} AND user_id = ${me.id}`;

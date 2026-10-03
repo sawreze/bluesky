@@ -1492,3 +1492,13 @@ textarea { font: inherit; color: inherit; }
 .recent-txt { display: grid; gap: 2px; min-width: 0; }
 .recent-txt strong { font-size: 15px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recent-txt span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── 완료 후 종료된 캠페인 ── */
+.c-badge.ended { background: rgba(71, 85, 105, .88); color: #fff; }
+.st.st-ended { background: #E5E7EB; color: #475569; }
+.cd-review.ended { background: #F1F5F9; border: 1px solid #E2E8F0; }
+.cd-review.ended b { color: #334155; }
+.cd-review.ending { background: #ECFDF3; border: 1px solid #BBF7D0; }
+.cd-review.ending b { color: #067647; }
+.cd-review.ended p, .cd-review.ending p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.5; color: #475569; }
+.cd-join[disabled] { background: #E5E7EB; color: #64748B; box-shadow: none; }

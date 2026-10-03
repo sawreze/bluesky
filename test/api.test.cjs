@@ -175,13 +175,31 @@ const trip = (km, savedG, extra = {}) => ({
   s = (await api('sync', admin)).body;
   ok('랭킹에 바뀐 이름과 사진', s.rank.users.some((u) => u.name === '푸른하늘이' && u.photo));
 
+  console.log('5-1) 목표 달성 후 7일 지나면 종료');
+  c = (await api('sync', sky)).body.camps.find((x) => x.id === campId);
+  ok('목표 달성 직후: 아직 게시 중 + 달성 시각 기록', c && !c.ended && c.reachedAt > 0, c);
+  r = await call(signup, { method: 'POST', body: { name: '새회원', email: 'new@test.kr', pw: 'password1' } });
+  const newbie = cookieFrom(r);
+  ok('처음 보는 회원에게도 보임 (7일 전)', (await api('sync', newbie)).body.camps.some((x) => x.id === campId));
+  await sql()`UPDATE trips SET arrived_at = arrived_at - interval '8 days' WHERE campaign_id = ${Number(campId)}`;
+  ok('8일 지남 → 처음 보는 회원 목록에서 내려감', !(await api('sync', newbie)).body.camps.some((x) => x.id === campId));
+  c = (await api('sync', sky)).body.camps.find((x) => x.id === campId);
+  ok('참여했던 사람에게는 "종료"로 남음', c && c.ended === true, c);
+  c = (await api('sync', jimin)).body.camps.find((x) => x.id === campId);
+  ok('만든 사람에게도 "종료"로 남음 + 보상은 그대로', c && c.ended && c.rewarded, c);
+  ok('관리자는 계속 봄', (await api('sync', admin)).body.camps.some((x) => x.id === campId && x.ended));
+  r = await post('trip', sky, trip(3, 500, { key: 'k-end', campaignId: campId }));
+  ok('종료된 캠페인으로 이동해도 캠페인에 안 더해짐 (이동은 저장)', r.statusCode === 200 && !r.body.campaign && r.body.points > 0, r.body);
+  r = await post('camp-like', newbie, { id: campId, on: true });
+  ok('종료된 캠페인 좋아요 불가', r.statusCode === 400, r.body);
+
   console.log('6) 삭제 · 로그아웃');
   r = await post('camp-del', sky, { id: campId });
   ok('남의 캠페인 삭제 불가 (403)', r.statusCode === 403);
   r = await post('camp-del', jimin, { id: campId });
   ok('내 캠페인 삭제', r.statusCode === 200);
   s = (await api('sync', sky)).body;
-  ok('삭제해도 하늘의 이동 기록은 남음 (캠페인 연결만 풀림)', s.log.trips === 4 && !s.camps.length, s.log);
+  ok('삭제해도 하늘의 이동 기록은 남음 (캠페인 연결만 풀림)', s.log.trips === 5 && !s.camps.length, s.log);
   r = await post('logout', sky, {});
   ok('로그아웃하면 쿠키 지움', /Max-Age=0/.test(r.headers['set-cookie']));
   r = await post('unknown', sky, {});

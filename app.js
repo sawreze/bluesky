@@ -1502,9 +1502,16 @@ function userKey(u) {
   return `n:${u.name || ''}`;
 }
 const isMine = (c) => (c.ownerId === '@me' || (c.ownerId ? c.ownerId === userKey(state.user) : !!c.mine));
-const isPublic = (c) => !c.status || c.status === 'approved';
+// 완료한 캠페인: 목표를 100% 달성하고 7일이 지나면 목록·TOP 5에서 내려가고 더 참여할 수 없어요
+//  (만든 사람·참여했던 사람은 내 캠페인 목록에서 "종료"로 계속 볼 수 있어요)
+const CAMP_END_DAYS = 7;
+const campEnded = (c) => !!(c && (c.ended || (c.reachedAt && Date.now() - c.reachedAt >= CAMP_END_DAYS * 86400000)));
+const endsInDays = (c) => (c && c.reachedAt && !campEnded(c) ? Math.max(1, Math.ceil((c.reachedAt + CAMP_END_DAYS * 86400000 - Date.now()) / 86400000)) : 0);
+const isApproved = (c) => !c.status || c.status === 'approved';
+const isPublic = (c) => isApproved(c) && !campEnded(c);
 const publicCampaigns = (list = campStore.load()) => list.filter(isPublic);
-const joinedCampaigns = (list = campStore.load()) => list.filter((c) => c.joined && isPublic(c)).sort((a, b) => (b.myG || 0) - (a.myG || 0) || (b.progressG - a.progressG));
+const joinedCampaigns = (list = campStore.load()) => list.filter((c) => c.joined && isApproved(c))
+  .sort((a, b) => (campEnded(a) - campEnded(b)) || (b.myG || 0) - (a.myG || 0) || (b.progressG - a.progressG));
 const pendingCampaigns = (list = campStore.load()) => list.filter((c) => c.status === 'pending').sort((a, b) => (a.submittedAt || a.createdAt) - (b.submittedAt || b.createdAt));
 const STATUS_LABEL = { pending: '검토 중', approved: '게시 중', rejected: '반려됨' };
 const REJECT_REASONS = ['탄소 절약·친환경 이동과 관련이 적어요', '내용이 짧거나 무엇을 하자는지 알기 어려워요', '목표량이 너무 크거나 작아요', '부적절한 사진이나 표현이 있어요', '광고·홍보 목적이에요'];
@@ -1534,6 +1541,7 @@ function addSavingToCampaign(id, g) {
   if (!c) return null;
   const beforeG = c.progressG;
   c.progressG += g;
+  if (!c.reachedAt && c.progressG >= c.goalKg * 1000) c.reachedAt = Date.now(); // 목표 달성 시각 (7일 뒤 내려가요)
   c.myG = (c.myG || 0) + g;
   c.myTrips = (c.myTrips || 0) + 1;
   if (!c.joined) { c.joined = true; c.participants += 1; }
@@ -1920,7 +1928,7 @@ function myJoinedCampsHTML() {
   return `${appBar('내가 참여한 캠페인', 'back')}
     <main class="content mjc">
       ${list.length ? `<section class="mjc-sum">
-        <p class="m-label">참여 중인 캠페인 <b>${list.length}개</b></p>
+        <p class="m-label">참여한 캠페인 <b>${list.length}개</b>${list.some(campEnded) ? ` <small>(종료 ${list.filter(campEnded).length}개 포함)</small>` : ''}</p>
         <p class="m-big"><b>${kgText(totalG)}</b> <small>내가 기여한 탄소</small></p>
       </section>` : ''}
       ${list.length ? `<div class="c-list">${list.map(campCardHTML).join('')}</div>`
@@ -1932,7 +1940,7 @@ function campCardHTML(c) {
   const pct = campPct(c);
   return `<article class="c-card" data-act="open-camp" data-id="${c.id}">
     <div class="c-cover" style="background:${campBg(c, 'linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,.25))')}">${c.cover ? '' : `<span>${tagOf(c.tag).icon}</span>`}
-      ${isPopular(c) ? '<em class="c-badge">🏆 인기</em>' : ''}</div>
+      ${campEnded(c) ? '<em class="c-badge ended">🏁 종료</em>' : isPopular(c) ? '<em class="c-badge">🏆 인기</em>' : ''}</div>
     <div class="c-body">
       <span class="c-tag tone-${tagOf(c.tag).tone}">${esc(tagOf(c.tag).label)}</span>
       <h3>${esc(c.title)}</h3>
@@ -1947,7 +1955,8 @@ function campCardHTML(c) {
 // ── 캠페인 상세 ──
 function campaignHTML() {
   const c = campStore.load().find((x) => x.id === state.campId);
-  if (!c || (!isPublic(c) && !isMine(c) && !isAdmin())) return `${appBar('캠페인', 'back')}<main class="content"><p class="empty">캠페인을 찾지 못했어요.</p></main>`;
+  const ended = !!c && isApproved(c) && campEnded(c);
+  if (!c || (!isPublic(c) && !isMine(c) && !isAdmin() && !(ended && c.joined))) return `${appBar('캠페인', 'back')}<main class="content"><p class="empty">캠페인을 찾지 못했어요.</p></main>`;
   const pub = isPublic(c);
   const pct = campPct(c);
   const pop = isPopular(c);
@@ -1964,14 +1973,17 @@ function campaignHTML() {
       </div>
     </div>
     <div class="cd-wrap">
-      ${pub ? '' : reviewBannerHTML(c)}
+      ${ended ? `<section class="cd-review ended" role="status"><b>🏁 종료된 캠페인이에요</b>
+        <p>목표를 달성하고 ${CAMP_END_DAYS}일이 지나 목록에서 내려갔어요. 함께해 주셔서 고마워요!</p>
+        <small>${new Date(c.reachedAt || Date.now()).toLocaleDateString('ko-KR')} 목표 달성</small></section>`
+      : pub ? (endsInDays(c) ? `<section class="cd-review ending" role="status"><b>🎉 목표 달성! ${endsInDays(c)}일 뒤 종료돼요</b><p>목표를 달성한 캠페인은 ${CAMP_END_DAYS}일 동안 더 참여할 수 있어요.</p></section>` : '') : reviewBannerHTML(c)}
       <section class="m-card cd-goal">
         <p class="m-label">참여자들이 함께 아낀 탄소</p>
         <p class="m-big"><b>${(c.progressG / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })}</b> / ${c.goalKg.toLocaleString()} kg CO<sub>2</sub></p>
         <div class="m-bar"><span style="width:${pct.toFixed(1)}%"></span></div>
         <p class="m-note">${pct >= 100 ? '🎉 목표 달성!' : `목표까지 ${kgShort(left)} 남았어요`} · ${c.participants.toLocaleString()}명 참여${c.progressG > 0 ? ` · ${impact(c.progressG).icon} ${esc(impact(c.progressG).short)}` : ''}</p>
       </section>
-      ${pub ? campRankHTML(c) : ''}
+      ${pub || ended ? campRankHTML(c) : ''}
       <section class="cd-reward ${pop ? 'won' : ''}">
         <b>${pop ? '🏆 인기 캠페인 선정 · 보상 지급 완료' : c.goalKg >= POPULAR_MIN_KG ? '🎯 목표를 달성하면 인기 캠페인!' : `ℹ️ 목표가 ${POPULAR_MIN_KG}kg 미만이라 인기 캠페인 대상이 아니에요`}</b>
         <p>${c.goalKg >= POPULAR_MIN_KG ? `만든 사람(${esc(c.creator)})에게 탄소 포인트 <strong>${campReward(c).toLocaleString()}P</strong>${pop ? '를 드렸어요' : '를 드려요'}` : '목표를 크게 잡을수록 인기 캠페인이 될 수 있어요'}</p>
@@ -1985,7 +1997,7 @@ function campaignHTML() {
     ${pub ? `<div class="cd-bar">
       <button type="button" class="cd-like ${c.liked ? 'on' : ''}" data-act="camp-like" data-id="${c.id}" aria-pressed="${c.liked}">${ICON.heart}<span>${c.likes.toLocaleString()}</span></button>
       <button type="button" class="btn primary cd-join" data-act="camp-join" data-id="${c.id}">${campMode(c).icon}<span>${c.myTrips ? '캠페인 또 참여하기' : '캠페인 참여하기'}</span></button>
-    </div>` : reviewBarHTML(c)}
+    </div>` : ended ? `<div class="cd-bar"><button type="button" class="btn cd-join" disabled><span>종료된 캠페인이에요</span></button></div>` : reviewBarHTML(c)}
   </main>`;
 }
 // 검토 중·반려된 캠페인 상세 위쪽 안내
@@ -2388,8 +2400,8 @@ function myCampaignsHTML() {
     ${mine.length ? `<ul>${mine.map((c) => `<li>
         <button type="button" class="acc-camp" data-act="open-camp" data-id="${c.id}">
           <span class="acc-camp-cover" style="background:${campBg(c, 'linear-gradient(0deg,rgba(0,0,0,0),rgba(0,0,0,0))')}">${c.cover ? '' : tagOf(c.tag).icon}</span>
-          <span class="acc-camp-txt"><span class="st st-${c.status || 'approved'}">${STATUS_LABEL[c.status || 'approved']}</span><b>${esc(c.title)}</b>
-            ${isPublic(c) ? `<small>${isPopular(c) ? '🏆 인기 캠페인 · ' : ''}${Math.floor(campPct(c))}% 달성 · ${c.participants.toLocaleString()}명 참여 · ♥ ${c.likes.toLocaleString()}</small>
+          <span class="acc-camp-txt">${isApproved(c) && campEnded(c) ? '<span class="st st-ended">종료</span>' : `<span class="st st-${c.status || 'approved'}">${STATUS_LABEL[c.status || 'approved']}</span>`}<b>${esc(c.title)}</b>
+            ${isApproved(c) ? `<small>${isPopular(c) ? '🏆 인기 캠페인 · ' : ''}${Math.floor(campPct(c))}% 달성 · ${c.participants.toLocaleString()}명 참여 · ♥ ${c.likes.toLocaleString()}</small>
             <span class="c-prog"><span style="width:${campPct(c).toFixed(1)}%"></span></span>`
             : c.status === 'rejected' ? `<small class="acc-why">사유 · ${esc(c.rejectReason || '-')}</small>`
             : '<small>관리자가 검토하고 있어요 · 승인되면 알려 드려요</small>'}</span>
@@ -3680,6 +3692,7 @@ const actions = {
   // 캠페인 참여하기 → 그 캠페인 이동 수단으로만 길찾기
   'camp-join': (el) => {
     const c = campStore.load().find((x) => x.id === el.dataset.id); if (!c) return;
+    if (campEnded(c)) { toast('종료된 캠페인이에요'); return; }
     state.campTrip = { campId: c.id, mode: campMode(c).id };
     state.campResult = null; state.recorded = false;
     state.to = null; state.raw = null; state.chosenId = null; state.openDetail = null;
