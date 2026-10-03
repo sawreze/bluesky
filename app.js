@@ -2501,8 +2501,12 @@ function openProfile() {
   const close = () => { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); };
   sheet.addEventListener('click', (e) => {
     if (e.target.closest('[data-close]')) close();
-    if (e.target.closest('[data-logout]')) { close(); logout(); }
+    if (e.target.closest('[data-logout]')) { close(); askLogout(); }
   });
+}
+// 로그아웃 확인 (예 / 아니요)
+function askLogout() {
+  confirmSheet('정말로 로그아웃 하시겠습니까?', '다시 들어오려면 로그인해야 해요.', '예', '아니요').then((ok) => { if (ok) logout(); });
 }
 // 로그아웃: 저장된 로그인만 지워요 (이동 기록·나의 숲은 이 휴대폰에 그대로)
 function logout() {
@@ -3328,7 +3332,7 @@ const actions = {
   'open-main': () => goTab('main'),
   'open-rank': () => goTab('rank'),
   'open-account': () => goTab('account'),
-  logout: () => logout(),
+  logout: () => askLogout(),
   'avatar-reset': () => { saveAvatar(''); render(); toast('기본 이미지로 바꿨어요'); },
   'open-camps': () => goTab('campaigns'),
   'open-my-camps': () => { state.campReturn = 'my-camps'; go('my-camps'); },
