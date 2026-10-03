@@ -42,6 +42,7 @@ const login = async (b, res, db) => {
   if (!EMAIL_RE.test(email) || !pw) return bad();
   const u = await db.store.findEmail(email);
   if (!u || !db.checkPw(pw, u.pw_hash)) return bad();
+  if (u.blocked_at) return res.status(403).json({ error: '관리자가 이용을 제한한 계정이에요.' });
   db.setSession(res, u.id, b.remember !== false);
   return res.status(200).json({ user: db.pub(u) });
 };

@@ -2207,44 +2207,124 @@ function demoHTML() {
       ${n || cal ? `<button type="button" class="btn rv-no" data-act="demo-clear" ${busy}>${state.demoBusy ? '지우는 중…' : '예시 데이터 모두 지우기'}</button>` : ''}
     </section>`;
 }
-// 관리자: 포인트 지급 (받는 사람 닉네임, 비우면 나)
-function adminPointsSheet() {
+// 관리자: 포인트 지급·삭제 / 탄소 절약량 더하기·빼기 (같은 모양의 창)
+//  kind 'points' | 'carbon', target: 회원 관리에서 고른 회원 { id, name } (없으면 닉네임 칸, 비우면 나)
+const ADJ = {
+  points: { title: '💰 포인트 지급 · 삭제', modes: [['grant', '지급'], ['deduct', '삭제']], unit: 'P', label: '포인트', ph: '예: 1000', chips: [100, 500, 1000, 5000, 10000], min: 1, max: 1000000, step: 1, api: 'admin-points', key: 'amount' },
+  carbon: { title: '🌿 탄소 절약량 조절', modes: [['plus', '더하기'], ['minus', '빼기']], unit: 'kg', label: '절약량 (kg)', ph: '예: 12.5', chips: [0.5, 1, 5, 10, 50], min: 0.1, max: 100000, step: 0.1, api: 'admin-carbon', key: 'kg' },
+};
+function adminAdjustSheet(kind, target = null) {
+  const c = ADJ[kind]; let mode = c.modes[0][0];
   const sheet = document.createElement('div');
   sheet.className = 'sheet-wrap';
   sheet.innerHTML = `<div class="sheet-bg" data-no></div>
-    <section class="sheet-card ap" role="dialog" aria-label="포인트 지급">
+    <section class="sheet-card ap" role="dialog" aria-label="${c.title}">
       <span class="sheet-grab" aria-hidden="true"></span>
-      <div class="sheet-ask"><b>💰 포인트 지급</b><p>받는 사람 닉네임을 비우면 내 계정에 들어가요.</p></div>
-      <label class="ap-l">받는 사람<input class="input" id="ap-name" maxlength="40" placeholder="닉네임 (비우면 나)"></label>
-      <label class="ap-l">포인트<input class="input num" id="ap-amount" type="number" inputmode="numeric" min="1" max="1000000" placeholder="예: 1000"></label>
-      <div class="ap-chips">${[100, 500, 1000, 5000, 10000].map((v) => `<button type="button" class="rj-chip" data-add="${v}">+${v.toLocaleString()}</button>`).join('')}</div>
+      <div class="sheet-ask"><b>${c.title}</b><p>${target ? `<strong>${esc(target.name)}</strong>님에게 적용돼요.` : '받는 사람 닉네임을 비우면 내 계정에 적용돼요.'}</p></div>
+      <div class="ap-seg" role="tablist">${c.modes.map(([id, lb], i) => `<button type="button" role="tab" class="${i ? '' : 'on'} ${id === 'deduct' || id === 'minus' ? 'neg' : ''}" data-mode="${id}">${lb}</button>`).join('')}</div>
+      ${target ? '' : '<label class="ap-l">대상 회원<input class="input" id="ap-name" maxlength="40" placeholder="닉네임 (비우면 나)"></label>'}
+      <label class="ap-l">${c.label}<input class="input num" id="ap-amount" type="number" inputmode="decimal" min="${c.min}" max="${c.max}" step="${c.step}" placeholder="${c.ph}"></label>
+      <div class="ap-chips">${c.chips.map((v) => `<button type="button" class="rj-chip" data-add="${v}">+${v.toLocaleString()}${c.unit}</button>`).join('')}</div>
       <p class="rj-err" id="ap-err" hidden></p>
-      <button type="button" class="btn primary" data-yes>지급하기</button>
+      <button type="button" class="btn primary" data-yes>${c.modes[0][1]}하기</button>
       <button type="button" class="btn sheet-cancel" data-no>취소</button>
     </section>`;
   document.body.appendChild(sheet);
   requestAnimationFrame(() => sheet.classList.add('open'));
   const close = () => { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); };
-  const amt = sheet.querySelector('#ap-amount'); const err = sheet.querySelector('#ap-err');
+  const amt = sheet.querySelector('#ap-amount'); const err = sheet.querySelector('#ap-err'); const yes = sheet.querySelector('[data-yes]');
+  const fail = (m) => { err.textContent = m; err.hidden = false; };
   sheet.addEventListener('click', async (e) => {
+    const md = e.target.closest('[data-mode]');
+    if (md) {
+      mode = md.dataset.mode;
+      sheet.querySelectorAll('[data-mode]').forEach((b) => b.classList.toggle('on', b === md));
+      const lb = c.modes.find((m) => m[0] === mode)[1];
+      yes.textContent = `${lb}하기`; yes.classList.toggle('danger', md.classList.contains('neg'));
+      sheet.querySelectorAll('[data-add]').forEach((b) => { b.textContent = `${md.classList.contains('neg') ? '-' : '+'}${Number(b.dataset.add).toLocaleString()}${c.unit}`; });
+      return;
+    }
     const add = e.target.closest('[data-add]');
-    if (add) { amt.value = String((Number(amt.value) || 0) + Number(add.dataset.add)); return; }
+    if (add) { amt.value = String(Math.round(((Number(amt.value) || 0) + Number(add.dataset.add)) * 10) / 10); return; }
     if (e.target.closest('[data-no]')) return close();
-    const yes = e.target.closest('[data-yes]');
-    if (!yes) return;
-    const amount = Math.round(Number(amt.value));
-    const name = sheet.querySelector('#ap-name').value.trim();
-    if (!(amount >= 1 && amount <= 1000000)) { err.textContent = '1 ~ 1,000,000P 사이로 적어 주세요.'; err.hidden = false; return; }
-    if (!dbMode()) { if (name) { err.textContent = '서버 DB가 없는 곳에서는 내 계정에만 줄 수 있어요.'; err.hidden = false; return; } addPoints(amount); close(); render(); toast(`+${amount.toLocaleString()}P 지급했어요`); return; }
-    yes.disabled = true; yes.textContent = '지급하는 중…';
-    const r = await dataApi('admin-points', { amount, name });
+    if (!e.target.closest('[data-yes]')) return;
+    const v = Number(amt.value);
+    if (!(v >= c.min && v <= c.max)) return fail(`${c.min.toLocaleString()} ~ ${c.max.toLocaleString()}${c.unit} 사이로 적어 주세요.`);
+    const name = target ? '' : sheet.querySelector('#ap-name').value.trim();
+    if (!dbMode()) {
+      if (kind !== 'points' || name || mode !== 'grant') return fail('이 기능은 서버 DB가 연결된 곳에서만 쓸 수 있어요.');
+      addPoints(v); close(); render(); toast(`+${v.toLocaleString()}P 지급했어요`); return;
+    }
+    yes.disabled = true; const keep = yes.textContent; yes.textContent = '처리하는 중…';
+    const r = await dataApi(c.api, { [c.key]: v, mode, name, id: target ? target.id : undefined });
     if (r.status === 401) { close(); return needRelogin(); }
-    if (r.status !== 200) { yes.disabled = false; yes.textContent = '지급하기'; err.textContent = r.data.error || '지급하지 못했어요.'; err.hidden = false; return; }
+    if (r.status !== 200) { yes.disabled = false; yes.textContent = keep; return fail(r.data.error || '처리하지 못했어요.'); }
     close();
-    toast(`${r.data.me ? '내 계정' : `${r.data.name}님`}에 +${r.data.amount.toLocaleString()}P 지급했어요 (총 ${r.data.total.toLocaleString()}P)`);
-    syncFromServer();
+    const who = r.data.me ? '내 계정' : `${r.data.name}님`;
+    toast(kind === 'points'
+      ? `${who} ${r.data.mode === 'deduct' ? `-${r.data.amount.toLocaleString()}P 삭제` : `+${r.data.amount.toLocaleString()}P 지급`}했어요 (총 ${r.data.total.toLocaleString()}P)`
+      : `${who} 탄소 절약량 ${r.data.mode === 'minus' ? '-' : '+'}${r.data.kg.toLocaleString()}kg (총 ${r.data.totalKg.toLocaleString(undefined, { maximumFractionDigits: 1 })}kg)`);
+    await syncFromServer({ quiet: true });
+    if (state.screen === 'admin-users') loadAdminUsers(state.adm && state.adm.q); else render();
   });
 }
+
+// ── 관리자: 회원 관리 (검색 · 차단 · 삭제) ──
+function loadAdminUsers(q = '') {
+  state.adm = { ...(state.adm || {}), q, loading: true };
+  if (state.screen === 'admin-users') renderAdminList();
+  const seq = (loadAdminUsers.seq = (loadAdminUsers.seq || 0) + 1);
+  dataApi('admin-users', undefined, `&q=${encodeURIComponent(q)}`).then((r) => {
+    if (seq !== loadAdminUsers.seq) return; // 늦게 온 예전 검색 결과는 버려요
+    if (r.status === 401) return needRelogin();
+    state.adm = r.status === 200 ? { ...r.data, loading: false } : { q, users: [], loading: false, error: r.data.error || '불러오지 못했어요.' };
+    if (state.screen === 'admin-users') renderAdminList();
+  });
+}
+function adminUserRowHTML(u) {
+  const kg = (u.savedG / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 });
+  return `<li class="au-row ${u.blocked ? 'is-blocked' : ''}">
+    <div class="au-top">
+      ${tierAvatarHTML(u.name, '', '', u.savedG)}
+      <div class="au-txt">
+        <b>${esc(u.name)}${u.me ? ' <em class="au-tag me">나</em>' : ''}${u.admin ? ' <em class="au-tag adm">관리자</em>' : ''}${u.blocked ? ' <em class="au-tag blk">차단됨</em>' : ''}</b>
+        <small>${u.provider === 'kakao' ? '카카오' : u.provider === 'seed' ? '예시 회원' : esc(u.email || '이메일')} · 이동 ${u.trips.toLocaleString()}번 · ${u.points.toLocaleString()}P · ${kg}kg</small>
+        ${u.blocked ? `<small class="au-when">${new Date(u.blockedAt).toLocaleDateString('ko-KR')} 차단</small>` : ''}
+      </div>
+    </div>
+    <div class="au-acts">
+      <button type="button" class="btn small" data-act="adm-pt" data-id="${u.id}">포인트</button>
+      <button type="button" class="btn small" data-act="adm-co2" data-id="${u.id}">탄소</button>
+      ${u.admin || u.me ? '' : `<button type="button" class="btn small ${u.blocked ? '' : 'rv-no'}" data-act="adm-block" data-id="${u.id}" data-on="${u.blocked ? 0 : 1}">${u.blocked ? '차단 해제' : '차단'}</button>
+      <button type="button" class="btn small au-del" data-act="adm-del" data-id="${u.id}" aria-label="${esc(u.name)} 삭제">${ICON.trash}</button>`}
+    </div>
+  </li>`;
+}
+function adminListHTML() {
+  const a = state.adm || {};
+  const list = a.users || [];
+  const head = a.q ? `"${esc(a.q)}" 검색 결과 ${list.length.toLocaleString()}명` : `차단된 회원 ${(a.blockedCount || 0).toLocaleString()}명`;
+  return `<p class="au-head">${head}${a.loading ? ' <span class="spinner" aria-hidden="true"></span>' : ''}</p>
+    ${a.error ? `<p class="hint">${esc(a.error)}</p>` : ''}
+    ${list.length ? `<ul class="au-list">${list.map(adminUserRowHTML).join('')}</ul>`
+      : a.loading ? '' : `<p class="acc-empty">${a.q ? '찾는 회원이 없어요.' : '차단된 회원이 없어요. 위에서 닉네임이나 이메일로 검색해 보세요.'}</p>`}`;
+}
+function renderAdminList() { const el = document.getElementById('au-out'); if (el) el.innerHTML = adminListHTML(); }
+function adminUsersHTML() {
+  if (!isAdmin()) return `${appBar('회원 관리', 'back')}<main class="content"><p class="empty">관리자만 볼 수 있어요.</p></main>`;
+  const a = state.adm || {};
+  return `${appBar('회원 관리', 'back')}
+    <main class="content au">
+      <p class="ad-lead">닉네임이나 이메일로 회원을 찾아 차단하거나 지울 수 있어요. 차단된 회원은 로그인할 수 없고 랭킹에서도 빠져요.${a.userCount ? ` (전체 ${a.userCount.toLocaleString()}명)` : ''}</p>
+      <form class="search-bar" id="au-form">
+        <input id="au-q" class="input" type="search" enterkeyhint="search" autocomplete="off" placeholder="닉네임 · 이메일 검색" value="${esc(a.q || '')}">
+        <button type="submit" class="btn primary small">검색</button>
+      </form>
+      ${a.q ? '<button type="button" class="au-blocked-link" data-act="adm-blocked">🚫 차단된 회원 목록 보기</button>' : ''}
+      <div id="au-out">${adminListHTML()}</div>
+    </main>`;
+}
+const admUser = (id) => ((state.adm && state.adm.users) || []).find((u) => u.id === String(id));
 // 승인 / 반려 처리
 function reviewCampaign(id, status, reason) {
   if (dbMode()) {
@@ -2736,7 +2816,9 @@ function accountHTML() {
       ${myCampaignsHTML()}
       <section class="m-card acc-list">
         ${isAdmin() ? `<button type="button" class="acc-admin" data-act="open-admin"><span>🛡️ 캠페인 검토 <em>관리자</em></span><span class="acc-cnt">${pendingCampaigns().length ? `<i>${pendingCampaigns().length}</i>` : ''}${ICON.chev}</span></button>
-        <button type="button" class="acc-admin" data-act="admin-points"><span>💰 포인트 지급 <em>관리자</em></span><span class="acc-cnt">${ICON.chev}</span></button>` : ''}
+        <button type="button" class="acc-admin" data-act="admin-points"><span>💰 포인트 지급 · 삭제 <em>관리자</em></span><span class="acc-cnt">${ICON.chev}</span></button>
+        <button type="button" class="acc-admin" data-act="admin-carbon"><span>🌿 탄소 절약량 조절 <em>관리자</em></span><span class="acc-cnt">${ICON.chev}</span></button>
+        <button type="button" class="acc-admin" data-act="admin-users"><span>🚫 회원 관리 · 차단 <em>관리자</em></span><span class="acc-cnt">${ICON.chev}</span></button>` : ''}
         <button type="button" data-act="open-rank"><span>🏆 이달의 절약왕 랭킹</span>${ICON.chev}</button>
         <button type="button" data-act="open-calendar"><span>📅 그린 캘린더</span>${ICON.chev}</button>
         <div class="acc-info"><span>로그인 방식</span><b>${esc(how)}${u.demo ? ' (체험용)' : ''}</b></div>
@@ -2924,12 +3006,12 @@ async function dataApi(a, body, query = '') {
   } catch (e) { return { status: 0, data: { error: '인터넷 연결을 확인해 주세요.' } }; }
 }
 // 출입증이 없거나 만료됐을 때: 로그인 화면으로 (한 번만 다시 로그인하면 돼요)
-function needRelogin() {
+function needRelogin(msg) {
   if (!state.user) return;
   clearServerCache();
   saveUser(null);
   state.user = null;
-  state.auth = { busy: false, message: '기록을 서버에 안전하게 저장하려고 해요. 한 번만 다시 로그인해 주세요.' };
+  state.auth = { busy: false, message: msg || '기록을 서버에 안전하게 저장하려고 해요. 한 번만 다시 로그인해 주세요.' };
   go('login');
 }
 function clearServerCache() {
@@ -2970,6 +3052,7 @@ function syncFromServer({ quiet = false } = {}) {
       return true;
     }
     if (r.status === 401) { needRelogin(); return false; }
+    if (r.status === 403 && r.data.blocked) { needRelogin(r.data.error); return false; }
     if (r.status === 404 || r.status === 503) setDbMode(false); // 이 서버엔 DB가 없어요 → 예전처럼 휴대폰에만
     return false;
   })().finally(() => { syncing = null; });
@@ -3646,7 +3729,7 @@ function campDoneHTML() {
     ${cta('<button type="button" class="btn" data-act="go-main">홈으로 돌아가기</button><button type="button" class="btn primary" data-act="camp-back">캠페인 화면으로 돌아가기</button>')}`;
 }
 
-const VIEWS = { 'my-camps': myJoinedCampsHTML, campdone: campDoneHTML, titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
+const VIEWS = { 'admin-users': adminUsersHTML, 'my-camps': myJoinedCampsHTML, campdone: campDoneHTML, titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
 
 // 화면 전체 그리기
 function render() {
@@ -3709,7 +3792,7 @@ function go(screen, dir) {
 // 뒤로 가면 나올 화면 (손가락으로 밀기·뒤로 버튼 공통)
 function backOf(screen) {
   return {
-    titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', 'my-camps': 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', home: state.campTrip ? 'campaign' : 'main', campdone: 'campaign', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
+    titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', 'my-camps': 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', 'admin-users': 'account', home: state.campTrip ? 'campaign' : 'main', campdone: 'campaign', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
     'email-login': 'login', signup: 'login',
   }[screen] || null;
 }
@@ -3911,7 +3994,34 @@ const actions = {
   'open-titles': () => { state.titlesReturn = ['account', 'done'].includes(state.screen) ? state.screen : 'main'; go('titles'); },
   'open-admin': () => { state.adminTab = 'pending'; go('admin'); },
   'admin-tab': (el) => { state.adminTab = el.dataset.id; render(); },
-  'admin-points': () => { if (isAdmin()) adminPointsSheet(); },
+  'admin-points': () => { if (isAdmin()) adminAdjustSheet('points'); },
+  'admin-carbon': () => { if (isAdmin()) adminAdjustSheet('carbon'); },
+  'admin-users': () => { if (!isAdmin()) return; if (!dbMode()) { toast('회원 관리는 서버 DB가 연결된 곳에서만 쓸 수 있어요'); return; } state.adm = { q: '' }; go('admin-users'); loadAdminUsers(''); },
+  'adm-blocked': () => { const i = document.getElementById('au-q'); if (i) i.value = ''; loadAdminUsers(''); render(); },
+  'adm-pt': (el) => { const u = admUser(el.dataset.id); if (u) adminAdjustSheet('points', u); },
+  'adm-co2': (el) => { const u = admUser(el.dataset.id); if (u) adminAdjustSheet('carbon', u); },
+  'adm-block': (el) => {
+    const u = admUser(el.dataset.id); if (!u) return;
+    const on = el.dataset.on === '1';
+    confirmSheet(on ? `${u.name}님을 차단할까요?` : `${u.name}님 차단을 풀까요?`, on ? '차단하면 바로 로그아웃되고 다시 로그인할 수 없어요. 이달의 랭킹에서도 빠져요. 기록은 그대로 남아서 언제든 풀 수 있어요.' : '다시 로그인하고 앱을 쓸 수 있게 돼요.', on ? '차단하기' : '차단 풀기', '취소', on ? 'sheet-out' : 'primary').then(async (ok) => {
+      if (!ok) return;
+      const r = await dataApi('admin-block', { id: u.id, on });
+      if (r.status !== 200) { toast(r.data.error || '처리하지 못했어요'); return; }
+      toast(on ? `${u.name}님을 차단했어요` : `${u.name}님 차단을 풀었어요`);
+      loadAdminUsers(state.adm.q || '');
+    });
+  },
+  'adm-del': (el) => {
+    const u = admUser(el.dataset.id); if (!u) return;
+    confirmSheet(`${u.name}님을 완전히 지울까요?`, '회원 정보와 이동 기록·포인트·만든 캠페인·좋아요가 모두 지워지고 되돌릴 수 없어요. 잠시 막기만 하려면 "차단"을 써 주세요.', '완전히 지우기').then(async (ok) => {
+      if (!ok) return;
+      const r = await dataApi('admin-del-user', { id: u.id });
+      if (r.status !== 200) { toast(r.data.error || '지우지 못했어요'); return; }
+      toast(`${u.name}님을 지웠어요`);
+      await syncFromServer({ quiet: true });
+      loadAdminUsers(state.adm.q || '');
+    });
+  },
   'demo-seed': () => confirmSheet('예시 데이터를 넣을까요?', '가상 회원 100명·이동 기록·캠페인 8개, 그리고 내 계정에 8월부터의 이동 기록이 들어가요. 언제든 한 번에 지울 수 있어요.', '넣기', '취소', 'primary').then(async (ok) => {
     if (!ok) return;
     state.demoBusy = true; render();
@@ -4076,6 +4186,7 @@ appEl.addEventListener('click', (e) => {
 appEl.addEventListener('submit', (e) => {
   if (e.target.id === 'search-form') { e.preventDefault(); runSearch(); }
   if (e.target.id === 'camp-form') { e.preventDefault(); submitCampaign(); }
+  if (e.target.id === 'au-form') { e.preventDefault(); loadAdminUsers(String(document.getElementById('au-q').value || '').trim()); }
   if (e.target.id === 'name-form') {
     e.preventDefault();
     const name = String(new FormData(e.target).get('name') || '').trim();
@@ -4106,6 +4217,7 @@ appEl.addEventListener('submit', (e) => {
 
 appEl.addEventListener('input', (e) => {
   if (e.target.id === 'search-input') { state.search.query = e.target.value; scheduleSearch(); }
+  if (e.target.id === 'au-q') { clearTimeout(loadAdminUsers.t); const v = e.target.value.trim(); loadAdminUsers.t = setTimeout(() => loadAdminUsers(v), 300); }
   if (e.target.form && e.target.form.id === 'login-form' && (state.auth.errKey || state.auth.message)) {
     state.auth = { ...state.auth, errKey: null, errField: null, message: '' };
     const p = document.querySelector('.lg-err'); if (p) p.textContent = '';

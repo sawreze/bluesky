@@ -12,7 +12,10 @@
 //  POST a=profile                  닉네임 · 프로필 사진
 //  POST a=logout                   출입증 쿠키 지우기
 //  POST a=demo-seed | demo-clear   (관리자) 예시 회원 100명 + 내 캘린더 시연 기록 넣기 · 지우기 (_seed.cjs)
-//  POST a=admin-points             (관리자) 포인트 직접 지급
+//  POST a=admin-points             (관리자) 포인트 지급 · 삭제 (mode: grant | deduct)
+//  POST a=admin-carbon             (관리자) 탄소 절약량 더하기 · 빼기 (mode: plus | minus)
+//  GET  a=admin-users&q=           (관리자) 회원 검색 (q 비우면 차단된 회원 목록)
+//  POST a=admin-block | admin-del-user (관리자) 회원 차단·해제 · 삭제
 //
 //  누구인지는 출입증 쿠키로만 확인해요. 포인트도 서버가 계산해요.
 // =====================================================================
@@ -121,11 +124,11 @@ module.exports = function makeData(db) {
       SELECT u.id, u.name, left(md5(COALESCE(u.avatar_url, '')), 10) AS av, (COALESCE(u.avatar_url, '') <> '') AS has_av, SUM(p.amount) AS pts,
              (SELECT saved_g FROM v_user_stats v WHERE v.user_id = u.id) AS total_g
       FROM point_transactions p JOIN users u ON u.id = p.user_id
-      WHERE to_char(p.created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = ${m}
+      WHERE to_char(p.created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = ${m} AND u.blocked_at IS NULL
       GROUP BY u.id ORDER BY pts DESC, u.name LIMIT 100`;
     const [mine] = await sql()`
-      WITH t AS (SELECT user_id, SUM(amount) AS pts FROM point_transactions
-                 WHERE to_char(created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = ${m} GROUP BY user_id)
+      WITH t AS (SELECT p.user_id, SUM(p.amount) AS pts FROM point_transactions p JOIN users u ON u.id = p.user_id
+                 WHERE to_char(p.created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = ${m} AND u.blocked_at IS NULL GROUP BY p.user_id)
       SELECT COALESCE((SELECT pts FROM t WHERE user_id = ${uid}), 0) AS pts,
              1 + (SELECT COUNT(*) FROM t WHERE pts > COALESCE((SELECT pts FROM t WHERE user_id = ${uid}), 0)) AS rank`;
     return {
@@ -173,21 +176,93 @@ module.exports = function makeData(db) {
   }
 
   // ── 관리자: 포인트 직접 지급 (받는 사람 닉네임, 비우면 나) ──
+  // 받는 사람 찾기: 회원 번호(id) 또는 닉네임 (비우면 나)
+  async function findTarget(me, b) {
+    if (b.id) {
+      const [u] = await sql()`SELECT id, name, role FROM users WHERE id = ${intId(b.id)}`;
+      if (!u) bad('회원을 찾지 못했어요.', 404);
+      return u;
+    }
+    const name = str(b.name, 40);
+    if (!name) return me;
+    const found = await sql()`SELECT id, name, role FROM users WHERE lower(trim(name)) = lower(${name}) ORDER BY id LIMIT 2`;
+    if (!found.length) bad(`"${name}" 닉네임의 회원을 찾지 못했어요.`, 404);
+    if (found.length > 1) bad(`"${name}" 닉네임이 여러 명이에요. 회원 관리에서 검색해서 골라 주세요.`, 409);
+    return found[0];
+  }
+  // ── 관리자: 포인트 지급 · 삭제 ──
   async function adminPoints(me, b) {
     if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
     const amount = Math.round(num(b.amount));
     if (!(amount >= 1 && amount <= 1000000)) bad('1 ~ 1,000,000P 사이로 적어 주세요.');
-    const name = str(b.name, 40);
-    let target = me;
-    if (name) {
-      const found = await sql()`SELECT id, name FROM users WHERE lower(trim(name)) = lower(${name}) ORDER BY id LIMIT 2`;
-      if (!found.length) bad(`"${name}" 닉네임의 회원을 찾지 못했어요.`, 404);
-      if (found.length > 1) bad(`"${name}" 닉네임이 여러 명이에요. 더 정확한 닉네임으로 적어 주세요.`, 409);
-      target = found[0];
+    const target = await findTarget(me, b);
+    const deduct = b.mode === 'deduct';
+    let applied = amount;
+    if (deduct) {
+      const [st] = await sql()`SELECT points FROM v_user_stats WHERE user_id = ${target.id}`;
+      applied = Math.min(amount, Math.max(0, num(st && st.points))); // 가진 포인트보다 많이 빼지 않아요
+      if (applied <= 0) bad(`${target.name}님은 뺄 포인트가 없어요.`);
+      await sql()`INSERT INTO point_transactions (user_id, amount, reason) VALUES (${target.id}, ${-applied}, 'admin_deduct')`;
+    } else {
+      await sql()`INSERT INTO point_transactions (user_id, amount, reason) VALUES (${target.id}, ${amount}, 'admin_grant')`;
     }
-    await sql()`INSERT INTO point_transactions (user_id, amount, reason) VALUES (${target.id}, ${amount}, 'admin_grant')`;
     const [st] = await sql()`SELECT points FROM v_user_stats WHERE user_id = ${target.id}`;
-    return { ok: true, name: target.name, me: Number(target.id) === Number(me.id), amount, total: num(st && st.points) };
+    return { ok: true, name: target.name, me: Number(target.id) === Number(me.id), mode: deduct ? 'deduct' : 'grant', amount: applied, total: num(st && st.points) };
+  }
+  // ── 관리자: 탄소 절약량 조절 (kg, 더하기 · 빼기) ──
+  async function adminCarbon(me, b) {
+    if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
+    const kg = Math.round(num(b.kg) * 10) / 10;
+    if (!(kg >= 0.1 && kg <= 100000)) bad('0.1 ~ 100,000kg 사이로 적어 주세요.');
+    const target = await findTarget(me, b);
+    let g = kg * 1000;
+    if (b.mode === 'minus') {
+      const [st] = await sql()`SELECT saved_g FROM v_user_stats WHERE user_id = ${target.id}`;
+      g = Math.min(g, Math.max(0, num(st && st.saved_g))); // 0kg 아래로는 안 내려가요
+      if (g <= 0) bad(`${target.name}님은 뺄 절약량이 없어요.`);
+      g = -g;
+    }
+    await sql()`INSERT INTO carbon_adjustments (user_id, amount_g, admin_id) VALUES (${target.id}, ${g}, ${me.id})`;
+    const [st] = await sql()`SELECT saved_g FROM v_user_stats WHERE user_id = ${target.id}`;
+    return { ok: true, name: target.name, me: Number(target.id) === Number(me.id), kg: Math.abs(g) / 1000, mode: g < 0 ? 'minus' : 'plus', totalKg: num(st && st.saved_g) / 1000 };
+  }
+  // ── 관리자: 회원 관리 (검색 · 차단 · 삭제) ──
+  async function adminUsers(me, q) {
+    if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
+    const term = str(q.q, 40);
+    const like = `%${term.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const rows = term
+      ? await sql()`SELECT u.id, u.name, u.provider, u.email, u.role, u.blocked_at, u.created_at, v.points, v.saved_g, v.trip_count
+          FROM users u JOIN v_user_stats v ON v.user_id = u.id
+          WHERE u.name ILIKE ${like} OR u.email ILIKE ${like} ORDER BY (u.blocked_at IS NULL), u.name LIMIT 50`
+      : await sql()`SELECT u.id, u.name, u.provider, u.email, u.role, u.blocked_at, u.created_at, v.points, v.saved_g, v.trip_count
+          FROM users u JOIN v_user_stats v ON v.user_id = u.id WHERE u.blocked_at IS NOT NULL ORDER BY u.blocked_at DESC LIMIT 100`;
+    const [cnt] = await sql()`SELECT COUNT(*) FILTER (WHERE blocked_at IS NOT NULL) AS b, COUNT(*) AS n FROM users`;
+    return {
+      ok: true, q: term, blockedCount: num(cnt.b), userCount: num(cnt.n),
+      users: rows.map((r) => ({ id: String(r.id), name: r.name, provider: r.provider, email: r.email || '', admin: isAdminRow(r), me: Number(r.id) === Number(me.id),
+        blocked: !!r.blocked_at, blockedAt: ms(r.blocked_at), joinedAt: ms(r.created_at), points: num(r.points), savedG: num(r.saved_g), trips: num(r.trip_count) })),
+    };
+  }
+  async function guardTarget(me, id) {
+    const [u] = await sql()`SELECT id, name, role FROM users WHERE id = ${intId(id)}`;
+    if (!u) bad('회원을 찾지 못했어요.', 404);
+    if (Number(u.id) === Number(me.id)) bad('내 계정은 차단하거나 지울 수 없어요.');
+    if (isAdminRow(u)) bad('관리자 계정은 차단하거나 지울 수 없어요.', 403);
+    return u;
+  }
+  async function adminBlock(me, b) {
+    if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
+    const u = await guardTarget(me, b.id);
+    if (b.on) await sql()`UPDATE users SET blocked_at = COALESCE(blocked_at, now()) WHERE id = ${u.id}`;
+    else await sql()`UPDATE users SET blocked_at = NULL WHERE id = ${u.id}`;
+    return { ok: true, name: u.name, blocked: !!b.on };
+  }
+  async function adminDelUser(me, b) {
+    if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
+    const u = await guardTarget(me, b.id);
+    await sql()`DELETE FROM users WHERE id = ${u.id}`; // 이동·포인트·캠페인·좋아요·참여가 함께 지워져요
+    return { ok: true, name: u.name };
   }
 
   // ── 이동 저장 ──
@@ -399,7 +474,7 @@ module.exports = function makeData(db) {
     return res.status(200).send(Buffer.from(m[2], 'base64'));
   }
 
-  const POSTS = { 'demo-seed': demoSeed, 'demo-clear': demoClear, 'admin-points': adminPoints, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-join': joinCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
+  const POSTS = { 'demo-seed': demoSeed, 'demo-clear': demoClear, 'admin-points': adminPoints, 'admin-carbon': adminCarbon, 'admin-block': adminBlock, 'admin-del-user': adminDelUser, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-join': joinCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
 
   return async function handler(req, res) {
     const q = req.query || {};
@@ -413,9 +488,11 @@ module.exports = function makeData(db) {
       const uid = db.sessionUid(req);
       const me = uid ? await db.store.byId(uid) : null;
       if (!me) { if (uid) db.clearSession(res); return res.status(401).json({ error: '다시 로그인해 주세요.', relogin: true }); }
+      if (me.blocked_at) { db.clearSession(res); return res.status(403).json({ error: '관리자가 이용을 제한한 계정이에요.', blocked: true }); }
       if (req.method === 'GET') {
         if (a === 'sync') return res.status(200).json(await sync(me));
         if (a === 'camp-rank') return res.status(200).json(await campRank(me, q));
+        if (a === 'admin-users') return res.status(200).json(await adminUsers(me, q));
         if (a === 'rank') return res.status(200).json(await monthRank(me.id, /^\d{4}-\d{2}$/.test(q.m || '') ? q.m : null));
       } else if (req.method === 'POST' && POSTS[a]) {
         return res.status(200).json(await POSTS[a](me, body(req)));

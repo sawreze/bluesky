@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS users (
 );
 ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+-- blocked_at: 관리자가 이용을 막은 시각 (비어 있으면 정상 회원). 차단된 회원은 로그인할 수 없어요.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ;
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_uq ON users (lower(email)) WHERE provider = 'email';
 CREATE UNIQUE INDEX IF NOT EXISTS users_social_uq ON users (provider, provider_id) WHERE provider_id IS NOT NULL;
 
@@ -142,10 +144,24 @@ ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_reason_ck;
 ALTER TABLE point_transactions ADD CONSTRAINT point_reason_ck CHECK (
      (reason = 'trip' AND trip_id IS NOT NULL AND campaign_id IS NULL)
   OR (reason IN ('campaign_reward', 'campaign_bonus') AND campaign_id IS NOT NULL AND trip_id IS NULL)
-  OR (reason = 'admin_grant' AND trip_id IS NULL AND campaign_id IS NULL));
+  OR (reason IN ('admin_grant', 'admin_deduct') AND trip_id IS NULL AND campaign_id IS NULL));
+-- 금액: 관리자 차감(admin_deduct)만 음수, 나머지는 모두 양수
+ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_transactions_amount_check;
+ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_amount_ck;
+ALTER TABLE point_transactions ADD CONSTRAINT point_amount_ck CHECK ((reason = 'admin_deduct' AND amount < 0) OR (reason <> 'admin_deduct' AND amount > 0));
 CREATE INDEX IF NOT EXISTS point_transactions_user_idx ON point_transactions (user_id, created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS point_reward_once_uq ON point_transactions (campaign_id) WHERE reason = 'campaign_reward';
 CREATE UNIQUE INDEX IF NOT EXISTS point_bonus_once_uq ON point_transactions (campaign_id, user_id) WHERE reason = 'campaign_bonus';
+
+-- 11) 탄소 절약량 조절 (관리자가 더하거나 뺀 기록 · 이동 기록과 따로 남겨서 언제 누가 바꿨는지 알 수 있어요)
+CREATE TABLE IF NOT EXISTS carbon_adjustments (
+  id            SERIAL PRIMARY KEY,
+  user_id       INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount_g      NUMERIC(12,1) NOT NULL CHECK (amount_g <> 0),
+  admin_id      INT REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS carbon_adjustments_user_idx ON carbon_adjustments (user_id);
 
 -- ===================== 계산용 뷰 (저장 안 하고 그때그때 계산) =====================
 
@@ -199,6 +215,7 @@ GROUP BY p.campaign_id, p.user_id, u.name;
 CREATE OR REPLACE VIEW v_user_stats AS
 SELECT u.id AS user_id, u.name,
        (SELECT COUNT(*) FROM trips WHERE user_id = u.id) AS trip_count,
-       COALESCE((SELECT SUM(saved_g) FROM trips WHERE user_id = u.id), 0) AS saved_g,
+       COALESCE((SELECT SUM(saved_g) FROM trips WHERE user_id = u.id), 0)
+         + COALESCE((SELECT SUM(amount_g) FROM carbon_adjustments WHERE user_id = u.id), 0) AS saved_g, -- 이동 + 관리자 조절
        COALESCE((SELECT SUM(amount) FROM point_transactions WHERE user_id = u.id), 0) AS points
 FROM users u;

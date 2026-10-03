@@ -18,6 +18,7 @@ const handler = require('../_respond.cjs').makeHandler('/auth/kakao', async (loc
   const data = r.data;
   try {
     const u = await db.store.upsertSocial('kakao', String(data.id), String(data.name || '카카오 사용자').slice(0, 40));
+    if (u.blocked_at) return `/#kakao=${encodeURIComponent(JSON.stringify({ ok: false, error: '관리자가 이용을 제한한 계정이에요.', state: data.state }))}`;
     db.setSession(res, u.id, !String(data.state || '').endsWith('.r0')); // 앱이 "로그인 유지 안 함"이면 state 끝에 .r0
     Object.assign(data, db.pub(u));
   } catch (e) {
