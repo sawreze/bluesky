@@ -105,7 +105,9 @@ const SORTS = [
 ];
 
 const ROAD_FACTOR = 1.3; // 직선거리 → 도로 거리 추정 배수
-const ARRIVE_M = 50; // 도착지에서 이만큼 가까워지면 도착으로 판단(m)
+const ARRIVE_M = 40; // 도착지에서 이 거리(m) 안에 들어와야 '도착' 버튼이 나타나요
+// GPS로 확인한 내 위치가 도착지 근처인지 (위치를 모르면 false)
+const nearDest = () => !!(state.me && state.to && distM(state.me, state.to) <= ARRIVE_M);
 
 // ---------------------------------------------------------------------
 // 2. 공통 함수
@@ -2891,6 +2893,7 @@ function updateNav() {
   const remKm = me && state.to ? formatM(distM(me, state.to) * ROAD_FACTOR) : '';
   const link = kakaoLink(chosen.kakaoMode, me ? { name: '내 위치', lat: me.lat, lng: me.lng } : state.from, state.to);
   const manual = !me; // GPS가 없을 때만 "다음" 버튼
+  const canArrive = nearDest(); // 도착지 40m 안에서만 도착 버튼
 
   const top = document.getElementById('nav-top');
   if (top) {
@@ -2921,7 +2924,7 @@ function updateNav() {
           <small>${impact(chosen.saving).icon} ${impact(chosen.saving).short}</small>
         </div>
         ${manual && !last ? '<button type="button" class="btn navx-next" data-act="nav-next">다음 ›</button>' : ''}
-        <button type="button" class="navx-arrive ${state.campTrip ? 'camp' : ''}" data-act="arrive">${state.campTrip ? '참여 완료' : '도착'}</button>
+        ${canArrive ? `<button type="button" class="navx-arrive ${state.campTrip ? 'camp' : ''}" data-act="arrive">${state.campTrip ? '참여 완료' : '도착'}</button>` : ''}
       </div>`;
   }
 }
@@ -3190,7 +3193,6 @@ function onPosition(p) {
   state.gpsMsg = '';
   const { chosen } = currentPlan();
   if (!chosen) return;
-  if (state.to && distM(state.me, state.to) < ARRIVE_M) { finishTrip(); return; }
   const s = chosen.steps[state.step];
   if (s && s.target && state.step < chosen.steps.length - 1 && distM(state.me, s.target) < (s.radius || 30)) state.step += 1;
   if (mapCtl) mapCtl.setMe(state.me, state.follow);
@@ -3439,10 +3441,9 @@ const actions = {
   'nav-prev': () => { if (state.step > 0) { state.step -= 1; updateNav(); } else go('result'); },
   'nav-next': () => {
     const { chosen } = currentPlan();
-    if (state.step >= chosen.steps.length - 1) finishTrip();
-    else { state.step += 1; updateNav(); }
+    if (state.step < chosen.steps.length - 1) { state.step += 1; updateNav(); }
   },
-  arrive: () => finishTrip(), // 도착 버튼: 아낀 탄소를 저장하고 결과(나무 N그루) 화면으로
+  arrive: () => { if (nearDest()) finishTrip(); }, // 도착 버튼 (도착지 40m 안에서만): 아낀 탄소를 저장하고 결과(나무 N그루) 화면으로
   follow: () => { state.follow = !state.follow; if (mapCtl) mapCtl.setMe(state.me, state.follow); updateNav(); },
   restart: () => { state.to = null; state.raw = null; go('home'); },
 };
