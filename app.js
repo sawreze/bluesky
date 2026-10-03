@@ -975,6 +975,18 @@ function saveUser(u, remember = true) {
   } catch (e) { /* 무시 */ }
 }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// 회원 DB 호출. 서버가 없거나 DB가 연결 안 된 곳(404·503)이면 demo(체험용 사용자)를 돌려줘요.
+async function authCall(kind, payload, demo) {
+  let res;
+  try {
+    res = await fetch(`/api/auth/${kind}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  } catch (e) { return demo; }
+  if (res.status === 404 || res.status === 503 || res.status === 405) return demo;
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* 무시 */ }
+  if (!res.ok || !data || !data.user) throw new Error((data && data.error) || '잠시 후 다시 시도해 주세요.');
+  return data.user;
+}
 const AUTH = {
   // 카카오: server.js 에 키가 있으면 카카오 로그인 화면으로 이동, 없으면 체험용
   kakao: () => (serverCheck || Promise.resolve()).then(() => {
@@ -984,17 +996,18 @@ const AUTH = {
     window.location.href = `/api/kakao/start?state=${encodeURIComponent(st)}`;
     return new Promise(() => {}); // 카카오 화면으로 넘어가는 중
   }),
+  // 이메일 로그인·가입: 서버 DB(/api/auth/*)에 저장해요. DB가 없는 곳(내 맥 server.js 등)에서는 체험용으로 동작해요.
   email: (email, pw) => {
     if (!EMAIL_RE.test(email)) return Promise.reject(new Error('이메일 주소를 확인해 주세요.'));
     if (pw.length < 8) return Promise.reject(new Error('비밀번호는 8자 이상이에요.'));
-    return Promise.resolve({ provider: 'email', email, name: email.split('@')[0] });
+    return authCall('login', { email, pw }, { provider: 'email', email, name: email.split('@')[0] });
   },
   signup: (name, email, pw, pw2) => {
     if (!name) return Promise.reject(new Error('이름(닉네임)을 적어 주세요.'));
     if (!EMAIL_RE.test(email)) return Promise.reject(new Error('이메일 주소를 확인해 주세요.'));
     if (pw.length < 8) return Promise.reject(new Error('비밀번호는 8자 이상으로 만들어 주세요.'));
     if (pw !== pw2) return Promise.reject(new Error('비밀번호가 서로 달라요.'));
-    return Promise.resolve({ provider: 'email', email, name });
+    return authCall('signup', { name, email, pw }, { provider: 'email', email, name });
   },
 };
 
@@ -3599,6 +3612,7 @@ appEl.addEventListener('touchcancel', endSwipe);
     state.auth = { busy: false, message: data.error || '카카오 로그인에 실패했어요.' };
   } else {
     state.user = { provider: 'kakao', id: data.id, name: data.name };
+    fetch('/api/auth/social', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'kakao', id: data.id, name: data.name }) }).catch(() => {}); // 회원 DB에 기록 (실패해도 로그인은 유지)
     let remember = true;
     try { remember = sessionStorage.getItem('pureun-remember') !== '0'; sessionStorage.removeItem('pureun-remember'); } catch (e) { /* 무시 */ }
     saveUser(state.user, remember);

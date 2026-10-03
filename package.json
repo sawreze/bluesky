@@ -1,0 +1,9 @@
+{
+  "name": "pureun-bluesky",
+  "private": true,
+  "version": "1.0.0",
+  "description": "푸른하늘 - 탄소 절약 내비게이션",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.0"
+  }
+}
