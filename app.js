@@ -15,7 +15,7 @@
 // =====================================================================
 'use strict';
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
-const APP_VERSION = '2026.10.03-titles';
+const APP_VERSION = '2026.10.03-tabdir';
 console.log('푸른하늘', APP_VERSION);
 
 // ---------------------------------------------------------------------
@@ -1514,7 +1514,7 @@ function mainHTML() {
       <button type="button" class="m-round m-me" data-act="open-account" aria-label="계정 설정">${loadAvatar() ? avatarHTML('', loadAvatar()) : ICON.user}</button>
     </header>
 
-    <p class="m-hello">${esc(greetingText())} <button type="button" class="ttl-btn" data-act="open-titles" aria-label="내 칭호 보기">${titleChipHTML(titleOf(log.g))}</button></p>
+    <p class="m-hello">${esc(greetingText())}</p>
     <h1 class="m-title">오늘은<br>어디로 가세요?</h1>
 
     <button type="button" class="m-quick" data-act="open-route">
@@ -1600,7 +1600,8 @@ function kgCardHTML(view, myG) {
       <div><p class="m-label">탄소량 쉽게 보기</p><h3 class="m-h3">${title}</h3></div>
       <span class="m-tile">ⓘ</span>
     </div>
-    <div class="kg-seg" role="tablist" aria-label="기준">
+    <div class="kg-seg" role="tablist" aria-label="기준" data-from="${state.kgSegFrom != null ? state.kgSegFrom : (mine ? 1 : 0)}" data-to="${mine ? 1 : 0}">
+      <span class="kg-seg-ind" aria-hidden="true"></span>
       <button type="button" role="tab" class="${mine ? '' : 'on'}" aria-selected="${!mine}" data-act="kg-view" data-id="one">1kg 기준</button>
       <button type="button" role="tab" class="${mine ? 'on' : ''}" aria-selected="${mine}" data-act="kg-view" data-id="mine">내가 아낀 양</button>
     </div>
@@ -2232,6 +2233,29 @@ function tabBarHTML(active) {
     ${tab('camp', ICON.flag, '캠페인', 'open-camps')}
     ${tab('me', ICON.user, '계정정보', 'open-account')}
   </nav>`;
+}
+// "1kg 기준 / 내가 아낀 양" 토글: 탭 바처럼 선택 표시가 미끄러져요
+function initKgSeg() {
+  const seg = document.querySelector('#app .kg-seg');
+  if (!seg) return;
+  const ind = seg.querySelector('.kg-seg-ind');
+  const to = Number(seg.dataset.to);
+  const from = Number(seg.dataset.from);
+  ind.style.transition = 'none';
+  ind.style.transform = `translateX(${from * 100}%)`;
+  void ind.offsetWidth;
+  ind.style.transition = '';
+  if (from !== to) requestAnimationFrame(() => { ind.style.transform = `translateX(${to * 100}%)`; });
+}
+// 탭 전환: 오른쪽 탭으로 가면 화면이 오른쪽에서, 왼쪽 탭으로 가면 왼쪽에서 들어와요
+const TAB_SCREENS = ['main', 'rank', 'campaigns', 'account'];
+function goTab(screen) {
+  if (state.screen === screen) return;
+  const from = TAB_SCREENS.indexOf(state.screen);
+  const to = TAB_SCREENS.indexOf(screen);
+  // 탭 화면이 아닌 곳(캠페인 상세 등)에서 오면: 메인은 뒤로, 나머지는 앞으로
+  const back = from >= 0 ? to < from : screen === 'main';
+  go(screen, back ? 'back' : undefined);
 }
 function tabX(nav, i) { const t = nav.querySelectorAll('.m-tab')[i]; return t ? t.offsetLeft : 0; }
 function setTabInd(ind, x, animate) {
@@ -2871,7 +2895,7 @@ function render() {
   if (!state.user && !['login', 'email-login', 'signup'].includes(screen)) screen = state.screen = 'login';
   app.innerHTML = VIEWS[screen]();
   app.dataset.screen = screen;
-  try { initTabBar(); } catch (err) { console.warn('[탭 바]', err); }
+  try { initTabBar(); initKgSeg(); } catch (err) { console.warn('[탭 바]', err); }
   if (state.navDir) {
     app.classList.remove('enter-fwd', 'enter-back');
     void app.offsetWidth; // 애니메이션 다시 시작
@@ -3098,12 +3122,12 @@ const actions = {
   soon: () => toast('준비 중인 기능이에요'),
   reload: () => window.location.reload(),
   profile: () => openProfile(),
-  'open-main': () => { if (state.screen !== 'main') go('main', 'back'); },
-  'open-rank': () => { if (state.screen !== 'rank') go('rank'); },
-  'open-account': () => { if (state.screen !== 'account') go('account'); },
+  'open-main': () => goTab('main'),
+  'open-rank': () => goTab('rank'),
+  'open-account': () => goTab('account'),
   logout: () => logout(),
   'avatar-reset': () => { saveAvatar(''); render(); toast('기본 이미지로 바꿨어요'); },
-  'open-camps': () => { if (state.screen !== 'campaigns') go('campaigns'); },
+  'open-camps': () => goTab('campaigns'),
   'open-camp': (el) => { state.campId = el.dataset.id; state.campReturn = ['main', 'account', 'admin'].includes(state.screen) ? state.screen : 'campaigns'; go('campaign'); },
   'open-titles': () => { state.titlesReturn = ['account', 'done'].includes(state.screen) ? state.screen : 'main'; go('titles'); },
   'open-admin': () => { state.adminTab = 'pending'; go('admin'); },
@@ -3154,7 +3178,12 @@ const actions = {
   'kg-view': (el) => {
     state.kgView = el.dataset.id;
     const card = document.getElementById('kg-card');
-    if (card) card.innerHTML = kgCardHTML(state.kgView, loadLog().g);
+    if (!card) return;
+    const prev = card.querySelector('.kg-seg');
+    state.kgSegFrom = prev ? Number(prev.dataset.to) : null; // 이전 자리에서 새 자리로 미끄러지게
+    card.innerHTML = kgCardHTML(state.kgView, loadLog().g);
+    state.kgSegFrom = null;
+    initKgSeg();
   },
   result: () => go('result'),
   'back-search': () => goBack(),
