@@ -2555,11 +2555,11 @@ function tierFrameSVG(t) {
   const st = TIER_STYLE[t]; const w = st.w;
   const R = 40 + w / 2 + 1.1; const outer = R + w / 2 + 1.2;
   let back = ''; let ring = ''; let front = ''; let fx = '';
-  if (st.wings) back += wingSVG(outer, st.wings);
+  if (st.wings) back += `<g class="tf-wings">${wingSVG(outer, st.wings)}</g>`;
   if (st.laurel) back += laurelSVG(outer, st.laurel, st.leaf || 'g');
   if (st.clouds) {
     const cloud = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M-12 4Q-16 4 -16 0Q-16 -5 -10 -5Q-9 -11 -2 -11Q4 -11 6 -6Q13 -7 14 -1Q16 4 10 4Z" fill="url(#tc-cloud)" stroke="#9CC8F2" stroke-width=".8"/></g>`;
-    back += mirror(cloud(30, 102, 1)) + mirror(cloud(18, 92, 0.7));
+    back += `<g class="tf-clouds">${mirror(cloud(30, 102, 1)) + mirror(cloud(18, 92, 0.7))}</g>`;
   }
   // 고리: 진한 바깥선 → 금속 → 입체(위 밝게 · 아래 어둡게) → 바깥 반사선 → 안쪽 그림자선
   if (st.gold) {
