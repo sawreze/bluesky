@@ -1663,3 +1663,17 @@ html.android .avf.t9 > .tf { animation: none; filter: drop-shadow(0 0 7px rgba(9
 .mascot.hop svg { animation: msHop .65s cubic-bezier(.3, 1.5, .5, 1); }
 @keyframes msHop { 0% { transform: translateY(0) scale(1, 1); } 20% { transform: translateY(2px) scale(1.06, .92); } 50% { transform: translateY(-22px) scale(.96, 1.05); } 80% { transform: translateY(0) scale(1.05, .95); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ms-body, .ms-foot, .ms-hand, .ms-spark, .mascot.hop svg { animation: none; } }
+
+/* ── 랭킹 화면 들어올 때: 단상이 솟아오르고, 사진·이름이 톡 올라와요 (메인 7일 그래프처럼) ── */
+.podium.pod-anim .step { transform-origin: 50% 100%; animation: podRise .75s cubic-bezier(.2, .9, .25, 1.12) both; }
+.podium.pod-anim .pod > :not(.step) { animation: podPop .5s cubic-bezier(.2, .9, .3, 1.3) both; }
+.podium.pod-anim .pod-3 .step { animation-delay: 0s; } .podium.pod-anim .pod-2 .step { animation-delay: .14s; } .podium.pod-anim .pod-1 .step { animation-delay: .28s; }
+.podium.pod-anim .pod-3 > :not(.step) { animation-delay: .32s; } .podium.pod-anim .pod-2 > :not(.step) { animation-delay: .46s; } .podium.pod-anim .pod-1 > :not(.step) { animation-delay: .6s; }
+.podium.pod-anim .step span { animation: podNum .4s ease-out both; }
+.podium.pod-anim .pod-3 .step span { animation-delay: .55s; } .podium.pod-anim .pod-2 .step span { animation-delay: .69s; } .podium.pod-anim .pod-1 .step span { animation-delay: .83s; }
+@keyframes podRise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes podPop { from { opacity: 0; transform: translateY(18px) scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes podNum { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.pod-pt { font-variant-numeric: tabular-nums; }
+.pod-pt.pt-done { animation: ptPulse .35s ease-out; }
+@keyframes ptPulse { 50% { transform: scale(1.12); } }

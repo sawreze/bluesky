@@ -2739,9 +2739,8 @@ function mascotSVG() {
     return `${d}Z`;
   };
   // 몽글몽글한 구름 몸: 위쪽은 크고 작은 뭉게 덩이, 아래는 작은 물결 덩이
-  const body = '<circle cx="70" cy="36" r="25"/><circle cx="45" cy="45" r="18"/><circle cx="96" cy="43" r="19"/>'
-    + '<circle cx="27" cy="61" r="14"/><circle cx="113" cy="60" r="14"/><ellipse cx="70" cy="66" rx="46" ry="22"/>'
-    + '<circle cx="36" cy="80" r="11"/><circle cx="56" cy="84" r="11"/><circle cx="84" cy="84" r="11"/><circle cx="104" cy="80" r="11"/>';
+  const body = '<circle cx="70" cy="37" r="26"/><circle cx="43" cy="49" r="19"/><circle cx="97" cy="47" r="20"/>'
+    + '<circle cx="27" cy="65" r="13"/><circle cx="113" cy="64" r="13"/><ellipse cx="70" cy="70" rx="46" ry="21"/>';
   const ol = '#2F5597';
   const foot = (x, cls) => `<g class="ms-foot ${cls}"><ellipse cx="${x}" cy="99" rx="8.5" ry="6.5" fill="url(#ms-g)" stroke="${ol}" stroke-width="3.2"/></g>`;
   const hand = (x, cls) => `<g class="ms-hand ${cls}"><circle cx="${x}" cy="87" r="9.2" fill="url(#ms-g)" stroke="${ol}" stroke-width="3.2"/><circle cx="${x - 3}" cy="84" r="2.4" fill="#fff" opacity=".9"/></g>`;
@@ -2756,7 +2755,7 @@ function mascotSVG() {
         <g fill="${ol}" stroke="${ol}" stroke-width="6.5" stroke-linejoin="round">${body}</g>
         <g fill="url(#ms-g)">${body}</g>
         <g fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".95">
-          <path d="M53 26a22 22 0 0 1 12-10"/><path d="M33 41a14 14 0 0 1 7-8"/><path d="M90 30a14 14 0 0 1 8-4"/>
+          <path d="M53 27a22 22 0 0 1 12-10"/><path d="M31 45a15 15 0 0 1 7-8"/>
         </g>
         <path d="${star(97, 21, 8.5, 4)}" fill="#FFC94D" stroke="${ol}" stroke-width="2.4" stroke-linejoin="round"/>
         <g class="ms-face">
@@ -2791,6 +2790,31 @@ function crownSVG() {
     <circle cx="20" cy="37" r="1.6" fill="#E5293F"/><circle cx="32" cy="37" r="1.6" fill="#2F6BFF"/><circle cx="44" cy="37" r="1.6" fill="#E5293F"/>
   </svg>`;
 }
+// 랭킹 화면에 들어올 때: 3등 → 2등 → 1등 순서로 단상이 아래에서 솟아오르고, 포인트는 0부터 세어 올라가요
+function podiumIntro() {
+  const pod = appEl.querySelector('.rk .podium');
+  if (!pod) return;
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+  pod.classList.add('pod-anim');
+  const delay = { 'pod-3': 0, 'pod-2': 140, 'pod-1': 280 };
+  pod.querySelectorAll('.pod-pt[data-n]').forEach((el) => {
+    const n = Number(el.dataset.n) || 0;
+    const place = [...el.parentElement.classList].find((c) => /^pod-\d$/.test(c));
+    const wait = (delay[place] || 0) + 380; const dur = 1100;
+    el.textContent = '0P';
+    const t0 = performance.now() + wait;
+    const tick = (now) => {
+      if (!el.isConnected) return;
+      const k = Math.min(1, Math.max(0, (now - t0) / dur));
+      const e = 1 - Math.pow(1 - k, 3);
+      el.textContent = `${Math.round(n * e).toLocaleString()}P`;
+      if (k < 1) requestAnimationFrame(tick); else el.classList.add('pt-done');
+    };
+    requestAnimationFrame(tick);
+  });
+  setTimeout(() => pod.classList.remove('pod-anim'), 2200);
+}
 function rankHTML() {
   const now = new Date();
   const mKey = monthKey(now);
@@ -2801,7 +2825,7 @@ function rankHTML() {
       ${place === 1 ? `<span class="crown" aria-hidden="true">${crownSVG()}</span>` : ''}
       <div class="medal m${place}">${tierAvatarHTML(u.name, u.photo, 'av-lg', u.me ? loadLog().g : u.g, 'badge')}</div>
       <b class="pod-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</b>${u.me ? titleChipHTML(titleOf(loadLog().g), 'sm') : ''}
-      <span class="pod-pt">${u.points.toLocaleString()}P</span>
+      <span class="pod-pt" data-n="${u.points}">${u.points.toLocaleString()}P</span>
       <div class="step"><span>${place}</span></div>
     </div>` : '';
   return `<main class="main rk">
@@ -3857,6 +3881,7 @@ function render() {
   } else {
     app.classList.remove('enter-fwd', 'enter-back');
   }
+  if (screen === 'rank' && state.lastRendered !== 'rank') podiumIntro();
   state.lastRendered = screen;
   if (screen === 'calendar') placeCalRing(false);
   if (screen === 'main') bindMain();
