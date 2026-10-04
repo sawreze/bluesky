@@ -3122,6 +3122,7 @@ function goodsCodeSheet(o, fresh) {
   sheet.innerHTML = `<div class="sheet-bg" data-no></div>
     <section class="sheet-card gc-sheet" role="dialog" aria-label="푸름이 굿즈 쿠폰">
       <span class="sheet-grab" aria-hidden="true"></span>
+      <div class="cp-joy" aria-hidden="true">${mascotJoySVG()}</div>
       ${fresh ? '<p class="cp-done">🎉 구매 완료!</p>' : ''}
       <div class="gc-ticket">
         <div class="gc-top">${shopPicHTML({ ...o, cat: '' }, 'sm')}<div><b>${esc(o.name)}</b><small>푸름이 굿즈샵 무료 교환 쿠폰</small></div></div>
@@ -3160,6 +3161,7 @@ function couponSheet(o, fresh) {
   sheet.innerHTML = `<div class="sheet-bg" data-no></div>
     <section class="sheet-card cp-sheet" role="dialog" aria-label="교환권">
       <span class="sheet-grab" aria-hidden="true"></span>
+      <div class="cp-joy" aria-hidden="true">${mascotJoySVG()}</div>
       ${fresh ? '<p class="cp-done">🎉 교환 완료!</p>' : ''}
       <div class="cp-ticket">
         <div class="cp-top"><span class="shop-pic sm" aria-hidden="true">${o.icon}</span><div><b>${esc(o.name)}</b><small>푸른하늘 포인트 상점 · ${o.price.toLocaleString()}P</small></div></div>

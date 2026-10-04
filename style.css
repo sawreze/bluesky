@@ -1891,6 +1891,9 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
 @keyframes mjMouth { 0%, 100% { transform: scaleY(.85); } 45% { transform: scaleY(1.1); } }
 @keyframes mjHeart { 0% { opacity: 0; translate: 0 8px; scale: .5; } 20% { opacity: 1; scale: 1; } 100% { opacity: 0; translate: var(--x) -26px; scale: 1.1; } }
 @keyframes mjSpark { 0%, 100% { opacity: 0; transform: scale(.4); } 50% { opacity: 1; transform: scale(1.15) rotate(25deg); } }
+/* 교환권 · 쿠폰 창: 받은 걸 보고 신난 푸름이 (기부 화면은 나무 애니메이션이라 제외) */
+.cp-joy { justify-self: center; width: 124px; margin: 14px 0 -10px; pointer-events: none; animation: cpJoyIn .5s cubic-bezier(.3, 1.5, .5, 1) both; }
+@keyframes cpJoyIn { from { opacity: 0; transform: translateY(18px) scale(.6); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .mj *, .mj { animation: none !important; } .mj-heart, .mj-spark { opacity: 1; } }
 
 /* ── 푸름이 굿즈 ── */
