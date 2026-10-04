@@ -2959,35 +2959,74 @@ function shopBuySheet(code) {
 // 교환권 (바코드 + 번호)
 // ── 기부 감사 화면: 땅에서 나무가 자라나고, 잎이 떨어지고, 빛·반짝임 속에 감사 문구가 떠요 ──
 function donateTreeSVG() {
-  // 둥근 나무 (🌳 느낌): 줄기 → 큰 덩이부터 작은 덩이 순서로 톡톡 돋아나요
-  const blobs = [
-    [100, 98, 46, '#2F7A2A'], [66, 104, 30, '#347F2C'], [134, 104, 30, '#347F2C'], [100, 70, 36, '#3D8F31'],
-    [74, 80, 28, '#4A9E36'], [126, 80, 28, '#4A9E36'], [100, 54, 26, '#58B03E'], [82, 62, 20, '#64BC45'],
-    [118, 62, 20, '#64BC45'], [86, 112, 22, '#3F9232'], [114, 114, 22, '#3F9232'], [100, 88, 24, '#4FA63A'],
-  ];
-  const hi = [[86, 50, 9], [70, 70, 7], [108, 44, 6], [120, 66, 6], [92, 76, 5]];
-  const dots = Array.from({ length: 26 }, (_, i) => {
-    const a = i * 2.39996; const r = 8 + (i * 37 % 44);
-    return `<circle cx="${(100 + Math.cos(a) * r).toFixed(1)}" cy="${(86 + Math.sin(a) * r * 0.82).toFixed(1)}" r="${(1.6 + (i % 3) * 0.7).toFixed(1)}" fill="${i % 2 ? '#2A6B25' : '#7FCF57'}" opacity=".55"/>`;
+  // 실제 나무처럼: 작은 잎 뭉치 수백 개를 겹쳐 그리고, 왼쪽 위에서 빛이 오는 것처럼 밝기를 나눠요 (뒤·가운데·앞 3겹)
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const CX = 110; const CY = 92; const RX = 80; const RY = 64;
+  const shades = ['#1F4F1B', '#26601F', '#2E7226', '#37842C', '#459736', '#56A93F', '#6BBB4A', '#86CC5C', '#A3DC74'];
+  const layer = (n, k, rMin, rMax, bias) => {
+    let out = '';
+    for (let i = 0; i < n; i++) {
+      const t = Math.sqrt(rnd()) * k; const a = rnd() * Math.PI * 2;
+      const x = CX + Math.cos(a) * RX * t; const y = CY + Math.sin(a) * RY * t * (Math.sin(a) > 0 ? 0.9 : 1.05);
+      const light = (-(x - CX) / RX * 0.55 - (y - CY) / RY * 0.8 + 1) / 2; // 왼쪽 위가 밝아요
+      const idx = Math.max(0, Math.min(shades.length - 1, Math.round(light * 6 + bias + (rnd() - 0.5) * 1.6)));
+      const r = rMin + rnd() * (rMax - rMin);
+      out += `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${r.toFixed(1)}" ry="${(r * (0.82 + rnd() * 0.25)).toFixed(1)}" transform="rotate(${(rnd() * 180).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="${shades[idx]}"/>`;
+    }
+    return out;
+  };
+  const back = layer(70, 1.0, 10, 17, -1.2);
+  const mid = layer(120, 0.95, 6, 11, 0.4);
+  const front = layer(110, 0.9, 3.5, 7, 1.6);
+  const glint = Array.from({ length: 46 }, () => {
+    const a = Math.PI * (1.0 + rnd() * 0.75); const t = 0.45 + rnd() * 0.5;
+    const x = CX + Math.cos(a) * RX * t; const y = CY + Math.sin(a) * RY * t;
+    const r = 1.6 + rnd() * 1.8; // 햇빛 받은 잎 끝 (작은 잎 모양)
+    return `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${r.toFixed(1)}" ry="${(r * 0.55).toFixed(1)}" transform="rotate(${(rnd() * 180).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="#B4E383" opacity="${(0.45 + rnd() * 0.3).toFixed(2)}"/>`;
   }).join('');
-  const leaf = (i, x, d) => `<g class="dn-leaf" style="--x:${x}px;--d:${d}s;--r:${i % 2 ? -1 : 1}"><path d="M0 -6C4 -4 5 2 0 6C-5 2 -4 -4 0 -6Z" fill="${i % 2 ? '#7CCB4E' : '#4FA63A'}"/><path d="M0 -5V5" stroke="#2F7A2A" stroke-width=".7"/></g>`;
-  return `<svg class="dn-tree" viewBox="0 0 200 230" aria-hidden="true">
+  const holes = Array.from({ length: 9 }, () => { // 잎 사이로 보이는 어두운 틈 (깊이감)
+    const a = rnd() * Math.PI * 2; const t = 0.2 + rnd() * 0.55;
+    return `<ellipse cx="${(CX + Math.cos(a) * RX * t).toFixed(1)}" cy="${(CY + Math.sin(a) * RY * t).toFixed(1)}" rx="${(4 + rnd() * 5).toFixed(1)}" ry="${(3 + rnd() * 3).toFixed(1)}" fill="#163D14" opacity=".55"/>`;
+  }).join('');
+  const leaf = (i, x, d) => `<g class="dn-leaf" style="--x:${x}px;--d:${d}s;--r:${i % 2 ? -1 : 1}"><path d="M0 -6C4.5 -4 5 2.5 0 6.5C-5 2.5 -4.5 -4 0 -6Z" fill="url(#dn-lf${i % 2})"/><path d="M0 -5.5V6" stroke="#2A5E22" stroke-width=".6"/></g>`;
+  return `<svg class="dn-tree" viewBox="0 0 220 240" aria-hidden="true">
     <defs>
-      <radialGradient id="dn-glow" cx=".5" cy=".42" r=".55"><stop offset="0" stop-color="#FFF6C9" stop-opacity=".95"/><stop offset=".5" stop-color="#E8F7D4" stop-opacity=".55"/><stop offset="1" stop-color="#E8F7D4" stop-opacity="0"/></radialGradient>
-      <linearGradient id="dn-trunk" x1="0" x2="1"><stop offset="0" stop-color="#7A4A22"/><stop offset=".45" stop-color="#A86D38"/><stop offset="1" stop-color="#6B3F1C"/></linearGradient>
-      <radialGradient id="dn-soil" cx=".5" cy=".3" r=".7"><stop offset="0" stop-color="#9C6B3E"/><stop offset="1" stop-color="#6E4524"/></radialGradient>
+      <radialGradient id="dn-glow" cx=".5" cy=".42" r=".55"><stop offset="0" stop-color="#FFF6C9" stop-opacity=".95"/><stop offset=".5" stop-color="#E8F7D4" stop-opacity=".5"/><stop offset="1" stop-color="#E8F7D4" stop-opacity="0"/></radialGradient>
+      <linearGradient id="dn-bark" x1="0" x2="1"><stop offset="0" stop-color="#3E2614"/><stop offset=".35" stop-color="#6E4627"/><stop offset=".6" stop-color="#8A5B34"/><stop offset="1" stop-color="#3A2312"/></linearGradient>
+      <radialGradient id="dn-soil" cx=".5" cy=".35" r=".7"><stop offset="0" stop-color="#7A5233"/><stop offset=".7" stop-color="#5A3A22"/><stop offset="1" stop-color="#4A2F1B" stop-opacity="0"/></radialGradient>
+      <radialGradient id="dn-shadow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#1B3A12" stop-opacity=".35"/><stop offset="1" stop-color="#1B3A12" stop-opacity="0"/></radialGradient>
+      <radialGradient id="dn-shade" cx=".32" cy=".25" r=".85"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".18"/><stop offset=".55" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="1" stop-color="#0B2408" stop-opacity=".45"/></radialGradient>
+      <linearGradient id="dn-lf0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9AD86A"/><stop offset="1" stop-color="#3F8F31"/></linearGradient>
+      <linearGradient id="dn-lf1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E3C65A"/><stop offset="1" stop-color="#7FA437"/></linearGradient>
+      <clipPath id="dn-crown-clip"><ellipse cx="${CX}" cy="${CY}" rx="${RX + 16}" ry="${RY + 16}"/></clipPath>
     </defs>
-    <g class="dn-rays">${Array.from({ length: 12 }, (_, i) => `<path d="M100 92L${(100 + Math.cos(i * Math.PI / 6 - 0.09) * 150).toFixed(1)} ${(92 + Math.sin(i * Math.PI / 6 - 0.09) * 150).toFixed(1)}L${(100 + Math.cos(i * Math.PI / 6 + 0.09) * 150).toFixed(1)} ${(92 + Math.sin(i * Math.PI / 6 + 0.09) * 150).toFixed(1)}Z" fill="#FFE9A3" opacity=".35"/>`).join('')}</g>
-    <circle class="dn-halo" cx="100" cy="92" r="96" fill="url(#dn-glow)"/>
-    <ellipse cx="100" cy="206" rx="56" ry="12" fill="url(#dn-soil)"/>
-    <path class="dn-grass" d="M54 204q4-9 7 0q3-11 7 0q4-8 6 1M126 204q4-10 7 0q3-9 6 0q4-11 7 1" fill="none" stroke="#5DB33D" stroke-width="2.4" stroke-linecap="round"/>
-    <g class="dn-trunk"><path d="M93 206C95 180 94 156 97 128L103 128C106 156 105 180 107 206Z" fill="url(#dn-trunk)"/>
-      <path d="M98 150C90 142 84 136 78 126M102 142C110 134 116 128 122 118" fill="none" stroke="#8A5529" stroke-width="4" stroke-linecap="round"/>
-      <path d="M99 200C99 180 99 160 100 132" stroke="#C99158" stroke-width="1.4" opacity=".6" fill="none"/></g>
-    <g class="dn-crown">${blobs.map(([x, y, r, c], i) => `<circle class="dn-blob" style="--i:${i}" cx="${x}" cy="${y}" r="${r}" fill="${c}"/>`).join('')}
-      <g class="dn-detail">${dots}${hi.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#B5E77A" opacity=".75"/>`).join('')}</g></g>
-    <g class="dn-leaves" transform="translate(100 96)">${[-44, -18, 8, 30, 50, -60].map((x, i) => leaf(i, x, 1.6 + i * 0.55)).join('')}</g>
-    <g class="dn-sparks">${[[30, 40], [168, 52], [24, 128], [176, 140], [56, 18], [146, 16], [100, 6]].map(([x, y], i) => `<path style="--i:${i}" d="M${x} ${y - 7}Q${x + 1.3} ${y - 1.3} ${x + 7} ${y}Q${x + 1.3} ${y + 1.3} ${x} ${y + 7}Q${x - 1.3} ${y + 1.3} ${x - 7} ${y}Q${x - 1.3} ${y - 1.3} ${x} ${y - 7}Z" fill="${i % 3 === 2 ? '#8FD3FF' : '#FFD54A'}"/>`).join('')}</g>
+    <g class="dn-rays">${Array.from({ length: 12 }, (_, i) => `<path d="M${CX} ${CY}L${(CX + Math.cos(i * Math.PI / 6 - 0.08) * 170).toFixed(1)} ${(CY + Math.sin(i * Math.PI / 6 - 0.08) * 170).toFixed(1)}L${(CX + Math.cos(i * Math.PI / 6 + 0.08) * 170).toFixed(1)} ${(CY + Math.sin(i * Math.PI / 6 + 0.08) * 170).toFixed(1)}Z" fill="#FFE9A3" opacity=".3"/>`).join('')}</g>
+    <circle class="dn-halo" cx="${CX}" cy="${CY}" r="110" fill="url(#dn-glow)"/>
+    <ellipse class="dn-ground-shadow" cx="${CX}" cy="214" rx="88" ry="14" fill="url(#dn-shadow)"/>
+    <ellipse cx="${CX}" cy="214" rx="54" ry="9" fill="url(#dn-soil)"/>
+    <path class="dn-grass" d="M62 214q3-10 6-1q2-12 6 0q3-9 5 1M86 216q2-7 4 0M140 216q2-8 4 0M150 214q3-11 6 0q3-9 6-1q3-10 6 1" fill="none" stroke="#4E9B38" stroke-width="2" stroke-linecap="round"/>
+    <g class="dn-sprout"><path d="M${CX} 214C${CX} 206 ${CX + 1} 200 ${CX} 194" stroke="#5C9A3A" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <path d="M${CX} 196C${CX - 9} 190 ${CX - 15} 194 ${CX - 15} 194C${CX - 12} 200 ${CX - 4} 200 ${CX} 196Z" fill="#7CC250"/>
+      <path d="M${CX} 194C${CX + 8} 186 ${CX + 15} 189 ${CX + 15} 189C${CX + 13} 196 ${CX + 4} 197 ${CX} 194Z" fill="#8FD25F"/></g>
+    <g class="dn-grow">
+      <g class="dn-wood">
+        <path d="M${CX - 9} 214C${CX - 7} 190 ${CX - 6} 160 ${CX - 4} 128L${CX + 4} 128C${CX + 6} 160 ${CX + 7} 190 ${CX + 10} 214C${CX + 4} 216 ${CX - 4} 216 ${CX - 9} 214Z" fill="url(#dn-bark)"/>
+        <path d="M${CX - 3} 150C${CX - 18} 136 ${CX - 30} 124 ${CX - 42} 108M${CX + 2} 142C${CX + 16} 128 ${CX + 28} 118 ${CX + 40} 104M${CX - 1} 132C${CX - 6} 116 ${CX - 10} 104 ${CX - 14} 92M${CX + 1} 130C${CX + 8} 114 ${CX + 14} 102 ${CX + 18} 90" fill="none" stroke="#5E3C21" stroke-width="5" stroke-linecap="round"/>
+        <path d="M${CX - 42} 108C${CX - 50} 100 ${CX - 56} 96 ${CX - 60} 90M${CX + 40} 104C${CX + 48} 98 ${CX + 54} 94 ${CX + 58} 88M${CX - 22} 126C${CX - 30} 128 ${CX - 38} 126 ${CX - 46} 122" fill="none" stroke="#5E3C21" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M${CX - 3} 210C${CX - 2} 190 ${CX - 3} 170 ${CX - 1} 140M${CX + 4} 206C${CX + 3} 186 ${CX + 4} 168 ${CX + 2} 146M${CX - 6} 200C${CX - 5} 188 ${CX - 6} 176 ${CX - 4} 164" stroke="#2C1A0D" stroke-width=".9" opacity=".55" fill="none"/>
+        <path d="M${CX + 1} 208C${CX + 2} 186 ${CX + 1} 166 ${CX + 1} 136" stroke="#B88655" stroke-width="1.6" opacity=".45" fill="none"/>
+        <path d="M${CX - 9} 214q-7 2-12 0M${CX + 10} 214q7 2 13-1" stroke="#4A2F1B" stroke-width="3" stroke-linecap="round" fill="none"/>
+      </g>
+      <ellipse cx="${CX}" cy="${CY + 50}" rx="24" ry="7" fill="#0E2A0B" opacity=".35"/>
+      <g class="dn-crown" clip-path="url(#dn-crown-clip)">
+        <g class="dn-layer l1">${back}${holes}</g>
+        <g class="dn-layer l2">${mid}</g>
+        <g class="dn-layer l3">${front}${glint}</g>
+      </g>
+    </g>
+    <g class="dn-leaves" transform="translate(${CX} 104)">${[-52, -22, 8, 34, 58, -66].map((x, i) => leaf(i, x, 2.6 + i * 0.6)).join('')}</g>
+    <g class="dn-sparks">${[[30, 40], [190, 52], [22, 140], [198, 150], [60, 14], [160, 12], [110, 2]].map(([x, y], i) => `<path style="--i:${i}" d="M${x} ${y - 7}Q${x + 1.3} ${y - 1.3} ${x + 7} ${y}Q${x + 1.3} ${y + 1.3} ${x} ${y + 7}Q${x - 1.3} ${y + 1.3} ${x - 7} ${y}Q${x - 1.3} ${y - 1.3} ${x} ${y - 7}Z" fill="${i % 3 === 2 ? '#8FD3FF' : '#FFD54A'}"/>`).join('')}</g>
   </svg>`;
 }
 function donateSheet(o, fresh) {
