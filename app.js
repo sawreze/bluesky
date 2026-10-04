@@ -2877,14 +2877,47 @@ const SHOP_ITEMS_LOCAL = [
   ['seed-kit', 'goods', '반려식물 씨앗 키트', '바질 · 방울토마토 중 랜덤', 6500, '🌱'],
   ['straw-set', 'goods', '스테인리스 빨대 세트', '빨대 2개 + 세척솔', 5900, '🥤'],
   ['eco-bag', 'goods', '에코백', '튼튼한 캔버스 천 · 비닐봉지 대신', 7900, '👜'],
-  ['tumbler', 'goods', '푸른하늘 텀블러 350ml', '일회용 컵 대신 매일 쓰기', 9900, '🧋'],
-  ['tree-donate', 'donate', '나무 한 그루 심기 기부', '숲 가꾸기 단체에 기부돼요', 10000, '🌳'],
-].map(([code, cat, name, sub, price, icon]) => ({ code, cat, name, sub, price, icon }));
+  ['cloud-cushion', 'goods', '구름이 쿠션', '말랑말랑 구름이 얼굴 쿠션', 9900, '☁️', 'code'],
+  ['cloud-tumbler', 'goods', '구름이 텀블러 350ml', '구름이가 그려진 보온·보냉 텀블러', 9500, '🥤', 'code'],
+  ['tree-donate', 'donate', '나무 한 그루 심기 기부', '숲 가꾸기 단체에 기부돼요', 10000, '🌳', 'donate'],
+].map(([code, cat, name, sub, price, icon, voucher = 'barcode']) => ({ code, cat, name, sub, price, icon, voucher }));
+const voucherOf = (o) => o.voucher || (o.code === 'tree-donate' ? 'donate' : /^cloud-/.test(o.code) ? 'code' : 'barcode');
+// 구름이 굿즈 그림 (쿠션 · 텀블러) — 이모지 대신 직접 그려요
+function goodsArtSVG(code) {
+  const ol = '#2F5597';
+  const face = (x, y, k = 1) => `<path d="M${x - 9 * k} ${y}q${3 * k}-${4 * k} ${6 * k} 0M${x + 3 * k} ${y}q${3 * k}-${4 * k} ${6 * k} 0" fill="none" stroke="#1E2A44" stroke-width="${2.2 * k}" stroke-linecap="round"/>
+    <ellipse cx="${x - 11 * k}" cy="${y + 6 * k}" rx="${3.4 * k}" ry="${2 * k}" fill="#FFA3B8"/><ellipse cx="${x + 11 * k}" cy="${y + 6 * k}" rx="${3.4 * k}" ry="${2 * k}" fill="#FFA3B8"/>
+    <path d="M${x - 3.6 * k} ${y + 4 * k}h${7.2 * k}q-.4 ${5.4 * k}-${3.6 * k} ${5.4 * k}t-${3.6 * k}-${5.4 * k}z" fill="#1E2A44"/><ellipse cx="${x}" cy="${y + 8 * k}" rx="${2 * k}" ry="${1.2 * k}" fill="#FF869C"/>`;
+  if (code === 'cloud-cushion') {
+    const body = '<circle cx="60" cy="40" r="20"/><circle cx="39" cy="50" r="15"/><circle cx="81" cy="49" r="16"/><circle cx="25" cy="63" r="11"/><circle cx="95" cy="62" r="11"/><ellipse cx="60" cy="66" rx="38" ry="18"/>';
+    return `<svg viewBox="0 0 120 100" class="goods-art" aria-hidden="true">
+      <defs><radialGradient id="ga-cu" cx=".35" cy=".25" r=".9"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".6" stop-color="#F1F6FF"/><stop offset="1" stop-color="#C9DCF7"/></radialGradient></defs>
+      <ellipse cx="60" cy="90" rx="40" ry="5" fill="#1E3A6E" opacity=".14"/>
+      <g fill="${ol}" stroke="${ol}" stroke-width="4" stroke-linejoin="round">${body}</g><g fill="url(#ga-cu)">${body}</g>
+      <path d="M26 72q34 10 68 0" fill="none" stroke="#B9CDEB" stroke-width="1.4" stroke-dasharray="2.5 2.5"/>
+      <path d="M46 30a17 17 0 0 1 9-7" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+      ${face(60, 56, 1)}</svg>`;
+  }
+  if (code === 'cloud-tumbler') {
+    return `<svg viewBox="0 0 120 100" class="goods-art" aria-hidden="true">
+      <defs><linearGradient id="ga-tb" x1="0" x2="1"><stop offset="0" stop-color="#5E8FD9"/><stop offset=".3" stop-color="#9CC2F2"/><stop offset=".55" stop-color="#7EAAE8"/><stop offset="1" stop-color="#3F6EB8"/></linearGradient>
+        <linearGradient id="ga-lid" x1="0" x2="1"><stop offset="0" stop-color="#E6ECF4"/><stop offset=".4" stop-color="#FFFFFF"/><stop offset="1" stop-color="#B8C4D4"/></linearGradient></defs>
+      <ellipse cx="60" cy="93" rx="22" ry="4" fill="#1E3A6E" opacity=".16"/>
+      <path d="M41 24h38l-4 66q-.4 3-3.4 3H48.4q-3 0-3.4-3z" fill="url(#ga-tb)"/>
+      <rect x="38" y="13" width="44" height="12" rx="4" fill="url(#ga-lid)" stroke="#9AA8BC" stroke-width=".8"/>
+      <rect x="52" y="8" width="16" height="6" rx="2.5" fill="#C9D3E1"/>
+      <path d="M46 26l-1 60" stroke="#fff" stroke-width="3" opacity=".35" stroke-linecap="round"/>
+      <g transform="translate(60 54) scale(.42) translate(-60 -50)"><g fill="${ol}" stroke="${ol}" stroke-width="5" stroke-linejoin="round"><circle cx="60" cy="40" r="20"/><circle cx="39" cy="50" r="15"/><circle cx="81" cy="49" r="16"/><ellipse cx="60" cy="62" rx="36" ry="17"/></g>
+        <g fill="#fff"><circle cx="60" cy="40" r="20"/><circle cx="39" cy="50" r="15"/><circle cx="81" cy="49" r="16"/><ellipse cx="60" cy="62" rx="36" ry="17"/></g>${face(60, 52, 1)}</g>
+      <path d="M48 80q12 4 24 0" stroke="#fff" stroke-width="1.4" opacity=".6" fill="none"/></svg>`;
+  }
+  return '';
+}
 // 상품 사진: assets/shop/<상품 코드>.jpg 를 넣고 여기 코드를 적으면 아이콘 대신 사진이 나와요
 const SHOP_PHOTOS = new Set([]);
 const shopPicHTML = (i, size = '') => (SHOP_PHOTOS.has(i.code)
   ? `<span class="shop-pic photo ${size}"><img src="assets/shop/${i.code}.jpg" alt="" loading="lazy" decoding="async"></span>`
-  : `<span class="shop-pic ${size} tone-${SHOP_TONE[i.cat] || 'sky'}" aria-hidden="true">${i.icon}</span>`);
+  : `<span class="shop-pic ${size} tone-${/^cloud-/.test(i.code) ? 'cloud' : SHOP_TONE[i.cat] || 'sky'}" aria-hidden="true">${goodsArtSVG(i.code) || i.icon}</span>`);
 const shopItems = () => (state.shopItems && state.shopItems.length ? state.shopItems : SHOP_ITEMS_LOCAL);
 const loadOrders = () => { try { return JSON.parse(localStorage.getItem(SHOP_ORDER_KEY) || '[]') || []; } catch (e) { return []; } };
 function spendPoints(p) { try { localStorage.setItem(POINT_KEY, String(Math.max(0, loadPoints() - p))); } catch (e) { /* 무시 */ } }
@@ -2914,8 +2947,8 @@ function shopHTML() {
     </button></li>`).join('')}</ul>`;
   const ordersHTML = orders.length
     ? `<ul class="shop-orders">${orders.map((o) => `<li><button type="button" data-act="shop-coupon" data-id="${esc(o.id)}">
-        <span class="shop-pic sm" aria-hidden="true">${o.icon}</span>
-        <span class="so-t"><b>${esc(o.name)}</b><small>${new Date(o.at).toLocaleDateString('ko-KR')} · ${couponText(o.coupon)}</small></span>
+        ${shopPicHTML({ ...o, cat: '' }, 'sm')}
+        <span class="so-t"><b>${esc(o.name)}</b><small>${new Date(o.at).toLocaleDateString('ko-KR')} · ${voucherOf(o) === 'code' ? esc(o.coupon) : couponText(o.coupon)}</small></span>
         <span class="so-p">-${o.price.toLocaleString()}P</span></button></li>`).join('')}</ul>`
     : '<div class="shop-empty"><span aria-hidden="true">🎁</span><b>아직 교환한 상품이 없어요</b><p>포인트를 모아 첫 상품으로 바꿔 보세요.</p></div>';
   return `${appBar('포인트 상점', 'back')}
@@ -2978,8 +3011,9 @@ function shopBuySheet(code) {
     } else {
       if (loadPoints() < it.price) return;
       spendPoints(it.price);
-      order = { id: `l${Date.now()}`, code: it.code, name: it.name, icon: it.icon, price: it.price, at: Date.now(),
-        coupon: Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => String(x % 10)).join('') };
+      const rb = crypto.getRandomValues(new Uint8Array(12)); const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      order = { id: `l${Date.now()}`, code: it.code, name: it.name, icon: it.icon, voucher: voucherOf(it), price: it.price, at: Date.now(),
+        coupon: voucherOf(it) === 'code' ? `GURUM-${Array.from(rb.slice(0, 8), (x, i) => (i === 4 ? '-' : '') + ABC[x % ABC.length]).join('')}` : Array.from(rb, (x) => String(x % 10)).join('') };
       lsSet(SHOP_ORDER_KEY, [order, ...loadOrders()]);
     }
     close();
@@ -3081,9 +3115,46 @@ function donateSheet(o, fresh) {
   requestAnimationFrame(() => sheet.classList.add('open'));
   sheet.addEventListener('click', (e) => { if (e.target.closest('[data-no]')) { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); } });
 }
+// ── 구름이 굿즈 쿠폰 코드: (가상) 구름이 굿즈샵에서 입력하면 상품이 무료 (배송비만 따로) ──
+function goodsCodeSheet(o, fresh) {
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-wrap';
+  sheet.innerHTML = `<div class="sheet-bg" data-no></div>
+    <section class="sheet-card gc-sheet" role="dialog" aria-label="구름이 굿즈 쿠폰">
+      <span class="sheet-grab" aria-hidden="true"></span>
+      ${fresh ? '<p class="cp-done">🎉 구매 완료!</p>' : ''}
+      <div class="gc-ticket">
+        <div class="gc-top">${shopPicHTML({ ...o, cat: '' }, 'sm')}<div><b>${esc(o.name)}</b><small>구름이 굿즈샵 무료 교환 쿠폰</small></div></div>
+        <div class="cp-cut" aria-hidden="true"></div>
+        <p class="gc-label">쿠폰 코드</p>
+        <div class="gc-code"><code>${esc(o.coupon)}</code><button type="button" class="gc-copy" data-copy>복사</button></div>
+        <ol class="gc-steps">
+          <li><b>구름이 굿즈샵</b>에서 같은 상품을 장바구니에 담아요</li>
+          <li>주문서의 <b>쿠폰 코드</b> 칸에 위 코드를 입력해요</li>
+          <li>상품 금액은 <b>0원</b>, 배송비만 결제하면 끝!</li>
+        </ol>
+        <p class="cp-meta">구매일 ${new Date(o.at).toLocaleDateString('ko-KR')} · 1회만 사용 가능 · 배송비 별도<br>구름이 굿즈샵은 시연용 가상 사이트예요</p>
+      </div>
+      <button type="button" class="btn primary" data-no>확인</button>
+    </section>`;
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => sheet.classList.add('open'));
+  sheet.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-copy]')) {
+      const btn = e.target.closest('[data-copy]');
+      try { await navigator.clipboard.writeText(o.coupon); } catch (err) {
+        const ta = document.createElement('textarea'); ta.value = o.coupon; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e2) { /* 무시 */ } ta.remove();
+      }
+      btn.textContent = '복사됨 ✓'; btn.classList.add('done'); setTimeout(() => { btn.textContent = '복사'; btn.classList.remove('done'); }, 1600);
+      return;
+    }
+    if (e.target.closest('[data-no]')) { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); }
+  });
+}
 function couponSheet(o, fresh) {
   if (!o) return;
-  if (o.code === 'tree-donate') return donateSheet(o, fresh); // 기부는 바코드 대신 감사 화면
+  if (voucherOf(o) === 'donate') return donateSheet(o, fresh); // 기부는 바코드 대신 감사 화면
+  if (voucherOf(o) === 'code') return goodsCodeSheet(o, fresh); // 구름이 굿즈는 굿즈샵 쿠폰 코드
   const sheet = document.createElement('div');
   sheet.className = 'sheet-wrap';
   sheet.innerHTML = `<div class="sheet-bg" data-no></div>

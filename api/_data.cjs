@@ -208,22 +208,27 @@ module.exports = function makeData(db) {
   // ── 포인트 상점 ──
   async function shopData(uid) {
     const [items, orders] = await Promise.all([
-      sql()`SELECT code, category, name, sub, price_p, icon FROM shop_items WHERE active ORDER BY sort, code`,
-      sql()`SELECT o.id, o.item_code, i.name, i.icon, o.price_p, o.coupon, o.created_at
+      sql()`SELECT code, category, name, sub, price_p, icon, voucher FROM shop_items WHERE active ORDER BY sort, code`,
+      sql()`SELECT o.id, o.item_code, i.name, i.icon, i.voucher, o.price_p, o.coupon, o.created_at
         FROM shop_orders o JOIN shop_items i ON i.code = o.item_code WHERE o.user_id = ${uid} ORDER BY o.created_at DESC, o.id DESC LIMIT 50`,
     ]);
     return {
-      items: items.map((r) => ({ code: r.code, cat: r.category, name: r.name, sub: r.sub, price: num(r.price_p), icon: r.icon })),
-      orders: orders.map((r) => ({ id: String(r.id), code: r.item_code, name: r.name, icon: r.icon, price: num(r.price_p), coupon: r.coupon, at: ms(r.created_at) })),
+      items: items.map((r) => ({ code: r.code, cat: r.category, name: r.name, sub: r.sub, price: num(r.price_p), icon: r.icon, voucher: r.voucher })),
+      orders: orders.map((r) => ({ id: String(r.id), code: r.item_code, name: r.name, icon: r.icon, voucher: r.voucher, price: num(r.price_p), coupon: r.coupon, at: ms(r.created_at) })),
     };
   }
   async function shopBuy(me, b) {
     const code = str(b.code, 40);
-    const [item] = await sql()`SELECT code, name, icon, price_p FROM shop_items WHERE code = ${code} AND active`;
+    const [item] = await sql()`SELECT code, name, icon, price_p, voucher FROM shop_items WHERE code = ${code} AND active`;
     if (!item) bad('지금은 교환할 수 없는 상품이에요.', 404);
     const [{ n }] = await sql()`SELECT COUNT(*) AS n FROM shop_orders WHERE user_id = ${me.id} AND created_at > now() - interval '1 day'`;
     if (num(n) >= SHOP_DAILY_MAX) bad(`하루에 ${SHOP_DAILY_MAX}번까지 교환할 수 있어요.`, 429);
-    const coupon = Array.from(require('crypto').randomBytes(12), (x) => String(x % 10)).join('');
+    // 바코드 교환권은 숫자 12자리, 구름이 굿즈샵 쿠폰은 GURUM-XXXX-XXXX (헷갈리는 0·O·1·I 는 빼요)
+    const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = require('crypto').randomBytes(12);
+    const coupon = item.voucher === 'code'
+      ? `GURUM-${Array.from(bytes.slice(0, 8), (x, i) => (i === 4 ? '-' : '') + ABC[x % ABC.length]).join('')}`
+      : Array.from(bytes, (x) => String(x % 10)).join('');
     // 잔액이 충분할 때만 교환 + 포인트 차감을 한 문장으로 (중간에 실패하면 아무것도 안 들어가요)
     const rows = await sql()`
       WITH bal AS (SELECT COALESCE(SUM(amount), 0) AS p FROM point_transactions WHERE user_id = ${me.id}),
@@ -239,7 +244,7 @@ module.exports = function makeData(db) {
     if (!rows.length) bad('포인트가 부족해요.', 409);
     const [st] = await sql()`SELECT points FROM v_user_stats WHERE user_id = ${me.id}`;
     return { ok: true, points: num(st && st.points),
-      order: { id: String(rows[0].id), code: item.code, name: item.name, icon: item.icon, price: num(item.price_p), coupon, at: ms(rows[0].created_at) } };
+      order: { id: String(rows[0].id), code: item.code, name: item.name, icon: item.icon, voucher: item.voucher, price: num(item.price_p), coupon, at: ms(rows[0].created_at) } };
   }
 
   async function sync(me) {

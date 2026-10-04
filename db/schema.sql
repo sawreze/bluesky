@@ -144,10 +144,18 @@ INSERT INTO shop_items (code, category, name, sub, price_p, icon, sort) VALUES
   ('seed-kit', 'goods', '반려식물 씨앗 키트', '바질 · 방울토마토 중 랜덤', 6500, '🌱', 7),
   ('straw-set', 'goods', '스테인리스 빨대 세트', '빨대 2개 + 세척솔', 5900, '🥤', 8),
   ('eco-bag', 'goods', '에코백', '튼튼한 캔버스 천 · 비닐봉지 대신', 7900, '👜', 9),
-  ('tumbler', 'goods', '푸른하늘 텀블러 350ml', '일회용 컵 대신 매일 쓰기', 9900, '🧋', 10),
-  ('tree-donate', 'donate', '나무 한 그루 심기 기부', '숲 가꾸기 단체에 기부돼요', 10000, '🌳', 11)
+  ('cloud-cushion', 'goods', '구름이 쿠션', '말랑말랑 구름이 얼굴 쿠션', 9900, '☁️', 10),
+  ('cloud-tumbler', 'goods', '구름이 텀블러 350ml', '구름이가 그려진 보온·보냉 텀블러', 9500, '🥤', 11),
+  ('tree-donate', 'donate', '나무 한 그루 심기 기부', '숲 가꾸기 단체에 기부돼요', 10000, '🌳', 12)
 ON CONFLICT (code) DO UPDATE SET category = EXCLUDED.category, name = EXCLUDED.name, sub = EXCLUDED.sub,
-  price_p = EXCLUDED.price_p, icon = EXCLUDED.icon, sort = EXCLUDED.sort;
+  price_p = EXCLUDED.price_p, icon = EXCLUDED.icon, sort = EXCLUDED.sort, active = true;
+-- 받는 방법: barcode 바코드 교환권 · code 구름이 굿즈샵 쿠폰 코드(무료, 배송비 별도) · donate 기부 감사 화면
+ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS voucher TEXT NOT NULL DEFAULT 'barcode';
+ALTER TABLE shop_items DROP CONSTRAINT IF EXISTS shop_items_voucher_ck;
+ALTER TABLE shop_items ADD CONSTRAINT shop_items_voucher_ck CHECK (voucher IN ('barcode', 'code', 'donate'));
+UPDATE shop_items SET voucher = CASE WHEN code IN ('cloud-cushion', 'cloud-tumbler') THEN 'code' WHEN category = 'donate' THEN 'donate' ELSE 'barcode' END;
+-- 예전 푸른하늘 텀블러는 판매 중지 (이미 바꾼 교환 내역은 남아 있어야 해서 지우지 않아요)
+UPDATE shop_items SET active = false WHERE code = 'tumbler';
 
 -- 9-2) 상점 교환 내역 (price_p: 바꾼 그때의 가격 — 나중에 상품 가격이 바뀌어도 내역은 그대로 남게 따로 적어 둬요)
 CREATE TABLE IF NOT EXISTS shop_orders (
