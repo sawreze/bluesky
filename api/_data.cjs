@@ -223,11 +223,11 @@ module.exports = function makeData(db) {
     if (!item) bad('지금은 교환할 수 없는 상품이에요.', 404);
     const [{ n }] = await sql()`SELECT COUNT(*) AS n FROM shop_orders WHERE user_id = ${me.id} AND created_at > now() - interval '1 day'`;
     if (num(n) >= SHOP_DAILY_MAX) bad(`하루에 ${SHOP_DAILY_MAX}번까지 교환할 수 있어요.`, 429);
-    // 바코드 교환권은 숫자 12자리, 구름이 굿즈샵 쿠폰은 GURUM-XXXX-XXXX (헷갈리는 0·O·1·I 는 빼요)
+    // 바코드 교환권은 숫자 12자리, 푸름이 굿즈샵 쿠폰은 PUREUM-XXXX-XXXX (헷갈리는 0·O·1·I 는 빼요)
     const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     const bytes = require('crypto').randomBytes(12);
     const coupon = item.voucher === 'code'
-      ? `GURUM-${Array.from(bytes.slice(0, 8), (x, i) => (i === 4 ? '-' : '') + ABC[x % ABC.length]).join('')}`
+      ? `PUREUM-${Array.from(bytes.slice(0, 8), (x, i) => (i === 4 ? '-' : '') + ABC[x % ABC.length]).join('')}`
       : Array.from(bytes, (x) => String(x % 10)).join('');
     // 잔액이 충분할 때만 교환 + 포인트 차감을 한 문장으로 (중간에 실패하면 아무것도 안 들어가요)
     const rows = await sql()`

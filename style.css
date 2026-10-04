@@ -1646,7 +1646,7 @@ html.android .avf.t9 > .tf { animation: none; filter: drop-shadow(0 0 7px rgba(9
 .cr-podium .crown-svg { width: 38px; }
 @media (prefers-reduced-motion: reduce) { .crown-svg, .medal::after { animation: none; } }
 
-/* ── 푸른하늘 구름이 (마스코트): 빠른 길찾기 카드 위에 걸터앉기 ── */
+/* ── 푸른하늘 푸름이 (마스코트): 빠른 길찾기 카드 위에 걸터앉기 ── */
 .m-quick-wrap { position: relative; margin-top: 24px; }
 .m-quick-wrap .m-quick { margin-top: 0; }
 .mascot { position: absolute; right: 18px; bottom: calc(100% - 15px); width: 108px; padding: 0; border: 0; background: none; z-index: 2;
@@ -1862,7 +1862,7 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
 .podium.pod-anim .step-prize { animation: podNum .4s ease-out both; }
 .podium.pod-anim .pod-3 .step-prize { animation-delay: .65s; } .podium.pod-anim .pod-2 .step-prize { animation-delay: .79s; } .podium.pod-anim .pod-1 .step-prize { animation-delay: .93s; }
 
-/* ── 구매 창: 상품 옆에서 신난 구름이 ── */
+/* ── 구매 창: 상품 옆에서 신난 푸름이 ── */
 .ss-hero { position: relative; justify-self: center; margin-top: 30px; }
 .ss-mascot { position: absolute; left: calc(100% - 18px); bottom: -10px; width: 116px; pointer-events: none; }
 .mj { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 4px 6px rgba(31, 61, 110, .14)); }
@@ -1893,7 +1893,7 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
 @keyframes mjSpark { 0%, 100% { opacity: 0; transform: scale(.4); } 50% { opacity: 1; transform: scale(1.15) rotate(25deg); } }
 @media (prefers-reduced-motion: reduce) { .mj *, .mj { animation: none !important; } .mj-heart, .mj-spark { opacity: 1; } }
 
-/* ── 구름이 굿즈 ── */
+/* ── 푸름이 굿즈 ── */
 .shop-pic.tone-cloud { background: linear-gradient(160deg, #EEF4FF, #D7E6FF); }
 .shop-pic .goods-art { width: 74%; height: auto; display: block; filter: drop-shadow(0 6px 10px rgba(31, 61, 110, .14)); }
 .shop-pic.sm .goods-art { width: 88%; filter: none; }
@@ -1909,7 +1909,7 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
 .gc-steps b { color: var(--ink); }
 .gc-sheet .cp-meta { text-align: center; margin-top: 10px; line-height: 1.5; }
 
-/* 로고: 앱 아이콘(구름이)으로 — 메인 왼쪽 위 · 로그인 · 상단 바 모두 */
+/* 로고: 앱 아이콘(푸름이)으로 — 메인 왼쪽 위 · 로그인 · 상단 바 모두 */
 .brand-mark { background: url(assets/icon-180.png?v=2) center / cover no-repeat !important; border-radius: 26% !important; }
 .m-logo { padding: 0; overflow: hidden; background: none; border: 0; }
 .m-logo .brand-mark { width: 100%; height: 100%; border-radius: inherit !important; }

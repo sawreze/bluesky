@@ -2765,7 +2765,7 @@ function monthRanking(mKey = monthKey()) {
   all.forEach((u, i) => { u.rank = i + 1; });
   return { all, me: all.find((u) => u.me) };
 }
-// ── 푸른하늘 구름이 (마스코트): 빠른 길찾기 카드 위에 걸터앉아 다리를 흔들어요. 누르면 폴짝 ──
+// ── 푸른하늘 푸름이 (마스코트): 빠른 길찾기 카드 위에 걸터앉아 다리를 흔들어요. 누르면 폴짝 ──
 function mascotSVG() {
   const sp = (x, y, r, c, d) => `<path class="ms-spark" style="animation-delay:${d}s" d="M${x} ${y - r}Q${x + r * 0.18} ${y - r * 0.18} ${x + r} ${y}Q${x + r * 0.18} ${y + r * 0.18} ${x} ${y + r}Q${x - r * 0.18} ${y + r * 0.18} ${x - r} ${y}Q${x - r * 0.18} ${y - r * 0.18} ${x} ${y - r}Z" fill="${c}"/>`;
   const star = (cx, cy, R, r) => {
@@ -2782,7 +2782,7 @@ function mascotSVG() {
   const ol = '#2F5597';
   const foot = (x, cls) => `<g class="ms-foot ${cls}"><ellipse cx="${x}" cy="99" rx="8.5" ry="6.5" fill="url(#ms-g)" stroke="${ol}" stroke-width="3.2"/></g>`;
   const hand = (x, cls) => `<g class="ms-hand ${cls}"><circle cx="${x}" cy="87" r="9.2" fill="url(#ms-g)" stroke="${ol}" stroke-width="3.2"/><circle cx="${x - 3}" cy="84" r="2.4" fill="#fff" opacity=".9"/></g>`;
-  return `<button type="button" class="mascot" data-act="mascot-hop" aria-label="푸른하늘 구름이">
+  return `<button type="button" class="mascot" data-act="mascot-hop" aria-label="푸른하늘 푸름이">
     <svg viewBox="0 0 140 110" aria-hidden="true">
       <defs>
         <linearGradient id="ms-g" gradientUnits="userSpaceOnUse" x1="0" y1="14" x2="0" y2="100"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".55" stop-color="#F7FBFF"/><stop offset="1" stop-color="#D6E7FF"/></linearGradient>
@@ -2807,7 +2807,7 @@ function mascotSVG() {
     </svg>
   </button>`;
 }
-// ── 구름이 신났어요! (상품 구매 창) — 통통 뛰며 두 손을 번쩍, 눈은 반짝, 하트·별이 퐁퐁 ──
+// ── 푸름이 신났어요! (상품 구매 창) — 통통 뛰며 두 손을 번쩍, 눈은 반짝, 하트·별이 퐁퐁 ──
 function mascotJoySVG() {
   const ol = '#2F5597';
   const body = '<circle cx="70" cy="47" r="26"/><circle cx="43" cy="59" r="19"/><circle cx="97" cy="57" r="20"/>'
@@ -2877,12 +2877,12 @@ const SHOP_ITEMS_LOCAL = [
   ['seed-kit', 'goods', '반려식물 씨앗 키트', '바질 · 방울토마토 중 랜덤', 6500, '🌱'],
   ['straw-set', 'goods', '스테인리스 빨대 세트', '빨대 2개 + 세척솔', 5900, '🥤'],
   ['eco-bag', 'goods', '에코백', '튼튼한 캔버스 천 · 비닐봉지 대신', 7900, '👜'],
-  ['cloud-cushion', 'goods', '구름이 쿠션', '말랑말랑 구름이 얼굴 쿠션', 9000, '☁️', 'code'],
-  ['cloud-tumbler', 'goods', '구름이 텀블러 350ml', '구름이가 그려진 보온·보냉 텀블러', 7000, '🥤', 'code'],
+  ['cloud-cushion', 'goods', '푸름이 쿠션', '말랑말랑 푸름이 얼굴 쿠션', 9000, '☁️', 'code'],
+  ['cloud-tumbler', 'goods', '푸름이 텀블러 350ml', '푸름이가 그려진 보온·보냉 텀블러', 7000, '🥤', 'code'],
   ['tree-donate', 'donate', '나무 한 그루 심기 기부', '숲 가꾸기 단체에 기부돼요', 10000, '🌳', 'donate'],
 ].map(([code, cat, name, sub, price, icon, voucher = 'barcode']) => ({ code, cat, name, sub, price, icon, voucher }));
 const voucherOf = (o) => o.voucher || (o.code === 'tree-donate' ? 'donate' : /^cloud-/.test(o.code) ? 'code' : 'barcode');
-// 구름이 굿즈 그림 (쿠션 · 텀블러) — 이모지 대신 직접 그려요
+// 푸름이 굿즈 그림 (쿠션 · 텀블러) — 이모지 대신 직접 그려요
 function goodsArtSVG(code) {
   const ol = '#2F5597';
   const face = (x, y, k = 1) => `<path d="M${x - 9 * k} ${y}q${3 * k}-${4 * k} ${6 * k} 0M${x + 3 * k} ${y}q${3 * k}-${4 * k} ${6 * k} 0" fill="none" stroke="#1E2A44" stroke-width="${2.2 * k}" stroke-linecap="round"/>
@@ -3013,7 +3013,7 @@ function shopBuySheet(code) {
       spendPoints(it.price);
       const rb = crypto.getRandomValues(new Uint8Array(12)); const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       order = { id: `l${Date.now()}`, code: it.code, name: it.name, icon: it.icon, voucher: voucherOf(it), price: it.price, at: Date.now(),
-        coupon: voucherOf(it) === 'code' ? `GURUM-${Array.from(rb.slice(0, 8), (x, i) => (i === 4 ? '-' : '') + ABC[x % ABC.length]).join('')}` : Array.from(rb, (x) => String(x % 10)).join('') };
+        coupon: voucherOf(it) === 'code' ? `PUREUM-${Array.from(rb.slice(0, 8), (x, i) => (i === 4 ? '-' : '') + ABC[x % ABC.length]).join('')}` : Array.from(rb, (x) => String(x % 10)).join('') };
       lsSet(SHOP_ORDER_KEY, [order, ...loadOrders()]);
     }
     close();
@@ -3115,25 +3115,25 @@ function donateSheet(o, fresh) {
   requestAnimationFrame(() => sheet.classList.add('open'));
   sheet.addEventListener('click', (e) => { if (e.target.closest('[data-no]')) { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); } });
 }
-// ── 구름이 굿즈 쿠폰 코드: (가상) 구름이 굿즈샵에서 입력하면 상품이 무료 (배송비만 따로) ──
+// ── 푸름이 굿즈 쿠폰 코드: (가상) 푸름이 굿즈샵에서 입력하면 상품이 무료 (배송비만 따로) ──
 function goodsCodeSheet(o, fresh) {
   const sheet = document.createElement('div');
   sheet.className = 'sheet-wrap';
   sheet.innerHTML = `<div class="sheet-bg" data-no></div>
-    <section class="sheet-card gc-sheet" role="dialog" aria-label="구름이 굿즈 쿠폰">
+    <section class="sheet-card gc-sheet" role="dialog" aria-label="푸름이 굿즈 쿠폰">
       <span class="sheet-grab" aria-hidden="true"></span>
       ${fresh ? '<p class="cp-done">🎉 구매 완료!</p>' : ''}
       <div class="gc-ticket">
-        <div class="gc-top">${shopPicHTML({ ...o, cat: '' }, 'sm')}<div><b>${esc(o.name)}</b><small>구름이 굿즈샵 무료 교환 쿠폰</small></div></div>
+        <div class="gc-top">${shopPicHTML({ ...o, cat: '' }, 'sm')}<div><b>${esc(o.name)}</b><small>푸름이 굿즈샵 무료 교환 쿠폰</small></div></div>
         <div class="cp-cut" aria-hidden="true"></div>
         <p class="gc-label">쿠폰 코드</p>
         <div class="gc-code"><code>${esc(o.coupon)}</code><button type="button" class="gc-copy" data-copy>복사</button></div>
         <ol class="gc-steps">
-          <li><b>구름이 굿즈샵</b>에서 같은 상품을 장바구니에 담아요</li>
+          <li><b>푸름이 굿즈샵</b>에서 같은 상품을 장바구니에 담아요</li>
           <li>주문서의 <b>쿠폰 코드</b> 칸에 위 코드를 입력해요</li>
           <li>상품 금액은 <b>0원</b>, 배송비만 결제하면 끝!</li>
         </ol>
-        <p class="cp-meta">구매일 ${new Date(o.at).toLocaleDateString('ko-KR')} · 1회만 사용 가능 · 배송비 별도<br>구름이 굿즈샵은 시연용 가상 사이트예요</p>
+        <p class="cp-meta">구매일 ${new Date(o.at).toLocaleDateString('ko-KR')} · 1회만 사용 가능 · 배송비 별도<br>푸름이 굿즈샵은 시연용 가상 사이트예요</p>
       </div>
       <button type="button" class="btn primary" data-no>확인</button>
     </section>`;
@@ -3154,7 +3154,7 @@ function goodsCodeSheet(o, fresh) {
 function couponSheet(o, fresh) {
   if (!o) return;
   if (voucherOf(o) === 'donate') return donateSheet(o, fresh); // 기부는 바코드 대신 감사 화면
-  if (voucherOf(o) === 'code') return goodsCodeSheet(o, fresh); // 구름이 굿즈는 굿즈샵 쿠폰 코드
+  if (voucherOf(o) === 'code') return goodsCodeSheet(o, fresh); // 푸름이 굿즈는 굿즈샵 쿠폰 코드
   const sheet = document.createElement('div');
   sheet.className = 'sheet-wrap';
   sheet.innerHTML = `<div class="sheet-bg" data-no></div>
