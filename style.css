@@ -794,6 +794,10 @@ body { background: var(--sky-grad); background-attachment: scroll; min-height: 1
 .sheet-card { position: absolute; left: 50%; bottom: 0; width: min(480px, 100%); transform: translate(-50%, 100%); transition: transform .22s cubic-bezier(.2, .8, .2, 1);
   display: grid; gap: 10px; padding: 10px 20px calc(20px + env(safe-area-inset-bottom, 0px)); border-radius: 28px 28px 0 0; background: #fff; box-shadow: 0 -10px 30px rgba(31, 61, 110, .15); }
 .sheet-wrap.open .sheet-card { transform: translate(-50%, 0); }
+/* 시트가 화면보다 길면 시트 안에서만 스크롤돼요 (뒤 화면은 고정) */
+.sheet-card { max-height: calc(100dvh - 16px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.sheet-wrap { touch-action: none; }
+.sheet-card { touch-action: pan-y; }
 .sheet-grab { justify-self: center; width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin-bottom: 8px; }
 .sheet-user { display: flex; align-items: center; gap: 14px; padding: 4px 0 12px; }
 .sheet-user b { display: block; font: 800 19px/1.3 var(--font-display); color: var(--ink); }

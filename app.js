@@ -2210,9 +2210,29 @@ function demoHTML() {
 // 관리자: 포인트 지급·삭제 / 탄소 절약량 더하기·빼기 (같은 모양의 창)
 //  kind 'points' | 'carbon', target: 회원 관리에서 고른 회원 { id, name } (없으면 닉네임 칸, 비우면 나)
 const ADJ = {
-  points: { title: '💰 포인트 지급 · 삭제', modes: [['grant', '지급'], ['deduct', '삭제']], unit: 'P', label: '포인트', ph: '예: 1000', chips: [100, 500, 1000, 5000, 10000], min: 1, max: 1000000, step: 1, api: 'admin-points', key: 'amount' },
-  carbon: { title: '🌿 탄소 절약량 조절', modes: [['plus', '더하기'], ['minus', '빼기']], unit: 'kg', label: '절약량 (kg)', ph: '예: 12.5', chips: [0.5, 1, 5, 10, 50], min: 0.1, max: 100000, step: 0.1, api: 'admin-carbon', key: 'kg' },
+  points: { title: '💰 포인트 지급 · 삭제', modes: [['grant', '지급', '지급하기'], ['deduct', '삭제', '삭제하기']], unit: 'P', label: '포인트', ph: '예: 1000', chips: [100, 500, 1000, 5000, 10000], min: 1, max: 1000000, step: 1, api: 'admin-points', key: 'amount' },
+  carbon: { title: '🌿 탄소 절약량 조절', modes: [['plus', '더하기', '더하기'], ['minus', '빼기', '빼기']], unit: 'kg', label: '절약량 (kg)', ph: '예: 12.5', chips: [0.5, 1, 5, 10, 50], min: 0.1, max: 100000, step: 0.1, api: 'admin-carbon', key: 'kg' },
 };
+// 아래에서 올라오는 시트(탄소 절약량 조절 · 포인트 지급 등)가 떠 있는 동안 뒤 화면이 스크롤되지 않게 고정해요.
+//  휴대폰 사파리는 body overflow:hidden 만으로는 막히지 않아서, body 를 그 자리에 고정했다가 닫으면 원래 위치로 돌려놔요.
+const sheetLock = { on: false, y: 0 };
+function syncSheetLock() {
+  const on = !!document.querySelector('body > .sheet-wrap');
+  if (on === sheetLock.on) return;
+  sheetLock.on = on;
+  const b = document.body.style;
+  if (on) {
+    sheetLock.y = window.scrollY || 0;
+    Object.assign(b, { position: 'fixed', top: `-${sheetLock.y}px`, left: '0', right: '0', width: '100%' });
+    document.documentElement.classList.add('sheet-lock');
+  } else {
+    Object.assign(b, { position: '', top: '', left: '', right: '', width: '' });
+    document.documentElement.classList.remove('sheet-lock');
+    window.scrollTo(0, sheetLock.y);
+  }
+}
+if (typeof MutationObserver !== 'undefined' && document.body) new MutationObserver(syncSheetLock).observe(document.body, { childList: true });
+
 function adminAdjustSheet(kind, target = null) {
   const c = ADJ[kind]; let mode = c.modes[0][0];
   const sheet = document.createElement('div');
@@ -2226,7 +2246,7 @@ function adminAdjustSheet(kind, target = null) {
       <label class="ap-l">${c.label}<input class="input num" id="ap-amount" type="number" inputmode="decimal" min="${c.min}" max="${c.max}" step="${c.step}" placeholder="${c.ph}"></label>
       <div class="ap-chips">${c.chips.map((v) => `<button type="button" class="rj-chip" data-add="${v}">+${v.toLocaleString()}${c.unit}</button>`).join('')}</div>
       <p class="rj-err" id="ap-err" hidden></p>
-      <button type="button" class="btn primary" data-yes>${c.modes[0][1]}하기</button>
+      <button type="button" class="btn primary" data-yes>${c.modes[0][2]}</button>
       <button type="button" class="btn sheet-cancel" data-no>취소</button>
     </section>`;
   document.body.appendChild(sheet);
@@ -2240,7 +2260,7 @@ function adminAdjustSheet(kind, target = null) {
       mode = md.dataset.mode;
       sheet.querySelectorAll('[data-mode]').forEach((b) => b.classList.toggle('on', b === md));
       const lb = c.modes.find((m) => m[0] === mode)[1];
-      yes.textContent = `${lb}하기`; yes.classList.toggle('danger', md.classList.contains('neg'));
+      yes.textContent = (c.modes.find((m) => m[0] === mode) || [])[2] || lb; yes.classList.toggle('danger', md.classList.contains('neg'));
       sheet.querySelectorAll('[data-add]').forEach((b) => { b.textContent = `${md.classList.contains('neg') ? '-' : '+'}${Number(b.dataset.add).toLocaleString()}${c.unit}`; });
       return;
     }
@@ -3866,20 +3886,43 @@ function finishTrip() {
   go('done');
 }
 
+// 현재 위치에서 출발
+//  휴대폰은 실내에서 정확한 GPS(고정밀)를 잡는 데 오래 걸려 10초 안에 실패하는 일이 많았어요.
+//  그래서 ① 최근(1분 안) 위치가 있으면 바로 쓰고 ② 고정밀로 8초 → 안 되면 ③ 와이파이·기지국 위치로 다시 찾아요.
+//  주소 변환(역지오코딩)이 응답을 안 줘도 4초 뒤엔 그냥 '내 위치'로 진행해요.
+let myLocSeq = 0;
 function useMyLocation() {
   const s = state.search;
-  if (!navigator.geolocation) { s.message = '이 브라우저는 위치 확인을 지원하지 않아요.'; return render(); }
+  const seq = ++myLocSeq;
+  if (!navigator.geolocation) { s.message = '이 브라우저는 위치 확인을 지원하지 않아요. 장소를 검색해 주세요.'; return render(); }
+  if (window.isSecureContext === false) { s.message = '보안 연결(https) 주소에서만 현재 위치를 쓸 수 있어요.'; return render(); }
   s.message = '현재 위치를 찾는 중이에요…';
   render();
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      state.places.reverse(lat, lng).then((address) => pickPlace({ name: '내 위치', address, lat, lng }));
-    },
-    () => { s.message = '위치 권한이 없어서 현재 위치를 찾지 못했어요. 장소를 검색해 주세요.'; render(); },
-    { enableHighAccuracy: true, timeout: 10000 }
-  );
+  const still = () => seq === myLocSeq && state.screen === 'search' && state.search.which === 'from';
+  const fail = (e) => {
+    if (!still()) return;
+    const code = e && e.code;
+    s.message = code === 1
+      ? '위치 권한이 꺼져 있어요. 휴대폰 설정에서 이 브라우저의 위치 권한을 "허용"으로 바꾼 뒤 다시 눌러 주세요. (아이폰: 설정 → 개인정보 보호 및 보안 → 위치 서비스 → Safari 웹 사이트 / Chrome)'
+      : '현재 위치를 잡지 못했어요. 창가나 밖에서 다시 눌러 보거나, 장소를 검색해 주세요.';
+    render();
+  };
+  const got = (pos) => {
+    if (!still()) return;
+    const lat = pos.coords.latitude; const lng = pos.coords.longitude;
+    const addr = state.places && state.places.reverse
+      ? Promise.race([
+        Promise.resolve().then(() => state.places.reverse(lat, lng)).catch(() => ''),
+        new Promise((r) => setTimeout(() => r(''), 4000)),
+      ])
+      : Promise.resolve('');
+    addr.then((address) => { if (still()) { s.message = ''; pickPlace({ name: '내 위치', address: address || '', lat, lng }); } });
+  };
+  navigator.geolocation.getCurrentPosition(got, (e) => {
+    if (e && e.code === 1) return fail(e); // 권한 거부는 다시 물어봐도 같아요
+    if (!still()) return;
+    navigator.geolocation.getCurrentPosition(got, fail, { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 });
+  }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
 }
 
 function pickPlace(place) {
