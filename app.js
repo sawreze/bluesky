@@ -1404,7 +1404,7 @@ function campRankHTML(c) {
       <div class="medal m${place}">${tierAvatarHTML(u.name, u.photo, 'av-lg', u.me ? loadLog().g : u.tg, 'badge')}</div>
       <b class="pod-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</b>
       <span class="pod-pt">${kgText(u.g)}</span>
-      <div class="step"><span class="step-medal">${medalSVG(place)}</span><span class="sr-only">${place}위</span></div>
+      <div class="step"><span>${place}</span></div>
     </div>` : '<div class="pod"></div>');
   const rest = all.slice(3, 50);
   const meOut = me && me.rank > 50;
@@ -2738,66 +2738,37 @@ function mascotSVG() {
     }
     return `${d}Z`;
   };
-  const body = '<circle cx="60" cy="38" r="27"/><circle cx="20" cy="44" r="9.5"/><circle cx="100" cy="44" r="9.5"/><circle cx="31" cy="54" r="19"/><circle cx="89" cy="54" r="19"/><ellipse cx="60" cy="62" rx="42" ry="27"/>';
-  const foot = (x, cls) => `<g class="ms-foot ${cls}"><ellipse cx="${x}" cy="88" rx="10.5" ry="7.5" fill="#fff" stroke="#2F5597" stroke-width="3.4"/></g>`;
+  // 몽글몽글한 구름 몸: 위쪽은 크고 작은 뭉게 덩이, 아래는 작은 물결 덩이
+  const body = '<circle cx="70" cy="36" r="25"/><circle cx="45" cy="45" r="18"/><circle cx="96" cy="43" r="19"/>'
+    + '<circle cx="27" cy="61" r="14"/><circle cx="113" cy="60" r="14"/><ellipse cx="70" cy="66" rx="46" ry="22"/>'
+    + '<circle cx="36" cy="80" r="11"/><circle cx="56" cy="84" r="11"/><circle cx="84" cy="84" r="11"/><circle cx="104" cy="80" r="11"/>';
+  const ol = '#2F5597';
+  const foot = (x, cls) => `<g class="ms-foot ${cls}"><ellipse cx="${x}" cy="99" rx="8.5" ry="6.5" fill="url(#ms-g)" stroke="${ol}" stroke-width="3.2"/></g>`;
+  const hand = (x, cls) => `<g class="ms-hand ${cls}"><circle cx="${x}" cy="87" r="9.2" fill="url(#ms-g)" stroke="${ol}" stroke-width="3.2"/><circle cx="${x - 3}" cy="84" r="2.4" fill="#fff" opacity=".9"/></g>`;
   return `<button type="button" class="mascot" data-act="mascot-hop" aria-label="푸른하늘 구름이">
-    <svg viewBox="0 0 120 104" aria-hidden="true">
-      ${sp(8, 22, 6, '#FFC94D', 0)}${sp(113, 18, 5, '#FFC94D', 0.9)}${sp(114, 74, 4.5, '#5B9BFF', 1.7)}
+    <svg viewBox="0 0 140 110" aria-hidden="true">
+      <defs>
+        <linearGradient id="ms-g" gradientUnits="userSpaceOnUse" x1="0" y1="14" x2="0" y2="100"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".55" stop-color="#F7FBFF"/><stop offset="1" stop-color="#D6E7FF"/></linearGradient>
+      </defs>
+      ${sp(10, 26, 6, '#FFC94D', 0)}${sp(132, 20, 5, '#FFC94D', 0.9)}${sp(134, 82, 4.5, '#5B9BFF', 1.7)}${sp(6, 78, 3.5, '#5B9BFF', 1.2)}
       <g class="ms-body">
-        ${foot(44, 'l')}${foot(76, 'r')}
-        <g fill="#2F5597" stroke="#2F5597" stroke-width="7" stroke-linejoin="round">${body}</g>
-        <g fill="#fff">${body}</g>
-        <path d="M40 30a22 22 0 0 1 12-12" fill="none" stroke="#E6F0FF" stroke-width="4" stroke-linecap="round"/>
-        <path d="${star(79, 19, 8.5, 4)}" fill="#FFC94D" stroke="#2F5597" stroke-width="2.4" stroke-linejoin="round"/>
-        <g class="ms-face">
-          <path d="M42.5 60.5q5.5-6.5 11 0M66.5 60.5q5.5-6.5 11 0" fill="none" stroke="#1E2A44" stroke-width="3.4" stroke-linecap="round"/>
-          <ellipse cx="38" cy="70" rx="6" ry="3.6" fill="#FFA3B8"/><ellipse cx="82" cy="70" rx="6" ry="3.6" fill="#FFA3B8"/>
-          <path d="M53.5 66.5h13q-.6 9.5-6.5 9.5t-6.5-9.5z" fill="#1E2A44" stroke="#1E2A44" stroke-width="1.6" stroke-linejoin="round"/>
-          <ellipse cx="60" cy="73.6" rx="3.6" ry="2.3" fill="#FF869C"/>
+        ${foot(56, 'l')}${foot(84, 'r')}
+        <g fill="${ol}" stroke="${ol}" stroke-width="6.5" stroke-linejoin="round">${body}</g>
+        <g fill="url(#ms-g)">${body}</g>
+        <g fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".95">
+          <path d="M53 26a22 22 0 0 1 12-10"/><path d="M33 41a14 14 0 0 1 7-8"/><path d="M90 30a14 14 0 0 1 8-4"/>
         </g>
+        <path d="${star(97, 21, 8.5, 4)}" fill="#FFC94D" stroke="${ol}" stroke-width="2.4" stroke-linejoin="round"/>
+        <g class="ms-face">
+          <path d="M51.5 60q5.5-6.5 11 0M77.5 60q5.5-6.5 11 0" fill="none" stroke="#1E2A44" stroke-width="3.4" stroke-linecap="round"/>
+          <ellipse cx="47" cy="70" rx="6" ry="3.6" fill="#FFA3B8"/><ellipse cx="93" cy="70" rx="6" ry="3.6" fill="#FFA3B8"/>
+          <path d="M63.5 66h13q-.6 9.5-6.5 9.5t-6.5-9.5z" fill="#1E2A44" stroke="#1E2A44" stroke-width="1.6" stroke-linejoin="round"/>
+          <ellipse cx="70" cy="73" rx="3.6" ry="2.3" fill="#FF869C"/>
+        </g>
+        ${hand(21, 'l')}${hand(119, 'r')}
       </g>
     </svg>
   </button>`;
-}
-// ── 금·은·동 메달 (SVG) ──
-//  리본 두 갈래 + 톱니 테두리 금속 동전 + 안쪽 홈 + 월계수 + 양각 숫자 + 반짝이는 광택
-const MEDAL_METAL = {
-  1: { hi: '#FFF7CC', a: '#FFD84D', b: '#E3A500', c: '#9A6A00', rim: '#7A5200', rib: ['#2F6BFF', '#1E3FAE'], txt: '#7A4E00' },
-  2: { hi: '#FFFFFF', a: '#E4E9F0', b: '#AEB8C6', c: '#6E7A8C', rim: '#4F5A6B', rib: ['#E5484D', '#A3272B'], txt: '#465166' },
-  3: { hi: '#FFE8D4', a: '#F2B27C', b: '#C7773E', c: '#8A4A1C', rim: '#6B3712', rib: ['#16A37B', '#0D6B50'], txt: '#6B3410' },
-};
-function medalSVG(place) {
-  const m = MEDAL_METAL[place]; const id = `md${place}`;
-  let teeth = '';
-  for (let i = 0; i < 40; i++) {
-    const a = (Math.PI * 2 * i) / 40;
-    teeth += `<circle cx="${(32 + Math.cos(a) * 21.1).toFixed(2)}" cy="${(44 + Math.sin(a) * 21.1).toFixed(2)}" r="1.25"/>`;
-  }
-  const leaf = (x, y, r, flip) => `<ellipse cx="${x}" cy="${y}" rx="1.5" ry="3.1" transform="rotate(${flip ? -r : r} ${x} ${y})"/>`;
-  let laurel = '';
-  [[18.5, 50, 35], [17.3, 44.5, 15], [18.3, 39, -10], [20.6, 34.4, -32]].forEach(([x, y, r]) => { laurel += leaf(x, y, r, false) + leaf(64 - x, y, r, true); });
-  return `<svg class="medal-svg" viewBox="0 0 64 70" aria-hidden="true">
-    <defs>
-      <linearGradient id="${id}-r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${m.rib[0]}"/><stop offset="1" stop-color="${m.rib[1]}"/></linearGradient>
-      <radialGradient id="${id}-f" cx=".36" cy=".3" r=".85"><stop offset="0" stop-color="${m.hi}"/><stop offset=".35" stop-color="${m.a}"/><stop offset=".75" stop-color="${m.b}"/><stop offset="1" stop-color="${m.c}"/></radialGradient>
-      <linearGradient id="${id}-e" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m.hi}"/><stop offset=".45" stop-color="${m.b}"/><stop offset="1" stop-color="${m.rim}"/></linearGradient>
-      <linearGradient id="${id}-i" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${m.hi}"/><stop offset=".5" stop-color="${m.a}"/><stop offset="1" stop-color="${m.c}"/></linearGradient>
-      <linearGradient id="${id}-s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-      <clipPath id="${id}-c"><circle cx="32" cy="44" r="19"/></clipPath>
-    </defs>
-    <path d="M17 0h11l9 24h-11z" fill="url(#${id}-r)"/><path d="M47 0H36l-9 24h11z" fill="url(#${id}-r)"/>
-    <path d="M22 0h3l9 24h-3z" fill="#fff" opacity=".35"/><path d="M42 0h-3l-9 24h3z" fill="#fff" opacity=".2"/>
-    <ellipse cx="32" cy="66" rx="15" ry="2.6" fill="#0F1626" opacity=".12"/>
-    <g fill="url(#${id}-e)">${teeth}</g>
-    <circle cx="32" cy="44" r="21" fill="url(#${id}-e)" stroke="${m.rim}" stroke-width=".8"/>
-    <circle cx="32" cy="44" r="17.6" fill="url(#${id}-i)"/>
-    <circle cx="32" cy="44" r="16.2" fill="url(#${id}-f)" stroke="${m.rim}" stroke-opacity=".35" stroke-width=".6"/>
-    <g fill="${m.txt}" opacity=".55">${laurel}</g>
-    <text x="32" y="51" text-anchor="middle" font-family="Pretendard Variable, Pretendard, system-ui, sans-serif" font-weight="900" font-size="20" fill="${m.hi}" opacity=".9">${place}</text>
-    <text x="32" y="50" text-anchor="middle" font-family="Pretendard Variable, Pretendard, system-ui, sans-serif" font-weight="900" font-size="20" fill="${m.txt}">${place}</text>
-    <g clip-path="url(#${id}-c)"><rect class="medal-shine" x="-14" y="20" width="12" height="50" fill="url(#${id}-s)" transform="rotate(20 32 44)"/></g>
-    <path d="M20 36a14 14 0 0 1 10-7" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
-  </svg>`;
 }
 // 1위 왕관 (SVG): 금 몸체 + 보석 3개 + 위쪽 구슬
 function crownSVG() {
@@ -2831,7 +2802,7 @@ function rankHTML() {
       <div class="medal m${place}">${tierAvatarHTML(u.name, u.photo, 'av-lg', u.me ? loadLog().g : u.g, 'badge')}</div>
       <b class="pod-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</b>${u.me ? titleChipHTML(titleOf(loadLog().g), 'sm') : ''}
       <span class="pod-pt">${u.points.toLocaleString()}P</span>
-      <div class="step"><span class="step-medal">${medalSVG(place)}</span><span class="sr-only">${place}위</span></div>
+      <div class="step"><span>${place}</span></div>
     </div>` : '';
   return `<main class="main rk">
     <header class="rk-head">
