@@ -2957,8 +2957,63 @@ function shopBuySheet(code) {
   });
 }
 // 교환권 (바코드 + 번호)
+// ── 기부 감사 화면: 땅에서 나무가 자라나고, 잎이 떨어지고, 빛·반짝임 속에 감사 문구가 떠요 ──
+function donateTreeSVG() {
+  // 둥근 나무 (🌳 느낌): 줄기 → 큰 덩이부터 작은 덩이 순서로 톡톡 돋아나요
+  const blobs = [
+    [100, 98, 46, '#2F7A2A'], [66, 104, 30, '#347F2C'], [134, 104, 30, '#347F2C'], [100, 70, 36, '#3D8F31'],
+    [74, 80, 28, '#4A9E36'], [126, 80, 28, '#4A9E36'], [100, 54, 26, '#58B03E'], [82, 62, 20, '#64BC45'],
+    [118, 62, 20, '#64BC45'], [86, 112, 22, '#3F9232'], [114, 114, 22, '#3F9232'], [100, 88, 24, '#4FA63A'],
+  ];
+  const hi = [[86, 50, 9], [70, 70, 7], [108, 44, 6], [120, 66, 6], [92, 76, 5]];
+  const dots = Array.from({ length: 26 }, (_, i) => {
+    const a = i * 2.39996; const r = 8 + (i * 37 % 44);
+    return `<circle cx="${(100 + Math.cos(a) * r).toFixed(1)}" cy="${(86 + Math.sin(a) * r * 0.82).toFixed(1)}" r="${(1.6 + (i % 3) * 0.7).toFixed(1)}" fill="${i % 2 ? '#2A6B25' : '#7FCF57'}" opacity=".55"/>`;
+  }).join('');
+  const leaf = (i, x, d) => `<g class="dn-leaf" style="--x:${x}px;--d:${d}s;--r:${i % 2 ? -1 : 1}"><path d="M0 -6C4 -4 5 2 0 6C-5 2 -4 -4 0 -6Z" fill="${i % 2 ? '#7CCB4E' : '#4FA63A'}"/><path d="M0 -5V5" stroke="#2F7A2A" stroke-width=".7"/></g>`;
+  return `<svg class="dn-tree" viewBox="0 0 200 230" aria-hidden="true">
+    <defs>
+      <radialGradient id="dn-glow" cx=".5" cy=".42" r=".55"><stop offset="0" stop-color="#FFF6C9" stop-opacity=".95"/><stop offset=".5" stop-color="#E8F7D4" stop-opacity=".55"/><stop offset="1" stop-color="#E8F7D4" stop-opacity="0"/></radialGradient>
+      <linearGradient id="dn-trunk" x1="0" x2="1"><stop offset="0" stop-color="#7A4A22"/><stop offset=".45" stop-color="#A86D38"/><stop offset="1" stop-color="#6B3F1C"/></linearGradient>
+      <radialGradient id="dn-soil" cx=".5" cy=".3" r=".7"><stop offset="0" stop-color="#9C6B3E"/><stop offset="1" stop-color="#6E4524"/></radialGradient>
+    </defs>
+    <g class="dn-rays">${Array.from({ length: 12 }, (_, i) => `<path d="M100 92L${(100 + Math.cos(i * Math.PI / 6 - 0.09) * 150).toFixed(1)} ${(92 + Math.sin(i * Math.PI / 6 - 0.09) * 150).toFixed(1)}L${(100 + Math.cos(i * Math.PI / 6 + 0.09) * 150).toFixed(1)} ${(92 + Math.sin(i * Math.PI / 6 + 0.09) * 150).toFixed(1)}Z" fill="#FFE9A3" opacity=".35"/>`).join('')}</g>
+    <circle class="dn-halo" cx="100" cy="92" r="96" fill="url(#dn-glow)"/>
+    <ellipse cx="100" cy="206" rx="56" ry="12" fill="url(#dn-soil)"/>
+    <path class="dn-grass" d="M54 204q4-9 7 0q3-11 7 0q4-8 6 1M126 204q4-10 7 0q3-9 6 0q4-11 7 1" fill="none" stroke="#5DB33D" stroke-width="2.4" stroke-linecap="round"/>
+    <g class="dn-trunk"><path d="M93 206C95 180 94 156 97 128L103 128C106 156 105 180 107 206Z" fill="url(#dn-trunk)"/>
+      <path d="M98 150C90 142 84 136 78 126M102 142C110 134 116 128 122 118" fill="none" stroke="#8A5529" stroke-width="4" stroke-linecap="round"/>
+      <path d="M99 200C99 180 99 160 100 132" stroke="#C99158" stroke-width="1.4" opacity=".6" fill="none"/></g>
+    <g class="dn-crown">${blobs.map(([x, y, r, c], i) => `<circle class="dn-blob" style="--i:${i}" cx="${x}" cy="${y}" r="${r}" fill="${c}"/>`).join('')}
+      <g class="dn-detail">${dots}${hi.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#B5E77A" opacity=".75"/>`).join('')}</g></g>
+    <g class="dn-leaves" transform="translate(100 96)">${[-44, -18, 8, 30, 50, -60].map((x, i) => leaf(i, x, 1.6 + i * 0.55)).join('')}</g>
+    <g class="dn-sparks">${[[30, 40], [168, 52], [24, 128], [176, 140], [56, 18], [146, 16], [100, 6]].map(([x, y], i) => `<path style="--i:${i}" d="M${x} ${y - 7}Q${x + 1.3} ${y - 1.3} ${x + 7} ${y}Q${x + 1.3} ${y + 1.3} ${x} ${y + 7}Q${x - 1.3} ${y + 1.3} ${x - 7} ${y}Q${x - 1.3} ${y - 1.3} ${x} ${y - 7}Z" fill="${i % 3 === 2 ? '#8FD3FF' : '#FFD54A'}"/>`).join('')}</g>
+  </svg>`;
+}
+function donateSheet(o, fresh) {
+  const u = state.user || {};
+  const kg = (TREE_YEAR_G / 1000).toFixed(1);
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-wrap';
+  const bits = Array.from({ length: 22 }, (_, i) => `<i style="--a:${(i * 360 / 22).toFixed(0)}deg;--d:${(i % 5) * 0.06 + 1.5}s;--c:${['#FFD54A', '#7CCB4E', '#8FD3FF', '#FF9DB5', '#FFFFFF'][i % 5]};--l:${70 + (i * 29) % 70}px"></i>`).join('');
+  sheet.innerHTML = `<div class="sheet-bg" data-no></div>
+    <section class="sheet-card dn-sheet ${fresh ? 'fresh' : ''}" role="dialog" aria-label="기부 감사">
+      <button type="button" class="dn-x" data-no aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <div class="dn-stage">${donateTreeSVG()}<div class="dn-burst" aria-hidden="true">${bits}</div></div>
+      <div class="dn-text">
+        <p class="dn-kicker">🌱 나무 한 그루 심기 기부 완료</p>
+        <h2>${esc(u.name || '')}님, 따뜻한 기부<br>정말 감사합니다</h2>
+        <p>모아 주신 <b>${o.price.toLocaleString()}P</b>로 나무 한 그루가 심어져요.<br>이 나무는 1년에 이산화탄소 약 <b>${kg}kg</b>을 흡수하며 우리 하늘을 푸르게 지켜 줄 거예요.</p>
+        <small>기부일 ${new Date(o.at).toLocaleDateString('ko-KR')} · 기부 번호 ${couponText(o.coupon)}</small>
+      </div>
+    </section>`;
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => sheet.classList.add('open'));
+  sheet.addEventListener('click', (e) => { if (e.target.closest('[data-no]')) { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); } });
+}
 function couponSheet(o, fresh) {
   if (!o) return;
+  if (o.code === 'tree-donate') return donateSheet(o, fresh); // 기부는 바코드 대신 감사 화면
   const sheet = document.createElement('div');
   sheet.className = 'sheet-wrap';
   sheet.innerHTML = `<div class="sheet-bg" data-no></div>
@@ -3027,7 +3082,7 @@ function rankHTML() {
       <div class="medal m${place}">${tierAvatarHTML(u.name, u.photo, 'av-lg', u.me ? loadLog().g : u.g, 'badge')}</div>
       <b class="pod-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</b>${u.me ? titleChipHTML(titleOf(loadLog().g), 'sm') : ''}
       <span class="pod-pt" data-n="${u.points}">${u.points.toLocaleString()}P</span>
-      <div class="step"><span>${place}</span></div>
+      <div class="step"><span>${place}</span><em class="step-prize">+${MONTH_AWARDS[place - 1].toLocaleString()}P</em></div>
     </div>` : '';
   return `<main class="main rk">
     <header class="rk-head">

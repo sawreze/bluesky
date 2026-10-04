@@ -1792,3 +1792,62 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
 /* 상점 상품 사진 (사진 파일이 있을 때) */
 .shop-pic.photo { padding: 0; overflow: hidden; background: #F3F5F8; }
 .shop-pic.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── 기부 감사 화면 ── */
+.dn-sheet { position: absolute; overflow: hidden; padding-top: 18px; text-align: center; gap: 4px;
+  background: linear-gradient(180deg, #F2FBEA 0%, #FFFFFF 58%); }
+.dn-x { position: absolute; top: 12px; right: 12px; z-index: 5; width: 40px; height: 40px; padding: 8px; border: 0; background: none; box-shadow: none; color: #4B5563; cursor: pointer; }
+.dn-x svg { width: 24px; height: 24px; display: block; }
+.dn-stage { position: relative; justify-self: center; width: min(260px, 70vw); }
+.dn-tree { display: block; width: 100%; height: auto; overflow: visible; }
+/* 1) 빛: 후광이 번지고 햇살이 천천히 돌아요 */
+.dn-halo { transform-box: fill-box; transform-origin: center; animation: dnHalo 1s ease-out .9s both, dnPulse 3s ease-in-out 2s infinite; }
+.dn-rays { transform-box: view-box; transform-origin: 100px 92px; animation: dnRaysIn 1s ease-out 1s both, dnSpin 18s linear 1s infinite; }
+/* 2) 줄기가 땅에서 쑥 */
+.dn-trunk { transform-box: view-box; transform-origin: 100px 206px; animation: dnGrow .8s cubic-bezier(.2, .9, .3, 1.1) .2s both; }
+.dn-grass { animation: dnFade .4s ease .1s both; }
+/* 3) 잎 덩이가 큰 것부터 톡톡 */
+.dn-blob { transform-box: fill-box; transform-origin: center; animation: dnPop .55s cubic-bezier(.3, 1.6, .5, 1) both; animation-delay: calc(.75s + var(--i) * .07s); }
+.dn-detail { animation: dnFade .5s ease 1.6s both; }
+.dn-crown { transform-box: view-box; transform-origin: 100px 200px; animation: dnSway 4s ease-in-out 2.2s infinite; }
+/* 4) 잎이 몇 개 살랑살랑 떨어져요 */
+.dn-leaf { opacity: 0; animation: dnLeaf 4.2s ease-in var(--d) infinite; }
+/* 5) 반짝임 + 축하 입자 */
+.dn-sparks path { transform-box: fill-box; transform-origin: center; animation: dnTwinkle 1.8s ease-in-out infinite; animation-delay: calc(1.4s + var(--i) * .22s); opacity: 0; }
+.dn-burst { position: absolute; left: 50%; top: 40%; width: 0; height: 0; pointer-events: none; }
+.dn-burst i { position: absolute; width: 7px; height: 7px; margin: -3.5px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); opacity: 0; animation: dnBurst 1.3s cubic-bezier(.2, .8, .3, 1) var(--d) both; }
+.dn-burst i:nth-child(3n) { border-radius: 2px; width: 6px; height: 10px; }
+/* 6) 문구: 나무가 다 자란 뒤 아래에서 올라오고, 제목엔 빛이 한 번 스쳐요 */
+.dn-text { display: grid; gap: 8px; padding: 0 6px 6px; animation: dnUp .6s cubic-bezier(.2, .9, .3, 1) 1.9s both; }
+.dn-kicker { margin: 0; font-size: 13px; font-weight: 800; color: #2F7A2A; }
+.dn-text h2 { margin: 0; font: 900 23px/1.35 var(--font-display); letter-spacing: -0.02em;
+  background: linear-gradient(100deg, #1E5B1A 0%, #2F7A2A 40%, #9BE36B 50%, #2F7A2A 60%, #1E5B1A 100%); background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: dnShine 2.6s ease-in-out 2.3s infinite; }
+.dn-text p { margin: 0; font-size: 14px; line-height: 1.65; color: #4B5563; }
+.dn-text b { color: #1E5B1A; }
+.dn-text small { margin-top: 2px; font-size: 11.5px; color: #8A97AA; }
+@keyframes dnGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes dnPop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+@keyframes dnFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dnHalo { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes dnPulse { 0%, 100% { opacity: .85; } 50% { opacity: 1; } }
+@keyframes dnRaysIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dnSpin { to { transform: rotate(360deg); } }
+@keyframes dnSway { 0%, 100% { transform: rotate(-1.2deg); } 50% { transform: rotate(1.2deg); } }
+@keyframes dnLeaf { 0% { opacity: 0; transform: translate(var(--x), 0) rotate(0deg); } 10% { opacity: 1; }
+  35% { transform: translate(calc(var(--x) + 12px * var(--r)), 40px) rotate(calc(120deg * var(--r))); }
+  65% { transform: translate(calc(var(--x) - 10px * var(--r)), 78px) rotate(calc(220deg * var(--r))); opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(var(--x) + 6px * var(--r)), 110px) rotate(calc(320deg * var(--r))); } }
+@keyframes dnTwinkle { 0%, 100% { opacity: 0; transform: scale(.4); } 50% { opacity: 1; transform: scale(1.15) rotate(20deg); } }
+@keyframes dnBurst { 0% { opacity: 0; transform: rotate(var(--a)) translateY(0) scale(.4); } 15% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--l))) scale(1); } }
+@keyframes dnUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes dnShine { 0%, 60% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .dn-sheet *, .dn-sheet { animation: none !important; } .dn-leaf, .dn-burst i { display: none; } .dn-sparks path { opacity: 1; } }
+
+/* 이달의 랭킹 단상: 아래쪽에 등수별 보너스 포인트 */
+.step { position: relative; }
+.step-prize { position: absolute; left: 0; right: 0; margin: 0 auto; width: fit-content; bottom: 9px; white-space: nowrap; padding: 3px 9px; border-radius: 999px;
+  font: 800 12px/1.2 var(--font-body); font-style: normal; color: #fff; background: rgba(0, 0, 0, .16); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25); letter-spacing: -0.01em; }
+.pod-1 .step-prize { font-size: 13px; background: rgba(120, 72, 0, .22); }
+.podium.pod-anim .step-prize { animation: podNum .4s ease-out both; }
+.podium.pod-anim .pod-3 .step-prize { animation-delay: .65s; } .podium.pod-anim .pod-2 .step-prize { animation-delay: .79s; } .podium.pod-anim .pod-1 .step-prize { animation-delay: .93s; }
