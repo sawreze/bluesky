@@ -1861,3 +1861,34 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
 .pod-1 .step-prize { font-size: 13px; background: rgba(120, 72, 0, .22); }
 .podium.pod-anim .step-prize { animation: podNum .4s ease-out both; }
 .podium.pod-anim .pod-3 .step-prize { animation-delay: .65s; } .podium.pod-anim .pod-2 .step-prize { animation-delay: .79s; } .podium.pod-anim .pod-1 .step-prize { animation-delay: .93s; }
+
+/* ── 구매 창: 상품 옆에서 신난 구름이 ── */
+.ss-hero { position: relative; justify-self: center; margin-top: 30px; }
+.ss-mascot { position: absolute; left: calc(100% - 18px); bottom: -10px; width: 116px; pointer-events: none; }
+.mj { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 4px 6px rgba(31, 61, 110, .14)); }
+.mj-body { transform-box: view-box; transform-origin: 70px 114px; animation: mjHop .9s cubic-bezier(.3, 0, .3, 1) infinite; }
+.mj-shadow { transform-box: fill-box; transform-origin: center; animation: mjShadow .9s cubic-bezier(.3, 0, .3, 1) infinite; }
+.mj-arm { transform-box: view-box; }
+.mj-arm.l { transform-origin: 32px 70px; animation: mjWaveL .45s ease-in-out infinite alternate; }
+.mj-arm.r { transform-origin: 108px 70px; animation: mjWaveR .45s ease-in-out infinite alternate; }
+.mj-foot { transform-box: view-box; }
+.mj-foot.l { transform-origin: 56px 100px; animation: mjKick .45s ease-in-out infinite alternate; }
+.mj-foot.r { transform-origin: 84px 100px; animation: mjKick .45s ease-in-out infinite alternate-reverse; }
+.mj-star { transform-box: fill-box; transform-origin: center; animation: mjStar 1.8s linear infinite; }
+.mj-eye { transform-box: fill-box; transform-origin: center; animation: mjBlink 3.2s ease-in-out infinite; }
+.mj-blush { animation: mjBlush .9s ease-in-out infinite; }
+.mj-mouth { transform-box: fill-box; transform-origin: 50% 0; animation: mjMouth .9s ease-in-out infinite; }
+.mj-heart { opacity: 0; animation: mjHeart 2.2s ease-out infinite; animation-delay: var(--d); transform-box: fill-box; }
+.mj-spark { transform-box: fill-box; transform-origin: center; opacity: 0; animation: mjSpark 1.6s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes mjHop { 0%, 100% { transform: translateY(0) scale(1.06, .92); } 15% { transform: translateY(0) scale(.95, 1.06); } 45% { transform: translateY(-16px) scale(.98, 1.03); } 75% { transform: translateY(0) scale(1.02, .98); } }
+@keyframes mjShadow { 0%, 100%, 75% { transform: scale(1); opacity: .16; } 45% { transform: scale(.7); opacity: .08; } }
+@keyframes mjWaveL { from { transform: translate(0, 2px) rotate(-8deg); } to { transform: translate(-3px, -12px) rotate(18deg); } }
+@keyframes mjWaveR { from { transform: translate(0, 2px) rotate(8deg); } to { transform: translate(3px, -12px) rotate(-18deg); } }
+@keyframes mjKick { from { transform: rotate(-10deg); } to { transform: rotate(10deg); } }
+@keyframes mjStar { to { transform: rotate(360deg); } }
+@keyframes mjBlink { 0%, 44%, 52%, 100% { transform: scaleY(1); } 48% { transform: scaleY(.15); } }
+@keyframes mjBlush { 0%, 100% { opacity: .75; } 45% { opacity: 1; } }
+@keyframes mjMouth { 0%, 100% { transform: scaleY(.85); } 45% { transform: scaleY(1.1); } }
+@keyframes mjHeart { 0% { opacity: 0; translate: 0 8px; scale: .5; } 20% { opacity: 1; scale: 1; } 100% { opacity: 0; translate: var(--x) -26px; scale: 1.1; } }
+@keyframes mjSpark { 0%, 100% { opacity: 0; transform: scale(.4); } 50% { opacity: 1; transform: scale(1.15) rotate(25deg); } }
+@media (prefers-reduced-motion: reduce) { .mj *, .mj { animation: none !important; } .mj-heart, .mj-spark { opacity: 1; } }

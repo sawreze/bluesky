@@ -2807,6 +2807,37 @@ function mascotSVG() {
     </svg>
   </button>`;
 }
+// ── 구름이 신났어요! (상품 구매 창) — 통통 뛰며 두 손을 번쩍, 눈은 반짝, 하트·별이 퐁퐁 ──
+function mascotJoySVG() {
+  const ol = '#2F5597';
+  const body = '<circle cx="70" cy="47" r="26"/><circle cx="43" cy="59" r="19"/><circle cx="97" cy="57" r="20"/>'
+    + '<circle cx="27" cy="75" r="13"/><circle cx="113" cy="74" r="13"/><ellipse cx="70" cy="80" rx="46" ry="21"/>';
+  const star = (cx, cy, R, r) => { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (Math.PI / 5) * i + 0.25; const rr = i % 2 ? r : R; d += `${i ? 'L' : 'M'}${(cx + Math.cos(a) * rr).toFixed(1)} ${(cy + Math.sin(a) * rr).toFixed(1)}`; } return `${d}Z`; };
+  const heart = (x, y, s, c, d) => `<path class="mj-heart" style="--d:${d}s;--x:${(x - 70) * 0.25}px" transform="translate(${x} ${y}) scale(${s})" d="M0 3C-6-3-11 1-8 6C-6 9 0 12 0 14C0 12 6 9 8 6C11 1 6-3 0 3Z" fill="${c}"/>`;
+  const spark = (x, y, r, c, d) => `<path class="mj-spark" style="--d:${d}s" d="M${x} ${y - r}Q${x + r * 0.18} ${y - r * 0.18} ${x + r} ${y}Q${x + r * 0.18} ${y + r * 0.18} ${x} ${y + r}Q${x - r * 0.18} ${y + r * 0.18} ${x - r} ${y}Q${x - r * 0.18} ${y - r * 0.18} ${x} ${y - r}Z" fill="${c}"/>`;
+  // 반짝이는 눈: 감은 눈(^^) 대신 동그란 눈 + 하이라이트 → 기대에 찬 표정
+  const eye = (x) => `<g class="mj-eye"><ellipse cx="${x}" cy="66" rx="5.4" ry="6.4" fill="#1E2A44"/><circle cx="${x + 1.8}" cy="63.4" r="2.3" fill="#fff"/><circle cx="${x - 1.6}" cy="68.6" r="1.1" fill="#fff" opacity=".85"/></g>`;
+  return `<svg class="mj" viewBox="0 0 140 130" aria-hidden="true">
+    <defs><linearGradient id="mj-g" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="110"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".55" stop-color="#F7FBFF"/><stop offset="1" stop-color="#D6E7FF"/></linearGradient></defs>
+    <ellipse class="mj-shadow" cx="70" cy="122" rx="34" ry="5" fill="#1E3A6E" opacity=".16"/>
+    ${heart(30, 30, 0.9, '#FF6F91', 0)}${heart(108, 22, 0.75, '#FF8FAB', 0.7)}${heart(70, 14, 0.6, '#FFB3C6', 1.3)}
+    ${spark(14, 50, 6, '#FFC94D', 0.2)}${spark(128, 52, 5, '#FFC94D', 0.9)}${spark(122, 96, 4, '#5B9BFF', 0.5)}${spark(10, 96, 3.6, '#5B9BFF', 1.2)}
+    <g class="mj-body">
+      <g class="mj-foot l"><ellipse cx="56" cy="108" rx="8.5" ry="6.5" fill="url(#mj-g)" stroke="${ol}" stroke-width="3.2"/></g>
+      <g class="mj-foot r"><ellipse cx="84" cy="108" rx="8.5" ry="6.5" fill="url(#mj-g)" stroke="${ol}" stroke-width="3.2"/></g>
+      <g class="mj-arm l"><circle cx="18" cy="56" r="9.2" fill="url(#mj-g)" stroke="${ol}" stroke-width="3.2"/><circle cx="15" cy="53" r="2.4" fill="#fff"/></g>
+      <g class="mj-arm r"><circle cx="122" cy="56" r="9.2" fill="url(#mj-g)" stroke="${ol}" stroke-width="3.2"/><circle cx="119" cy="53" r="2.4" fill="#fff"/></g>
+      <g fill="${ol}" stroke="${ol}" stroke-width="6.5" stroke-linejoin="round">${body}</g>
+      <g fill="url(#mj-g)">${body}</g>
+      <g fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M53 37a22 22 0 0 1 12-10"/><path d="M31 55a15 15 0 0 1 7-8"/></g>
+      <path class="mj-star" d="${star(97, 31, 8.5, 4)}" fill="#FFC94D" stroke="${ol}" stroke-width="2.4" stroke-linejoin="round"/>
+      ${eye(57)}${eye(83)}
+      <ellipse class="mj-blush" cx="46" cy="78" rx="6.4" ry="3.8" fill="#FF9DB5"/><ellipse class="mj-blush" cx="94" cy="78" rx="6.4" ry="3.8" fill="#FF9DB5"/>
+      <path class="mj-mouth" d="M61 75h18q-1 12-9 12t-9-12z" fill="#1E2A44" stroke="#1E2A44" stroke-width="1.6" stroke-linejoin="round"/>
+      <ellipse cx="70" cy="83.5" rx="4.4" ry="2.8" fill="#FF869C"/>
+    </g>
+  </svg>`;
+}
 // 1위 왕관 (SVG): 금 몸체 + 보석 3개 + 위쪽 구슬
 function crownSVG() {
   return `<svg class="crown-svg" viewBox="0 0 64 44" aria-hidden="true">
@@ -2912,7 +2943,7 @@ function shopBuySheet(code) {
   sheet.innerHTML = `<div class="sheet-bg" data-no></div>
     <section class="sheet-card shop-sheet" role="dialog" aria-label="${esc(it.name)} 교환">
       <span class="sheet-grab" aria-hidden="true"></span>
-      ${shopPicHTML(it, 'big')}
+      <div class="ss-hero">${shopPicHTML(it, 'big')}<span class="ss-mascot">${mascotJoySVG()}</span></div>
       <div class="sheet-ask"><b>${esc(it.name)}</b><p>${esc(it.sub)}</p></div>
       <dl class="ss-calc">
         <div><dt>상품 가격</dt><dd>${it.price.toLocaleString()}P</dd></div>
