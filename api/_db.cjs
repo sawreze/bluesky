@@ -29,8 +29,17 @@ function init() {
       const db = sql();
       const [chk] = await db.query("SELECT obj_description(to_regclass('public.v_user_stats'), 'pg_class') AS v");
       if (chk && chk.v === SCHEMA_HASH) return;
-      for (const stmt of SCHEMA) await db.query(stmt);
-      await db.query(`COMMENT ON VIEW v_user_stats IS '${SCHEMA_HASH}'`);
+      // 한 문장이 실패해도 앱 전체가 멈추지 않게 나머지는 계속 실행하고, 실패한 문장은 기록해 둬요
+      //  (관리자에게는 동기화 응답의 schemaErrors 로 보여 줘요. 다 성공해야 지문을 적어서, 다음 실행 때 다시 시도해요)
+      const failed = [];
+      for (const [i, stmt] of SCHEMA.entries()) {
+        try { await db.query(stmt); } catch (e) {
+          failed.push({ i, sql: stmt.replace(/\s+/g, ' ').slice(0, 140), error: String(e && e.message).slice(0, 300) });
+          console.error('[스키마 오류]', i, stmt.replace(/\s+/g, ' ').slice(0, 140), e && e.message);
+        }
+      }
+      module.exports.schemaErrors = failed;
+      if (!failed.length) await db.query(`COMMENT ON VIEW v_user_stats IS '${SCHEMA_HASH}'`);
     })().catch((e) => { ready = null; throw e; });
   }
   return ready;

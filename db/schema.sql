@@ -173,6 +173,7 @@ CREATE TABLE IF NOT EXISTS point_transactions (
 ALTER TABLE point_transactions ADD COLUMN IF NOT EXISTS award_month DATE;  -- 이달의 절약왕 보너스: 어느 달 순위인지 (그 달 1일)
 ALTER TABLE point_transactions ADD COLUMN IF NOT EXISTS order_id INT UNIQUE REFERENCES shop_orders(id) ON DELETE CASCADE; -- 상점 교환
 -- 사유별 규칙 (예전 규칙은 지우고 다시 만들어요 — 여러 번 실행해도 같은 결과)
+--   NOT VALID: 새로 들어오는 기록부터 검사해요 (이미 있던 기록 때문에 규칙 추가가 실패하지 않게)
 --   trip            이동 포인트          → 이동(trip_id)만
 --   campaign_reward 캠페인 보상(만든 사람) → 목표 100kg 이상 캠페인이 끝날 때 최종 달성률로, 캠페인당 1번
 --   campaign_bonus  캠페인 참여 보상       → 같은 때, 내가 아낀 kg × 배수, 캠페인·회원당 1번
@@ -187,11 +188,11 @@ ALTER TABLE point_transactions ADD CONSTRAINT point_reason_ck CHECK (
   OR (reason IN ('campaign_reward', 'campaign_bonus') AND campaign_id IS NOT NULL AND trip_id IS NULL AND award_month IS NULL AND order_id IS NULL)
   OR (reason IN ('admin_grant', 'admin_deduct') AND trip_id IS NULL AND campaign_id IS NULL AND award_month IS NULL AND order_id IS NULL)
   OR (reason = 'monthly_award' AND award_month IS NOT NULL AND trip_id IS NULL AND campaign_id IS NULL AND order_id IS NULL)
-  OR (reason = 'shop' AND order_id IS NOT NULL AND trip_id IS NULL AND campaign_id IS NULL AND award_month IS NULL));
+  OR (reason = 'shop' AND order_id IS NOT NULL AND trip_id IS NULL AND campaign_id IS NULL AND award_month IS NULL)) NOT VALID;
 -- 금액: 관리자 차감(admin_deduct) · 상점 교환(shop)만 음수, 나머지는 모두 양수
 ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_transactions_amount_check;
 ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_amount_ck;
-ALTER TABLE point_transactions ADD CONSTRAINT point_amount_ck CHECK ((reason IN ('admin_deduct', 'shop') AND amount < 0) OR (reason NOT IN ('admin_deduct', 'shop') AND amount > 0));
+ALTER TABLE point_transactions ADD CONSTRAINT point_amount_ck CHECK ((reason IN ('admin_deduct', 'shop') AND amount < 0) OR (reason NOT IN ('admin_deduct', 'shop') AND amount > 0)) NOT VALID;
 CREATE INDEX IF NOT EXISTS point_transactions_user_idx ON point_transactions (user_id, created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS point_reward_once_uq ON point_transactions (campaign_id) WHERE reason = 'campaign_reward';
 CREATE UNIQUE INDEX IF NOT EXISTS point_bonus_once_uq ON point_transactions (campaign_id, user_id) WHERE reason = 'campaign_bonus';

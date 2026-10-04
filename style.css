@@ -1607,7 +1607,8 @@ details.c-rule[open] summary i { transform: rotate(180deg); }
 
 /* ── 휴대폰 화면 전환 · 하단 바 다듬기 ──
    화면이 옆으로 들어올 때 가로로 삐져나와 페이지 전체가 옆으로 밀리던 문제를 막아요 */
-html, body { overflow-x: hidden; }
+/* (overflow-x: hidden 을 html·body 에 주면 컴퓨터 크롬에서 마우스 휠 스크롤이 막혀서 clip 을 써요 — clip 은 스크롤 상자를 만들지 않아요) */
+body { overflow-x: clip; }
 #app { overflow-x: clip; }
 .m-tabs { will-change: transform; }
 

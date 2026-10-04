@@ -243,9 +243,13 @@ module.exports = function makeData(db) {
   }
 
   async function sync(me) {
-    try { await settleCampaigns(); await awardLastMonth(); } catch (e) { console.log('[정산 오류]', e && e.message); }
-    const [s, camps, rank, shop, awards] = await Promise.all([summary(me.id), campaigns(me), monthRank(me.id), shopData(me.id), lastAwards(me.id)]);
+    try { await settleCampaigns(); } catch (e) { console.error('[정산 오류]', e && e.message); }
+    try { await awardLastMonth(); } catch (e) { console.error('[절약왕 보너스 오류]', e && e.message); }
+    const soft = (p, fallback) => p.catch((e) => { console.error('[동기화 일부 오류]', e && e.message); return fallback; }); // 상점·보너스가 실패해도 나머지는 보여요
+    const [s, camps, rank, shop, awards] = await Promise.all([summary(me.id), campaigns(me), monthRank(me.id),
+      soft(shopData(me.id), { items: [], orders: [] }), soft(lastAwards(me.id), [])]);
     const out = { user: userOut(me), ...s, camps, rank, shop, lastAwards: awards };
+    if (isAdminRow(me) && db.schemaErrors && db.schemaErrors.length) out.schemaErrors = db.schemaErrors; // 관리자에게만: DB 구조 바꾸기 실패한 문장
     if (isAdminRow(me)) { const d = await demoCounts(me.id); out.demoUsers = d.users; out.demoCal = d.cal; }
     return out;
   }
@@ -584,7 +588,7 @@ module.exports = function makeData(db) {
       return res.status(404).json({ error: '없는 기능이에요.' });
     } catch (e) {
       if (e instanceof Bad) return res.status(e.status).json({ error: e.message });
-      console.log('[데이터 API 오류]', a, e && e.message);
+      console.error('[데이터 API 오류]', a, e && e.message);
       return res.status(500).json({ error: '서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.' });
     }
   };
