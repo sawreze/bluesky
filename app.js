@@ -1400,11 +1400,11 @@ function campRankHTML(c) {
   const loading = dbMode() && state.campRanks[c.id] && state.campRanks[c.id].loading;
   if (!all.length) return `<section class="m-card cr"><p class="m-label">참여자 기여 랭킹</p><p class="cr-empty">${loading ? '참여자 순위를 불러오는 중이에요…' : '아직 참여한 사람이 없어요. 첫 번째로 참여해 보세요!'}</p></section>`;
   const pod = (u, place) => (u ? `<div class="pod pod-${place}">
-      ${place === 1 ? '<span class="crown" aria-hidden="true">👑</span>' : ''}
+      ${place === 1 ? `<span class="crown" aria-hidden="true">${crownSVG()}</span>` : ''}
       <div class="medal m${place}">${tierAvatarHTML(u.name, u.photo, 'av-lg', u.me ? loadLog().g : u.tg, 'badge')}</div>
       <b class="pod-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</b>
       <span class="pod-pt">${kgText(u.g)}</span>
-      <div class="step"><span>${place}</span></div>
+      <div class="step"><span class="step-medal">${medalSVG(place)}</span><span class="sr-only">${place}위</span></div>
     </div>` : '<div class="pod"></div>');
   const rest = all.slice(3, 50);
   const meOut = me && me.rank > 50;
@@ -2635,7 +2635,7 @@ function tierFrameSVG(t) {
     const pos = [[14, 30, 4.6], [106, 26, 3.8], [8, 82, 3.2], [112, 88, 4], [26, 6, 3.2], [96, 4, 3.6], [4, 52, 2.8]];
     for (let i = 0; i < st.stars; i++) fx += sparkleSVG(...pos[i]);
   }
-  tierSvgCache[t] = `<svg class="tf" viewBox="0 0 120 120" aria-hidden="true"><g class="tf-back">${back}</g>${ring}${front}<g class="tf-stars">${fx}</g></svg>`;
+  tierSvgCache[t] = `<svg class="tf" viewBox="-40 -40 200 200" aria-hidden="true"><g class="tf-back">${back}</g>${ring}${front}<g class="tf-stars">${fx}</g></svg>`;
   return tierSvgCache[t];
 }
 // 그라데이션 모음 (한 번만 문서에 넣어 두고 모든 테두리가 같이 써요)
@@ -2724,6 +2724,67 @@ function monthRanking(mKey = monthKey()) {
   all.forEach((u, i) => { u.rank = i + 1; });
   return { all, me: all.find((u) => u.me) };
 }
+// ── 금·은·동 메달 (SVG) ──
+//  리본 두 갈래 + 톱니 테두리 금속 동전 + 안쪽 홈 + 월계수 + 양각 숫자 + 반짝이는 광택
+const MEDAL_METAL = {
+  1: { hi: '#FFF7CC', a: '#FFD84D', b: '#E3A500', c: '#9A6A00', rim: '#7A5200', rib: ['#2F6BFF', '#1E3FAE'], txt: '#7A4E00' },
+  2: { hi: '#FFFFFF', a: '#E4E9F0', b: '#AEB8C6', c: '#6E7A8C', rim: '#4F5A6B', rib: ['#E5484D', '#A3272B'], txt: '#465166' },
+  3: { hi: '#FFE8D4', a: '#F2B27C', b: '#C7773E', c: '#8A4A1C', rim: '#6B3712', rib: ['#16A37B', '#0D6B50'], txt: '#6B3410' },
+};
+function medalSVG(place) {
+  const m = MEDAL_METAL[place]; const id = `md${place}`;
+  let teeth = '';
+  for (let i = 0; i < 40; i++) {
+    const a = (Math.PI * 2 * i) / 40;
+    teeth += `<circle cx="${(32 + Math.cos(a) * 21.1).toFixed(2)}" cy="${(44 + Math.sin(a) * 21.1).toFixed(2)}" r="1.25"/>`;
+  }
+  const leaf = (x, y, r, flip) => `<ellipse cx="${x}" cy="${y}" rx="1.5" ry="3.1" transform="rotate(${flip ? -r : r} ${x} ${y})"/>`;
+  let laurel = '';
+  [[18.5, 50, 35], [17.3, 44.5, 15], [18.3, 39, -10], [20.6, 34.4, -32]].forEach(([x, y, r]) => { laurel += leaf(x, y, r, false) + leaf(64 - x, y, r, true); });
+  return `<svg class="medal-svg" viewBox="0 0 64 70" aria-hidden="true">
+    <defs>
+      <linearGradient id="${id}-r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${m.rib[0]}"/><stop offset="1" stop-color="${m.rib[1]}"/></linearGradient>
+      <radialGradient id="${id}-f" cx=".36" cy=".3" r=".85"><stop offset="0" stop-color="${m.hi}"/><stop offset=".35" stop-color="${m.a}"/><stop offset=".75" stop-color="${m.b}"/><stop offset="1" stop-color="${m.c}"/></radialGradient>
+      <linearGradient id="${id}-e" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m.hi}"/><stop offset=".45" stop-color="${m.b}"/><stop offset="1" stop-color="${m.rim}"/></linearGradient>
+      <linearGradient id="${id}-i" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${m.hi}"/><stop offset=".5" stop-color="${m.a}"/><stop offset="1" stop-color="${m.c}"/></linearGradient>
+      <linearGradient id="${id}-s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <clipPath id="${id}-c"><circle cx="32" cy="44" r="19"/></clipPath>
+    </defs>
+    <path d="M17 0h11l9 24h-11z" fill="url(#${id}-r)"/><path d="M47 0H36l-9 24h11z" fill="url(#${id}-r)"/>
+    <path d="M22 0h3l9 24h-3z" fill="#fff" opacity=".35"/><path d="M42 0h-3l-9 24h3z" fill="#fff" opacity=".2"/>
+    <ellipse cx="32" cy="66" rx="15" ry="2.6" fill="#0F1626" opacity=".12"/>
+    <g fill="url(#${id}-e)">${teeth}</g>
+    <circle cx="32" cy="44" r="21" fill="url(#${id}-e)" stroke="${m.rim}" stroke-width=".8"/>
+    <circle cx="32" cy="44" r="17.6" fill="url(#${id}-i)"/>
+    <circle cx="32" cy="44" r="16.2" fill="url(#${id}-f)" stroke="${m.rim}" stroke-opacity=".35" stroke-width=".6"/>
+    <g fill="${m.txt}" opacity=".55">${laurel}</g>
+    <text x="32" y="51" text-anchor="middle" font-family="Pretendard Variable, Pretendard, system-ui, sans-serif" font-weight="900" font-size="20" fill="${m.hi}" opacity=".9">${place}</text>
+    <text x="32" y="50" text-anchor="middle" font-family="Pretendard Variable, Pretendard, system-ui, sans-serif" font-weight="900" font-size="20" fill="${m.txt}">${place}</text>
+    <g clip-path="url(#${id}-c)"><rect class="medal-shine" x="-14" y="20" width="12" height="50" fill="url(#${id}-s)" transform="rotate(20 32 44)"/></g>
+    <path d="M20 36a14 14 0 0 1 10-7" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+  </svg>`;
+}
+// 1위 왕관 (SVG): 금 몸체 + 보석 3개 + 위쪽 구슬
+function crownSVG() {
+  return `<svg class="crown-svg" viewBox="0 0 64 44" aria-hidden="true">
+    <defs>
+      <linearGradient id="cr-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF4B8"/><stop offset=".4" stop-color="#FFCF33"/><stop offset=".8" stop-color="#E09A00"/><stop offset="1" stop-color="#A86C00"/></linearGradient>
+      <linearGradient id="cr-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE27A"/><stop offset="1" stop-color="#B57800"/></linearGradient>
+      <radialGradient id="cr-r" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#FFD0D6"/><stop offset=".45" stop-color="#E5293F"/><stop offset="1" stop-color="#7A0A1A"/></radialGradient>
+      <radialGradient id="cr-s" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#D6E4FF"/><stop offset=".45" stop-color="#2F6BFF"/><stop offset="1" stop-color="#132E8A"/></radialGradient>
+    </defs>
+    <path d="M8 34 4 12l14 11 14-19 14 19 14-11-4 22z" fill="url(#cr-g)" stroke="#8A5A00" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M10 31 7.5 17l11 8.6L32 8l13.5 17.6 11-8.6L54 31" fill="none" stroke="#FFF7D0" stroke-width="1" opacity=".8" stroke-linejoin="round"/>
+    <rect x="7" y="33" width="50" height="8" rx="2.5" fill="url(#cr-b)" stroke="#8A5A00" stroke-width="1.1"/>
+    <path d="M9 35h46" stroke="#FFF4C0" stroke-width="1" opacity=".8"/>
+    <circle cx="4" cy="11" r="3" fill="url(#cr-g)" stroke="#8A5A00" stroke-width=".9"/><circle cx="60" cy="11" r="3" fill="url(#cr-g)" stroke="#8A5A00" stroke-width=".9"/>
+    <circle cx="32" cy="5" r="3.6" fill="url(#cr-g)" stroke="#8A5A00" stroke-width=".9"/>
+    <circle cx="32" cy="26" r="4.4" fill="url(#cr-r)" stroke="#8A5A00" stroke-width=".8"/>
+    <circle cx="19" cy="29" r="3" fill="url(#cr-s)" stroke="#8A5A00" stroke-width=".7"/><circle cx="45" cy="29" r="3" fill="url(#cr-s)" stroke="#8A5A00" stroke-width=".7"/>
+    <circle cx="30.6" cy="24.5" r="1.2" fill="#fff" opacity=".85"/>
+    <circle cx="20" cy="37" r="1.6" fill="#E5293F"/><circle cx="32" cy="37" r="1.6" fill="#2F6BFF"/><circle cx="44" cy="37" r="1.6" fill="#E5293F"/>
+  </svg>`;
+}
 function rankHTML() {
   const now = new Date();
   const mKey = monthKey(now);
@@ -2731,11 +2792,11 @@ function rankHTML() {
   const top = all.slice(0, 100);
   const left = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
   const pod = (u, place) => u ? `<div class="pod pod-${place}">
-      ${place === 1 ? '<span class="crown" aria-hidden="true">👑</span>' : ''}
+      ${place === 1 ? `<span class="crown" aria-hidden="true">${crownSVG()}</span>` : ''}
       <div class="medal m${place}">${tierAvatarHTML(u.name, u.photo, 'av-lg', u.me ? loadLog().g : u.g, 'badge')}</div>
       <b class="pod-name">${esc(u.name)}${u.me ? ' <em>나</em>' : ''}</b>${u.me ? titleChipHTML(titleOf(loadLog().g), 'sm') : ''}
       <span class="pod-pt">${u.points.toLocaleString()}P</span>
-      <div class="step"><span>${place}</span></div>
+      <div class="step"><span class="step-medal">${medalSVG(place)}</span><span class="sr-only">${place}위</span></div>
     </div>` : '';
   return `<main class="main rk">
     <header class="rk-head">

@@ -1523,14 +1523,15 @@ details.c-rule[open] summary i { transform: rotate(180deg); }
 
 /* ── 칭호(티어) 프로필 테두리 ── */
 .avf { position: relative; display: inline-grid; place-items: center; flex: none; isolation: isolate; }
-.avf > .tf { position: absolute; left: -25%; top: -25%; width: 150%; height: 150%; overflow: visible; pointer-events: none; z-index: 1; }
+/* 아이폰 사파리는 SVG 바깥으로 나간 그림(날개 끝)을 잘라서, 그림판을 넓게(250%) 잡아 날개가 안에 다 들어오게 해요 */
+.avf > .tf { position: absolute; left: -75%; top: -75%; width: 250%; height: 250%; overflow: visible; pointer-events: none; z-index: 1; }
 /* 작은 아바타(랭킹 목록 등)는 날개·월계관을 숨기고, 메인 오른쪽 위 프로필에서만 날개를 보여 줘요 */
 .avf.f-sm .tf-back { display: none; }
 .m-me .avf.f-sm .tf-back { display: inline; }
 .avf.f-sm .tf-clouds, .avf.f-sm .tf-stars { display: none; }
 .m-me .avf.f-sm .tf-wings { transform-box: view-box; transform-origin: 60px 64px; transform: scale(1.12); }
 /* 메인 오른쪽 위 버튼의 아이콘 크기 규칙(.m-round svg 22px)이 테두리까지 줄여서 날개가 안 보였어요 */
-.m-round .avf > svg.tf { width: 150%; height: 150%; }
+.m-round .avf > svg.tf { width: 250%; height: 250%; }
 .avf.t5 > .tf { filter: drop-shadow(0 1px 2px rgba(6, 78, 59, .35)); }
 .avf.t6 > .tf { filter: drop-shadow(0 0 4px rgba(20, 184, 166, .55)); }
 .avf.t7 > .tf { filter: drop-shadow(0 0 4px rgba(100, 116, 139, .55)); }
@@ -1617,3 +1618,45 @@ html.android .appbar { background: rgba(237, 244, 249, .97); }
 html.android .m-tabs { background: rgba(255, 255, 255, .985); }
 html.android .m-round { background: rgba(255, 255, 255, .92); }
 html.android .avf.t9 > .tf { animation: none; filter: drop-shadow(0 0 7px rgba(96, 165, 250, .8)); }
+
+/* ── 랭킹 시상대: 금·은·동 고급 메달 ── */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* 왕관 */
+.pod .crown { filter: none; margin-bottom: -10px; position: relative; z-index: 3; }
+.crown-svg { display: block; width: 46px; height: auto; filter: drop-shadow(0 3px 5px rgba(160, 105, 0, .35)); animation: crownBob 3.2s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes crownBob { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-3px) rotate(3deg); } }
+/* 프로필 메달 고리: 바깥 테 + 금속 + 안쪽 홈 + 광택 */
+.medal { padding: 5px; }
+.medal::before { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 1;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .28), inset 0 2px 1px rgba(255, 255, 255, .85), inset 0 -2px 2px rgba(0, 0, 0, .22); }
+.medal::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 1;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .7) 45%, transparent 58%) no-repeat;
+  background-size: 250% 100%; background-position: 120% 0; animation: medalSheen 4.5s ease-in-out infinite;
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 6px), #000 calc(100% - 5px)); mask: radial-gradient(closest-side, transparent calc(100% - 6px), #000 calc(100% - 5px)); }
+.pod-2 .medal::after { animation-delay: 1.2s; } .pod-3 .medal::after { animation-delay: 2.4s; }
+@keyframes medalSheen { 0%, 55% { background-position: 120% 0; } 85%, 100% { background-position: -20% 0; } }
+.medal .av { border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); }
+.medal.m1 { background: conic-gradient(from 200deg, #FFF6C2, #FFD84D 12%, #C98E00 26%, #FFE680 40%, #FFFBE6 50%, #E3A500 64%, #9A6A00 76%, #FFD84D 88%, #FFF6C2);
+  box-shadow: 0 0 0 1.5px #A87300, 0 8px 22px rgba(224, 160, 0, .5), 0 0 26px rgba(255, 210, 60, .45); }
+.medal.m2 { background: conic-gradient(from 200deg, #FFFFFF, #DCE2EA 12%, #8F9AAA 26%, #EEF2F6 40%, #FFFFFF 50%, #B3BDCA 64%, #6E7A8C 76%, #DCE2EA 88%, #FFFFFF);
+  box-shadow: 0 0 0 1.5px #6E7A8C, 0 8px 20px rgba(110, 125, 145, .42); }
+.medal.m3 { background: conic-gradient(from 200deg, #FFE8D4, #F2B27C 12%, #A85C25 26%, #F6C49A 40%, #FFEEDF 50%, #C7773E 64%, #7E3F14 76%, #F2B27C 88%, #FFE8D4);
+  box-shadow: 0 0 0 1.5px #8A4A1C, 0 8px 20px rgba(170, 95, 40, .4); }
+/* 단상: 금속 질감 + 윗면 + 가운데 메달 */
+.step { position: relative; overflow: hidden; padding-top: 0; place-items: start center; isolation: isolate;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .7), inset 0 -10px 18px rgba(0, 0, 0, .12), 0 10px 24px rgba(31, 61, 110, .14); }
+.step::before { content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: -1;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .035) 0 2px, transparent 2px 7px), linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .35) 38%, transparent 52%); }
+.pod-1 .step { background: linear-gradient(180deg, #FFE27A 0%, #F5C21B 30%, #E0A500 70%, #C78F00 100%); }
+.pod-2 .step { background: linear-gradient(180deg, #EEF2F7 0%, #CDD5DF 30%, #AEB8C6 70%, #95A1B0 100%); }
+.pod-3 .step { background: linear-gradient(180deg, #F6C49A 0%, #E39A5E 30%, #C7773E 70%, #A9622F 100%); }
+.step-medal { display: block; width: 52px; margin-top: 0; filter: drop-shadow(0 4px 6px rgba(15, 22, 38, .25)); }
+.pod-1 .step-medal { width: 60px; }
+.medal-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.medal-shine { animation: coinShine 4.5s ease-in-out infinite; }
+.pod-2 .medal-shine { animation-delay: 1.2s; } .pod-3 .medal-shine { animation-delay: 2.4s; }
+@keyframes coinShine { 0%, 55% { transform: rotate(20deg) translateX(0); } 85%, 100% { transform: rotate(20deg) translateX(72px); } }
+.medal-shine { transform-box: view-box; transform-origin: 32px 44px; }
+.cr-podium .step-medal { width: 42px; margin-top: 0; } .cr-podium .pod-1 .step-medal { width: 48px; }
+.cr-podium .crown-svg { width: 38px; }
+@media (prefers-reduced-motion: reduce) { .crown-svg, .medal::after, .medal-shine { animation: none; } }
