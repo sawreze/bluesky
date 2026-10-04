@@ -2985,10 +2985,11 @@ function lastAwardsHTML() {
   if (!list.length) return '';
   const m = Number(String(list[0].month).slice(5));
   const mine = list.find((x) => x.me);
-  return `<section class="rk-last" aria-label="지난달 절약왕">
-    <p class="rk-last-h">🎖️ ${m}월 절약왕 보너스${mine ? ` <em>나 ${mine.rank}등 +${mine.points.toLocaleString()}P</em>` : ''}</p>
+  // 접혀 있다가 누르면 지난달 1·2·3등이 펼쳐져요 (탄소 포인트 설명 바로 위)
+  return `<details class="rk-last">
+    <summary class="rk-last-h"><span>🎖️ ${m}월 절약왕 보너스${mine ? ` <em>나 ${mine.rank}등 +${mine.points.toLocaleString()}P</em>` : ''}</span><i aria-hidden="true">${ICON.chev}</i></summary>
     <ol>${list.map((x) => `<li class="r${x.rank} ${x.me ? 'me' : ''}"><i>${x.rank}</i><b>${esc(x.name)}</b><span>+${x.points.toLocaleString()}P</span></li>`).join('')}</ol>
-  </section>`;
+  </details>`;
 }
 // 랭킹 화면에 들어올 때: 3등 → 2등 → 1등 순서로 단상이 아래에서 솟아오르고, 포인트는 0부터 세어 올라가요
 function podiumIntro() {
@@ -3034,10 +3035,10 @@ function rankHTML() {
       <h1 class="m-title sm">이달의 절약왕</h1>
       <p class="rk-sub">탄소 포인트를 가장 많이 모은 사람 · ${left ? `${left}일 남았어요` : '오늘 마감'}</p>
     </header>
-    ${lastAwardsHTML()}
     <section class="podium" aria-label="1~3위">
       ${pod(all[1], 2)}${pod(all[0], 1)}${pod(all[2], 3)}
     </section>
+    ${lastAwardsHTML()}
     <details class="rk-rule"><summary>ⓘ 탄소 포인트는 이렇게 모여요</summary>
       <p>친환경 경로로 도착하면 <b>아낀 탄소 1kg당 ${PT_PER_KG}P</b> + <b>버스·지하철·걷기·자전거로 이동한 거리 1km당 ${PT_PER_KM}P</b>를 받아요. 캠페인 보상도 함께 쌓이고, 매달 1일에 새로 시작해요.</p>
       <p>🏆 매달 마지막 순위 <b>1등 ${MONTH_AWARDS[0].toLocaleString()}P · 2등 ${MONTH_AWARDS[1].toLocaleString()}P · 3등 ${MONTH_AWARDS[2].toLocaleString()}P</b> 보너스를 다음 달 1일에 드려요. (보너스와 상점에서 쓴 포인트는 순위에 들어가지 않아요)</p>

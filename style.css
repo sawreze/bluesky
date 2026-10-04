@@ -1680,16 +1680,23 @@ html.android .avf.t9 > .tf { animation: none; filter: drop-shadow(0 0 7px rgba(9
 @keyframes ptPulse { 50% { transform: scale(1.12); } }
 
 /* ── 지난달 절약왕 보너스 (랭킹 화면) ── */
-.rk-last { margin-top: 14px; padding: 12px 14px; border-radius: 20px; background: linear-gradient(135deg, #FFF8E1, #FFFFFF 70%); border: 1px solid #FBE3A1; box-shadow: 0 6px 16px rgba(224, 168, 0, .12); }
-.rk-last-h { margin: 0 0 8px; font-size: 13.5px; font-weight: 800; color: #7A5200; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rk-last { margin-top: 18px; padding: 4px 14px; border-radius: 20px; background: linear-gradient(135deg, #FFF8E1, #FFFFFF 70%); border: 1px solid #FBE3A1; box-shadow: 0 6px 16px rgba(224, 168, 0, .12); }
+.rk-last-h { min-height: 42px; list-style: none; cursor: pointer; font-size: 13.5px; font-weight: 800; color: #7A5200; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.rk-last-h::-webkit-details-marker { display: none; }
+.rk-last-h > span { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rk-last-h > i { display: grid; color: #B7791F; transition: transform .2s; }
+.rk-last-h > i svg { width: 16px; height: 16px; transform: rotate(90deg); }
+.rk-last[open] .rk-last-h > i { transform: rotate(180deg); }
+.rk-last ol { margin-bottom: 12px !important; animation: wkFade .25s ease both; }
+.rk-last + .rk-rule { margin-top: 10px; }
 .rk-last-h em { font-style: normal; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #F5B400; color: #fff; }
 .rk-last ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .rk-last li { min-width: 0; display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border-radius: 14px; background: rgba(255, 255, 255, .85); }
 .rk-last li.me { box-shadow: inset 0 0 0 1.5px #F5B400; }
-.rk-last i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 800 12px/1 var(--font-display); font-style: normal; color: #fff; }
-.rk-last .r1 i { background: radial-gradient(circle at 32% 28%, #FFF3B0 0 14%, #F7C948 42%, #D99A0B 100%); color: #5A3B00; }
-.rk-last .r2 i { background: radial-gradient(circle at 32% 28%, #FFFFFF 0 14%, #D3DAE3 45%, #8E9AAB 100%); color: #2F3A4A; }
-.rk-last .r3 i { background: radial-gradient(circle at 32% 28%, #FFD9B8 0 14%, #D98C55 45%, #9A5427 100%); }
+.rk-last li i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 800 12px/1 var(--font-display); font-style: normal; color: #fff; }
+.rk-last .r1 > i { background: radial-gradient(circle at 32% 28%, #FFF3B0 0 14%, #F7C948 42%, #D99A0B 100%); color: #5A3B00; }
+.rk-last .r2 > i { background: radial-gradient(circle at 32% 28%, #FFFFFF 0 14%, #D3DAE3 45%, #8E9AAB 100%); color: #2F3A4A; }
+.rk-last .r3 > i { background: radial-gradient(circle at 32% 28%, #FFD9B8 0 14%, #D98C55 45%, #9A5427 100%); }
 .rk-last b { max-width: 100%; font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rk-last span { font-size: 12px; font-weight: 800; color: #B7791F; }
 /* ── 캠페인 보상표: 열 = 달성률, 행 = 만든 사람 / 참여자 (지금 단계 열에 불이 들어와요) ── */
