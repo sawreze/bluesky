@@ -1685,6 +1685,7 @@ function mainHTML() {
     <p class="m-hello">${esc(greetingText())}</p>
     <h1 class="m-title">오늘은<br>어디로 가세요?</h1>
 
+    <div class="m-quick-wrap">
     <button type="button" class="m-quick" data-act="open-route">
       <span class="m-quick-ic">${ICON.route}</span>
       <span class="m-quick-txt">
@@ -1693,6 +1694,8 @@ function mainHTML() {
       </span>
       <span class="m-chev">${ICON.chev}</span>
     </button>
+    ${mascotSVG()}
+    </div>
 
     <section class="m-card m-wk-card" id="wk-card" data-act="open-week" role="button" tabindex="0" aria-label="최근 7일 탄소 절약 자세히 보기">
       <div class="m-card-head">${weekHeadHTML(wk7)}<span class="m-more">자세히 ${ICON.chev}</span></div>
@@ -2723,6 +2726,38 @@ function monthRanking(mKey = monthKey()) {
   const all = rankingUsers(mKey).concat(me).sort((a, b) => (b.points - a.points) || a.name.localeCompare(b.name));
   all.forEach((u, i) => { u.rank = i + 1; });
   return { all, me: all.find((u) => u.me) };
+}
+// ── 푸른하늘 구름이 (마스코트): 빠른 길찾기 카드 위에 걸터앉아 다리를 흔들어요. 누르면 폴짝 ──
+function mascotSVG() {
+  const sp = (x, y, r, c, d) => `<path class="ms-spark" style="animation-delay:${d}s" d="M${x} ${y - r}Q${x + r * 0.18} ${y - r * 0.18} ${x + r} ${y}Q${x + r * 0.18} ${y + r * 0.18} ${x} ${y + r}Q${x - r * 0.18} ${y + r * 0.18} ${x - r} ${y}Q${x - r * 0.18} ${y - r * 0.18} ${x} ${y - r}Z" fill="${c}"/>`;
+  const star = (cx, cy, R, r) => {
+    let d = '';
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (Math.PI / 5) * i + 0.25; const rr = i % 2 ? r : R;
+      d += `${i ? 'L' : 'M'}${(cx + Math.cos(a) * rr).toFixed(1)} ${(cy + Math.sin(a) * rr).toFixed(1)}`;
+    }
+    return `${d}Z`;
+  };
+  const body = '<circle cx="60" cy="38" r="27"/><circle cx="20" cy="44" r="9.5"/><circle cx="100" cy="44" r="9.5"/><circle cx="31" cy="54" r="19"/><circle cx="89" cy="54" r="19"/><ellipse cx="60" cy="62" rx="42" ry="27"/>';
+  const foot = (x, cls) => `<g class="ms-foot ${cls}"><ellipse cx="${x}" cy="88" rx="10.5" ry="7.5" fill="#fff" stroke="#2F5597" stroke-width="3.4"/></g>`;
+  return `<button type="button" class="mascot" data-act="mascot-hop" aria-label="푸른하늘 구름이">
+    <svg viewBox="0 0 120 104" aria-hidden="true">
+      ${sp(8, 22, 6, '#FFC94D', 0)}${sp(113, 18, 5, '#FFC94D', 0.9)}${sp(114, 74, 4.5, '#5B9BFF', 1.7)}
+      <g class="ms-body">
+        ${foot(44, 'l')}${foot(76, 'r')}
+        <g fill="#2F5597" stroke="#2F5597" stroke-width="7" stroke-linejoin="round">${body}</g>
+        <g fill="#fff">${body}</g>
+        <path d="M40 30a22 22 0 0 1 12-12" fill="none" stroke="#E6F0FF" stroke-width="4" stroke-linecap="round"/>
+        <path d="${star(79, 19, 8.5, 4)}" fill="#FFC94D" stroke="#2F5597" stroke-width="2.4" stroke-linejoin="round"/>
+        <g class="ms-face">
+          <path d="M42.5 60.5q5.5-6.5 11 0M66.5 60.5q5.5-6.5 11 0" fill="none" stroke="#1E2A44" stroke-width="3.4" stroke-linecap="round"/>
+          <ellipse cx="38" cy="70" rx="6" ry="3.6" fill="#FFA3B8"/><ellipse cx="82" cy="70" rx="6" ry="3.6" fill="#FFA3B8"/>
+          <path d="M53.5 66.5h13q-.6 9.5-6.5 9.5t-6.5-9.5z" fill="#1E2A44" stroke="#1E2A44" stroke-width="1.6" stroke-linejoin="round"/>
+          <ellipse cx="60" cy="73.6" rx="3.6" ry="2.3" fill="#FF869C"/>
+        </g>
+      </g>
+    </svg>
+  </button>`;
 }
 // ── 금·은·동 메달 (SVG) ──
 //  리본 두 갈래 + 톱니 테두리 금속 동전 + 안쪽 홈 + 월계수 + 양각 숫자 + 반짝이는 광택
@@ -4081,6 +4116,7 @@ function goAuth(screen) {
 
 // 버튼 클릭 (data-act 값으로 구분)
 const actions = {
+  'mascot-hop': (el) => { el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop'); setTimeout(() => el.classList.remove('hop'), 700); },
   'login-kakao': () => {
     const box = document.querySelector('#login-form [name="remember"]');
     const remember = box ? box.checked : true;
