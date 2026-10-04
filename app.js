@@ -2845,10 +2845,15 @@ const SHOP_ITEMS_LOCAL = [
   ['bamboo-brush', 'goods', '대나무 칫솔 2개 세트', '플라스틱 대신 대나무', 3900, '🪥'],
   ['seed-kit', 'goods', '반려식물 씨앗 키트', '바질 · 방울토마토 중 랜덤', 6500, '🌱'],
   ['straw-set', 'goods', '스테인리스 빨대 세트', '빨대 2개 + 세척솔', 5900, '🥤'],
-  ['eco-bag', 'goods', '접이식 장바구니', '주머니에 쏙, 비닐봉지 대신', 7900, '👜'],
+  ['eco-bag', 'goods', '에코백', '튼튼한 캔버스 천 · 비닐봉지 대신', 7900, '👜'],
   ['tumbler', 'goods', '푸른하늘 텀블러 350ml', '일회용 컵 대신 매일 쓰기', 9900, '🧋'],
   ['tree-donate', 'donate', '나무 한 그루 심기 기부', '숲 가꾸기 단체에 기부돼요', 10000, '🌳'],
 ].map(([code, cat, name, sub, price, icon]) => ({ code, cat, name, sub, price, icon }));
+// 상품 사진: assets/shop/<상품 코드>.jpg 를 넣고 여기 코드를 적으면 아이콘 대신 사진이 나와요
+const SHOP_PHOTOS = new Set([]);
+const shopPicHTML = (i, size = '') => (SHOP_PHOTOS.has(i.code)
+  ? `<span class="shop-pic photo ${size}"><img src="assets/shop/${i.code}.jpg" alt="" loading="lazy" decoding="async"></span>`
+  : `<span class="shop-pic ${size} tone-${SHOP_TONE[i.cat] || 'sky'}" aria-hidden="true">${i.icon}</span>`);
 const shopItems = () => (state.shopItems && state.shopItems.length ? state.shopItems : SHOP_ITEMS_LOCAL);
 const loadOrders = () => { try { return JSON.parse(localStorage.getItem(SHOP_ORDER_KEY) || '[]') || []; } catch (e) { return []; } };
 function spendPoints(p) { try { localStorage.setItem(POINT_KEY, String(Math.max(0, loadPoints() - p))); } catch (e) { /* 무시 */ } }
@@ -2871,10 +2876,10 @@ function shopHTML() {
   const orders = loadOrders();
   const items = shopItems().filter((i) => cat === 'all' || i.cat === cat);
   const itemsHTML = `<div class="shop-cats" role="tablist">${SHOP_CATS.map((c) => `<button type="button" role="tab" class="${cat === c.id ? 'on' : ''}" data-act="shop-cat" data-id="${c.id}">${c.label}</button>`).join('')}</div>
-    <ul class="shop-grid">${items.map((i) => `<li><button type="button" class="shop-item ${bal < i.price ? 'short' : ''}" data-act="shop-item" data-id="${i.code}">
-      <span class="shop-pic tone-${SHOP_TONE[i.cat] || 'sky'}" aria-hidden="true">${i.icon}</span>
+    <ul class="shop-grid">${items.map((i) => `<li><button type="button" class="shop-item" data-act="shop-item" data-id="${i.code}">
+      ${shopPicHTML(i)}
       <b>${esc(i.name)}</b><small>${esc(i.sub)}</small>
-      <span class="shop-price">${i.price.toLocaleString()}P${bal < i.price ? `<em>${(i.price - bal).toLocaleString()}P 부족</em>` : ''}</span>
+      <span class="shop-price">${i.price.toLocaleString()}P</span>
     </button></li>`).join('')}</ul>`;
   const ordersHTML = orders.length
     ? `<ul class="shop-orders">${orders.map((o) => `<li><button type="button" data-act="shop-coupon" data-id="${esc(o.id)}">
@@ -2907,15 +2912,15 @@ function shopBuySheet(code) {
   sheet.innerHTML = `<div class="sheet-bg" data-no></div>
     <section class="sheet-card shop-sheet" role="dialog" aria-label="${esc(it.name)} 교환">
       <span class="sheet-grab" aria-hidden="true"></span>
-      <span class="shop-pic big tone-${SHOP_TONE[it.cat] || 'sky'}" aria-hidden="true">${it.icon}</span>
+      ${shopPicHTML(it, 'big')}
       <div class="sheet-ask"><b>${esc(it.name)}</b><p>${esc(it.sub)}</p></div>
       <dl class="ss-calc">
         <div><dt>상품 가격</dt><dd>${it.price.toLocaleString()}P</dd></div>
         <div><dt>보유 포인트</dt><dd>${bal.toLocaleString()}P</dd></div>
-        <div class="ss-after ${enough ? '' : 'neg'}"><dt>${enough ? '교환 후 남는 포인트' : '더 모아야 할 포인트'}</dt><dd>${(enough ? bal - it.price : it.price - bal).toLocaleString()}P</dd></div>
+        ${enough ? `<div class="ss-after"><dt>구매 후 남는 포인트</dt><dd>${(bal - it.price).toLocaleString()}P</dd></div>` : ''}
       </dl>
       <p class="rj-err" id="ss-err" hidden></p>
-      <button type="button" class="btn primary" data-yes ${enough ? '' : 'disabled'}>${enough ? `${it.price.toLocaleString()}P로 교환하기` : '포인트가 부족해요'}</button>
+      <button type="button" class="btn primary" data-yes>${it.price.toLocaleString()}P로 구매하기</button>
       <button type="button" class="btn sheet-cancel" data-no>취소</button>
     </section>`;
   document.body.appendChild(sheet);
@@ -2925,12 +2930,16 @@ function shopBuySheet(code) {
     if (e.target.closest('[data-no]')) return close();
     const yes = e.target.closest('[data-yes]');
     if (!yes || yes.disabled) return;
-    yes.disabled = true; yes.textContent = '교환하는 중…';
+    if (loadPoints() < it.price) { // 포인트가 모자라면 팝업으로 알려 줘요
+      confirmSheet(`포인트가 ${(it.price - loadPoints()).toLocaleString()}P 부족합니다`, `${it.name}은(는) ${it.price.toLocaleString()}P예요. 친환경 이동과 캠페인으로 포인트를 더 모아 보세요.`, '확인', '', 'primary');
+      return;
+    }
+    yes.disabled = true; yes.textContent = '구매하는 중…';
     let order = null;
     if (dbMode()) {
       const r = await dataApi('shop-buy', { code });
       if (r.status === 401) { close(); needRelogin(); return; }
-      if (r.status !== 200) { const err = sheet.querySelector('#ss-err'); err.textContent = r.data.error || '교환하지 못했어요.'; err.hidden = false; yes.textContent = '다시 시도'; yes.disabled = false; return; }
+      if (r.status !== 200) { const err = sheet.querySelector('#ss-err'); err.textContent = r.data.error || '구매하지 못했어요.'; err.hidden = false; yes.textContent = '다시 시도'; yes.disabled = false; return; }
       order = r.data.order;
       lsSet(POINT_KEY, String(r.data.points));
       lsSet(SHOP_ORDER_KEY, [order, ...loadOrders()]);
@@ -3079,7 +3088,7 @@ function confirmSheet(title, desc, okLabel, cancelLabel = '취소', okClass = 's
         <span class="sheet-grab" aria-hidden="true"></span>
         <div class="sheet-ask"><b>${esc(title)}</b><p>${esc(desc)}</p></div>
         <button type="button" class="btn ${okClass}" data-yes>${esc(okLabel)}</button>
-        <button type="button" class="btn sheet-cancel" data-no>${esc(cancelLabel)}</button>
+        ${cancelLabel ? `<button type="button" class="btn sheet-cancel" data-no>${esc(cancelLabel)}</button>` : ''}
       </section>`;
     document.body.appendChild(sheet);
     requestAnimationFrame(() => sheet.classList.add('open'));

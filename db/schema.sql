@@ -143,7 +143,7 @@ INSERT INTO shop_items (code, category, name, sub, price_p, icon, sort) VALUES
   ('bamboo-brush', 'goods', '대나무 칫솔 2개 세트', '플라스틱 대신 대나무', 3900, '🪥', 6),
   ('seed-kit', 'goods', '반려식물 씨앗 키트', '바질 · 방울토마토 중 랜덤', 6500, '🌱', 7),
   ('straw-set', 'goods', '스테인리스 빨대 세트', '빨대 2개 + 세척솔', 5900, '🥤', 8),
-  ('eco-bag', 'goods', '접이식 장바구니', '주머니에 쏙, 비닐봉지 대신', 7900, '👜', 9),
+  ('eco-bag', 'goods', '에코백', '튼튼한 캔버스 천 · 비닐봉지 대신', 7900, '👜', 9),
   ('tumbler', 'goods', '푸른하늘 텀블러 350ml', '일회용 컵 대신 매일 쓰기', 9900, '🧋', 10),
   ('tree-donate', 'donate', '나무 한 그루 심기 기부', '숲 가꾸기 단체에 기부돼요', 10000, '🌳', 11)
 ON CONFLICT (code) DO UPDATE SET category = EXCLUDED.category, name = EXCLUDED.name, sub = EXCLUDED.sub,
@@ -170,8 +170,9 @@ CREATE TABLE IF NOT EXISTS point_transactions (
   campaign_id   INT REFERENCES campaigns(id) ON DELETE CASCADE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-ALTER TABLE point_transactions ADD COLUMN IF NOT EXISTS award_month DATE;  -- 이달의 절약왕 보너스: 어느 달 순위인지 (그 달 1일)
-ALTER TABLE point_transactions ADD COLUMN IF NOT EXISTS order_id INT UNIQUE REFERENCES shop_orders(id) ON DELETE CASCADE; -- 상점 교환
+-- award_month: 이달의 절약왕 보너스가 어느 달 순위인지 (그 달 1일) · order_id: 상점 교환
+ALTER TABLE point_transactions ADD COLUMN IF NOT EXISTS award_month DATE;
+ALTER TABLE point_transactions ADD COLUMN IF NOT EXISTS order_id INT UNIQUE REFERENCES shop_orders(id) ON DELETE CASCADE;
 -- 사유별 규칙 (예전 규칙은 지우고 다시 만들어요 — 여러 번 실행해도 같은 결과)
 --   NOT VALID: 새로 들어오는 기록부터 검사해요 (이미 있던 기록 때문에 규칙 추가가 실패하지 않게)
 --   trip            이동 포인트          → 이동(trip_id)만

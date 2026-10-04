@@ -7,6 +7,9 @@ const lit = (v) => {
   return "'" + String(v).replace(/'/g, "''") + "'";
 };
 function run(text, params = []) {
+  // 진짜 Neon 처럼: 한 번에 명령 하나만 (DO 블록 $$…$$ 과 문자열 안의 ; 는 괜찮아요)
+  const bare = String(text).replace(/\$(\w*)\$[\s\S]*?\$\1\$/g, '').replace(/'(?:[^']|'')*'/g, "''").replace(/--[^\n]*/g, '');
+  if (/;\s*\S/.test(bare)) return Promise.reject(new Error('cannot insert multiple commands into a prepared statement'));
   const q = text.replace(/\$(\d+)/g, (_, n) => lit(params[Number(n) - 1]));
   let wrapped = q;
   if (/^\s*with\b/i.test(q)) {
