@@ -2213,6 +2213,9 @@ const ADJ = {
   points: { title: '💰 포인트 지급 · 삭제', modes: [['grant', '지급', '지급하기'], ['deduct', '삭제', '삭제하기']], unit: 'P', label: '포인트', ph: '예: 1000', chips: [100, 500, 1000, 5000, 10000], min: 1, max: 1000000, step: 1, api: 'admin-points', key: 'amount' },
   carbon: { title: '🌿 탄소 절약량 조절', modes: [['plus', '더하기', '더하기'], ['minus', '빼기', '빼기']], unit: 'kg', label: '절약량 (kg)', ph: '예: 12.5', chips: [0.5, 1, 5, 10, 50], min: 0.1, max: 100000, step: 0.1, api: 'admin-carbon', key: 'kg' },
 };
+// 안드로이드는 유리 흐림(backdrop-filter)·빛 애니메이션이 버벅여서 가벼운 디자인으로 바꿔요 (style.css 의 html.android)
+if (/Android/i.test(navigator.userAgent)) document.documentElement.classList.add('android');
+
 // 아래에서 올라오는 시트(탄소 절약량 조절 · 포인트 지급 등)가 떠 있는 동안 뒤 화면이 스크롤되지 않게 고정해요.
 //  휴대폰 사파리는 body overflow:hidden 만으로는 막히지 않아서, body 를 그 자리에 고정했다가 닫으면 원래 위치로 돌려놔요.
 const sheetLock = { on: false, y: 0 };
@@ -2903,6 +2906,8 @@ function initTabBar() {
   const cur = Number(nav.dataset.cur);
   const from = Number(nav.dataset.from);
   ind.style.width = `${tabs[0].offsetWidth}px`;
+  if (nav.dataset.kept === '1') { setTabInd(ind, tabX(nav, cur), true); tabIdx = cur; return; } // 그대로 둔 바: 지금 자리에서 바로 미끄러져요
+  nav.dataset.kept = '1';
   setTabInd(ind, tabX(nav, from), false);
   if (from !== cur) requestAnimationFrame(() => setTabInd(ind, tabX(nav, cur), true));
   tabIdx = cur;
@@ -3759,8 +3764,21 @@ function render() {
   if ((screen === 'nav' || screen === 'done') && !chosen) screen = state.screen = 'home';
 
   if (!state.user && !['login', 'email-login', 'signup'].includes(screen)) screen = state.screen = 'login';
+  // 아래 탭 바는 탭끼리 오갈 때 지우고 새로 만들지 않고 그대로 둬요.
+  //  (새로 만들면 유리 흐림 효과가 매번 다시 계산돼서 휴대폰에서 바가 깜빡이고 덜컥거렸어요)
+  const keepNav = app.querySelector(':scope > .m-tabs');
+  if (keepNav) keepNav.remove();
   app.innerHTML = VIEWS[screen]();
   app.dataset.screen = screen;
+  const newNav = app.querySelector(':scope > .m-tabs');
+  if (keepNav && newNav) {
+    keepNav.dataset.cur = newNav.dataset.cur;
+    keepNav.dataset.from = newNav.dataset.from;
+    keepNav.classList.remove('pressing', 'dragging');
+    const on = [...newNav.querySelectorAll('.m-tab')].map((t) => t.classList.contains('on'));
+    keepNav.querySelectorAll('.m-tab').forEach((t, i) => t.classList.toggle('on', on[i]));
+    newNav.replaceWith(keepNav);
+  }
   try { initTabBar(); initKgSeg(); } catch (err) { console.warn('[탭 바]', err); }
   if (state.navDir) {
     app.classList.remove('enter-fwd', 'enter-back');

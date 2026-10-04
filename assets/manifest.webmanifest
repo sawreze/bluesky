@@ -1,9 +1,35 @@
 {
   "name": "푸른하늘 - 탄소 절약 내비게이션",
   "short_name": "푸른하늘",
-  "start_url": "../index.html",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#F1F8FE",
-  "theme_color": "#1976D2",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+  "theme_color": "#D5E7F6",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }

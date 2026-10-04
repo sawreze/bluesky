@@ -764,10 +764,10 @@ body { font-family: var(--font-body); letter-spacing: -0.01em; background: var(-
 /* ── 화면 전환: 앞으로는 오른쪽에서, 뒤로는 왼쪽에서 ── */
 #app { position: relative; z-index: 1; }
 /* 화면 내용만 움직여요 (아래 고정 버튼·탭은 제자리) */
-#app.enter-fwd > :not(.cta):not(.m-tabs) { animation: enter-fwd .28s cubic-bezier(.2, .8, .2, 1); }
-#app.enter-back > :not(.cta):not(.m-tabs) { animation: enter-back .28s cubic-bezier(.2, .8, .2, 1); }
-@keyframes enter-fwd { from { transform: translateX(28%); opacity: .4; } to { transform: none; opacity: 1; } }
-@keyframes enter-back { from { transform: translateX(-24%); opacity: .5; } to { transform: none; opacity: 1; } }
+#app.enter-fwd > :not(.cta):not(.m-tabs) { animation: enter-fwd .24s cubic-bezier(.2, .8, .2, 1) both; }
+#app.enter-back > :not(.cta):not(.m-tabs) { animation: enter-back .24s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes enter-fwd { from { transform: translate3d(36px, 0, 0); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes enter-back { from { transform: translate3d(-36px, 0, 0); opacity: 0; } to { transform: none; opacity: 1; } }
 /* 손가락으로 미는 동안: 지금 화면이 오른쪽으로, 뒤에 이전 화면 */
 #app.swiping { box-shadow: -12px 0 30px rgba(15, 30, 60, .18); background: var(--bg); }
 .swipe-under { position: fixed; inset: 0; z-index: 0; margin: 0 auto; max-width: 480px; overflow: hidden; pointer-events: none; transform: translateX(-30%); background: var(--sky-grad); }
@@ -1603,3 +1603,17 @@ details.c-rule[open] summary i { transform: rotate(180deg); }
 
 .m-me:has(.avf.t7), .m-me:has(.avf.t8), .m-me:has(.avf.t9) { margin-right: 10px; }
 .m-me .avf.t7, .m-me .avf.t8, .m-me .avf.t9 { z-index: 1; }
+
+/* ── 휴대폰 화면 전환 · 하단 바 다듬기 ──
+   화면이 옆으로 들어올 때 가로로 삐져나와 페이지 전체가 옆으로 밀리던 문제를 막아요 */
+html, body { overflow-x: hidden; }
+#app { overflow-x: clip; }
+.m-tabs { will-change: transform; }
+
+/* 안드로이드: 유리 흐림 대신 거의 같은 색의 불투명 배경 + 빛 애니메이션은 고정 */
+html.android *, html.android *::before, html.android *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html.android { --glass: rgba(255, 255, 255, .9); }
+html.android .appbar { background: rgba(237, 244, 249, .97); }
+html.android .m-tabs { background: rgba(255, 255, 255, .985); }
+html.android .m-round { background: rgba(255, 255, 255, .92); }
+html.android .avf.t9 > .tf { animation: none; filter: drop-shadow(0 0 7px rgba(96, 165, 250, .8)); }
