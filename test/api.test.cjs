@@ -156,16 +156,22 @@ const trip = (km, savedG, extra = {}) => ({
   c = s.camps.find((x) => x.id === campId);
   ok('캠페인: 자동 참여, 내 기여 600g, 참여 2명', c.joined && c.myG === 600 && c.participants === 2 && c.progressG === 600, c);
 
-  console.log('4) 인기 캠페인 보상');
+  console.log('4) 캠페인 보상 (끝날 때 최종 달성률로 정산)');
   r = await post('trip', sky, trip(300, 100000, { key: 'k2', campaignId: campId }));
-  ok('목표 100kg 달성 이동: 만든 사람 보상은 내 게 아님', r.statusCode === 200 && !r.body.reward && r.body.campaign.afterG >= 100000, r.body);
-  ok('참여자 보상: 내가 기여한 100.6kg × 10P = 1006P', r.body.bonus && r.body.bonus.points === 1006, r.body);
+  ok('목표 100kg 달성 이동: 달성 알림 + 아직 보상은 없음', r.statusCode === 200 && r.body.reached && r.body.reached.rewardable && !r.body.reward && !r.body.bonus && r.body.campaign.afterG >= 100000, r.body);
   s = (await api('sync', jimin)).body;
-  ok('만든 사람(지민)에게 1000P 보상', s.points === 1000, s.points);
-  ok('보상 받음 표시', s.camps.find((x) => x.id === campId).rewarded === true);
+  ok('끝나기 전(달성 7일 전)에는 정산 안 함', s.points === 0 && s.camps.find((x) => x.id === campId).rewarded === false, s.points);
   await post('trip', sky, trip(10, 1000, { key: 'k3', campaignId: campId }));
-  ok('보상은 한 번만', (await api('sync', jimin)).body.points === 1000);
-  ok('참여자 보상도 한 번만', Number((await sql()`SELECT COUNT(*) AS n FROM point_transactions WHERE reason = 'campaign_bonus'`)[0].n) === 1);
+  // 달성한 지 8일 지난 것처럼 이동 시각을 앞당겨요 → 캠페인 종료 → 정산
+  await sql()`UPDATE trips SET arrived_at = arrived_at - interval '8 days' WHERE campaign_id = ${Number(campId)}`;
+  s = (await api('sync', jimin)).body;
+  ok('달성률 101.6% → 만든 사람 목표 100kg × 2 = 200P', s.points === 200, s.points);
+  ok('보상 받음 표시 + 내 보상 금액', s.camps.find((x) => x.id === campId).rewarded === true && s.camps.find((x) => x.id === campId).myReward === 200, s.camps.find((x) => x.id === campId));
+  const skyBonus = await sql()`SELECT amount FROM point_transactions WHERE reason = 'campaign_bonus' AND campaign_id = ${Number(campId)}`;
+  ok('참여자: 내가 아낀 101.6kg × 10 = 1016P', skyBonus.length === 1 && Number(skyBonus[0].amount) === 1016, skyBonus);
+  await api('sync', sky);
+  ok('정산은 한 번만', Number((await sql()`SELECT COUNT(*) AS n FROM point_transactions WHERE campaign_id = ${Number(campId)}`)[0].n) === 2);
+  await sql()`UPDATE trips SET arrived_at = arrived_at + interval '8 days' WHERE campaign_id = ${Number(campId)}`; // 다음 테스트를 위해 되돌려요 (보상은 그대로)
 
   console.log('5) 좋아요 · 랭킹 · 프로필');
   r = await post('camp-like', jimin, { id: campId, on: true });
@@ -178,7 +184,7 @@ const trip = (km, savedG, extra = {}) => ({
   r = await api('camp-rank', sky, { query: { id: campId } });
   ok('캠페인 기여 랭킹: 하늘 1위, 지민 2위(0g)', r.body.users[0].name === '하늘' && r.body.users[0].me && r.body.users[1].name === '김지민' && r.body.me.rank === 1, r.body);
   s = (await api('sync', admin)).body;
-  ok('이달의 랭킹: 하늘 1위(이동 1357P + 참여 보상 1006P), 지민 2위(1000P), 관리자 0P 3위', s.rank.users[0].name === '하늘' && s.rank.users[0].points === 2363 && s.rank.users[1].name === '김지민' && s.rank.users[1].points === 1000 && s.rank.myPoints === 0 && s.rank.myRank === 3, s.rank);
+  ok('이달의 랭킹: 하늘 1위(이동 1357P + 참여 보상 1016P), 지민 2위(200P), 관리자 0P 3위', s.rank.users[0].name === '하늘' && s.rank.users[0].points === 2373 && s.rank.users[1].name === '김지민' && s.rank.users[1].points === 200 && s.rank.myPoints === 0 && s.rank.myRank === 3, s.rank);
   ok('랭킹에 칭호 테두리용 총 절약량', s.rank.users[0].g > 100000 && s.rank.users[1].g === 0, s.rank.users);
 
   console.log('5-0) 관리자 포인트 지급');
@@ -189,15 +195,15 @@ const trip = (km, savedG, extra = {}) => ({
   r = await post('admin-points', admin, { amount: 300 });
   ok('이름 비우면 나에게 300P', r.statusCode === 200 && r.body.me && r.body.total === 300, r.body);
   r = await post('admin-points', admin, { amount: 50, name: '김지민' });
-  ok('닉네임으로 다른 사람에게 50P', r.statusCode === 200 && r.body.name === '김지민' && r.body.total === 1050, r.body);
+  ok('닉네임으로 다른 사람에게 50P', r.statusCode === 200 && r.body.name === '김지민' && r.body.total === 250, r.body);
   r = await post('admin-points', admin, { amount: 50, name: '없는사람' });
   ok('없는 닉네임 404', r.statusCode === 404);
 
   console.log('5-0b) 포인트 삭제 · 탄소 조절');
   r = await post('admin-points', admin, { amount: 30, name: '김지민', mode: 'deduct' });
-  ok('포인트 30P 삭제 → 1020P', r.statusCode === 200 && r.body.mode === 'deduct' && r.body.total === 1020, r.body);
+  ok('포인트 30P 삭제 → 220P', r.statusCode === 200 && r.body.mode === 'deduct' && r.body.total === 220, r.body);
   r = await post('admin-points', admin, { amount: 99999, name: '김지민', mode: 'deduct' });
-  ok('가진 것보다 많이 빼면 가진 만큼만 → 0P', r.statusCode === 200 && r.body.amount === 1020 && r.body.total === 0, r.body);
+  ok('가진 것보다 많이 빼면 가진 만큼만 → 0P', r.statusCode === 200 && r.body.amount === 220 && r.body.total === 0, r.body);
   r = await post('admin-points', admin, { amount: 10, name: '김지민', mode: 'deduct' });
   ok('0P면 더 못 뺌', r.statusCode === 400, r.body);
   r = await post('admin-points', admin, { amount: 1020, name: '김지민' });

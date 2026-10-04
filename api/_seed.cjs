@@ -146,25 +146,7 @@ BEGIN
     END LOOP;
   END LOOP;
 
-  -- 인기 캠페인 보상 (목표 100kg 이상을 다 채운 캠페인의 만든 사람에게, 목표를 넘긴 그 이동 시각에)
-  INSERT INTO point_transactions (user_id, amount, reason, campaign_id, created_at)
-  SELECT c.creator_id, round(c.goal_kg * 10)::int, 'campaign_reward', c.id, x.reached_at
-  FROM campaigns c
-  JOIN LATERAL (
-    SELECT min(arrived_at) AS reached_at FROM (
-      SELECT arrived_at, SUM(saved_g) OVER (ORDER BY arrived_at, id) AS cum FROM trips WHERE campaign_id = c.id
-    ) t WHERE t.cum >= c.goal_kg * 1000
-  ) x ON x.reached_at IS NOT NULL
-  WHERE c.id = ANY (okc) AND c.goal_kg >= 100
-  ON CONFLICT (campaign_id) WHERE reason = 'campaign_reward' DO NOTHING;
-
-  -- 참여자 보상 (목표를 채운 순간까지 기여한 만큼 1kg당 10P)
-  INSERT INTO point_transactions (user_id, amount, reason, campaign_id, created_at)
-  SELECT t.user_id, round(SUM(t.saved_g) / 1000 * 10)::int, 'campaign_bonus', r.campaign_id, r.created_at
-  FROM point_transactions r JOIN trips t ON t.campaign_id = r.campaign_id AND t.arrived_at <= r.created_at
-  WHERE r.reason = 'campaign_reward' AND r.campaign_id = ANY (okc)
-  GROUP BY t.user_id, r.campaign_id, r.created_at HAVING round(SUM(t.saved_g) / 1000 * 10) > 0
-  ON CONFLICT (campaign_id, user_id) WHERE reason = 'campaign_bonus' DO NOTHING;
+  -- 캠페인 보상은 여기서 넣지 않아요: 앱 서버가 끝난 캠페인을 최종 달성률로 정산해요 (_data.cjs settleCampaigns)
 END
 $seed$`;
 

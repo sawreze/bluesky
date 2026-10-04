@@ -5,7 +5,8 @@
 //  GET  a=sync                     내 정보 · 기록 요약 · 캠페인 목록 · 이달의 랭킹을 한 번에
 //  GET  a=camp-rank&id=            캠페인 참여자 기여 랭킹
 //  GET  a=img&k=a|c&id=            프로필 사진(a) · 캠페인 표지(c)
-//  POST a=trip                     도착한 이동 저장 (+ 포인트, 캠페인 기여, 인기 캠페인 보상)
+//  POST a=trip                     도착한 이동 저장 (+ 포인트, 캠페인 기여)
+//  POST a=shop-buy                 포인트 상점에서 상품 교환
 //  POST a=camp-save                캠페인 만들기 / 고쳐서 다시 신청
 //  POST a=camp-del | camp-like | camp-join | camp-seen
 //  POST a=camp-review              (관리자) 승인 · 반려
@@ -21,8 +22,13 @@
 // =====================================================================
 const PT_PER_KG = 10;          // 아낀 탄소 1kg당 포인트 (app.js 와 같게)
 const PT_PER_KM = 1;           // 친환경 이동 1km당 포인트
-const POPULAR_MIN_KG = 100;    // 인기 캠페인이 되려면 목표가 이 이상
-const REWARD_P_PER_KG = 10;    // 인기 캠페인 보상: 만든 사람은 목표 1kg당, 참여자는 내가 기여한 1kg당
+const POPULAR_MIN_KG = 100;    // 캠페인 보상 대상: 목표가 이 이상인 캠페인
+// 캠페인 보상 (캠페인이 끝날 때 = 목표 달성 7일 뒤, 최종 달성률로 한 번 정산)
+//  달성률 100% / 120% / 150% / 200% 이상 → 만든 사람: 목표 kg × 2·3·4·5P, 참여자: 내가 아낀 kg × 10·12·15·20P
+const REWARD_TIERS = [{ pct: 200, maker: 5, member: 20 }, { pct: 150, maker: 4, member: 15 }, { pct: 120, maker: 3, member: 12 }, { pct: 100, maker: 2, member: 10 }];
+const MONTH_AWARDS = [1000, 500, 300]; // 이달의 절약왕 1·2·3등 보너스 (다음 달에 지급)
+// 순위 포인트(이번 달 탄소 포인트)에서는 절약왕 보너스(monthly_award)와 상점 사용(shop)을 빼요
+const SHOP_DAILY_MAX = 10;
 const END_DAYS = 7;            // 목표 달성 후 이 날짜가 지나면 캠페인이 목록에서 내려가요
 const CAR_G_PER_KM = 210;
 const TAGS = ['transit', 'walk', 'bike', 'carfree', 'together'];
@@ -56,8 +62,9 @@ module.exports = function makeData(db) {
     const [st] = await sql()`SELECT trip_count, saved_g, points FROM v_user_stats WHERE user_id = ${uid}`;
     const daily = await sql()`SELECT to_char(arrived_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS d, SUM(saved_g) AS g, COUNT(*) AS n
       FROM trips WHERE user_id = ${uid} GROUP BY 1 ORDER BY 1`;
+    // 이번 달 탄소 포인트(순위용): 절약왕 보너스·상점 사용은 빼고 모은 포인트만
     const months = await sql()`SELECT to_char(created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') AS m, SUM(amount) AS p
-      FROM point_transactions WHERE user_id = ${uid} GROUP BY 1`;
+      FROM point_transactions WHERE user_id = ${uid} AND reason NOT IN ('monthly_award', 'shop') GROUP BY 1`;
     // 최근 출발지·도착지 (실제로 이동한 기록에서, 장소별 가장 최근 15곳)
     const places = await sql()`SELECT name, lat, lng, MAX(at) AS at FROM (
         SELECT origin_name AS name, origin_lat AS lat, origin_lng AS lng, arrived_at AS at FROM trips WHERE user_id = ${uid}
@@ -84,7 +91,8 @@ module.exports = function makeData(db) {
              EXISTS (SELECT 1 FROM campaign_participants p WHERE p.campaign_id = c.id AND p.user_id = ${uid}) AS joined,
              COALESCE((SELECT SUM(saved_g) FROM trips t WHERE t.campaign_id = c.id AND t.user_id = ${uid}), 0) AS my_g,
              (SELECT COUNT(*) FROM trips t WHERE t.campaign_id = c.id AND t.user_id = ${uid}) AS my_trips,
-             EXISTS (SELECT 1 FROM point_transactions x WHERE x.campaign_id = c.id AND x.reason = 'campaign_reward') AS rewarded,
+             EXISTS (SELECT 1 FROM point_transactions x WHERE x.campaign_id = c.id AND x.reason IN ('campaign_reward', 'campaign_bonus')) AS rewarded,
+             COALESCE((SELECT SUM(amount) FROM point_transactions x WHERE x.campaign_id = c.id AND x.user_id = ${uid} AND x.reason IN ('campaign_reward', 'campaign_bonus')), 0) AS my_reward,
              lr.decision AS last_decision, lr.seen_at AS last_seen, lr.reviewed_at AS last_reviewed
       FROM campaigns c
       JOIN users u ON u.id = c.creator_id
@@ -110,7 +118,7 @@ module.exports = function makeData(db) {
         creator: r.creator, ownerId: mine ? '@me' : `@u${r.creator_id}`, mine,
         status: r.status, rejectReason: r.reject_reason || '',
         createdAt: ms(r.created_at), submittedAt: ms(r.submitted_at), reviewedAt: ms(r.reviewed_at),
-        liked: !!r.liked, joined: !!r.joined, myG: num(r.my_g), myTrips: num(r.my_trips), rewarded: !!r.rewarded,
+        liked: !!r.liked, joined: !!r.joined, myG: num(r.my_g), myTrips: num(r.my_trips), rewarded: !!r.rewarded, myReward: num(r.my_reward),
         notice: unseen ? { type: r.last_decision, seen: false } : null,
         reachedAt: ms(r.reached_at), ended: !!r.ended,
       };
@@ -124,11 +132,11 @@ module.exports = function makeData(db) {
       SELECT u.id, u.name, left(md5(COALESCE(u.avatar_url, '')), 10) AS av, (COALESCE(u.avatar_url, '') <> '') AS has_av, SUM(p.amount) AS pts,
              (SELECT saved_g FROM v_user_stats v WHERE v.user_id = u.id) AS total_g
       FROM point_transactions p JOIN users u ON u.id = p.user_id
-      WHERE to_char(p.created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = ${m} AND u.blocked_at IS NULL
+      WHERE to_char(p.created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = ${m} AND u.blocked_at IS NULL AND p.reason NOT IN ('monthly_award', 'shop')
       GROUP BY u.id ORDER BY pts DESC, u.name LIMIT 100`;
     const [mine] = await sql()`
       WITH t AS (SELECT p.user_id, SUM(p.amount) AS pts FROM point_transactions p JOIN users u ON u.id = p.user_id
-                 WHERE to_char(p.created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = ${m} AND u.blocked_at IS NULL GROUP BY p.user_id)
+                 WHERE to_char(p.created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = ${m} AND u.blocked_at IS NULL AND p.reason NOT IN ('monthly_award', 'shop') GROUP BY p.user_id)
       SELECT COALESCE((SELECT pts FROM t WHERE user_id = ${uid}), 0) AS pts,
              1 + (SELECT COUNT(*) FROM t WHERE pts > COALESCE((SELECT pts FROM t WHERE user_id = ${uid}), 0)) AS rank`;
     return {
@@ -145,9 +153,99 @@ module.exports = function makeData(db) {
     return out;
   }
 
+  // ── 캠페인 보상 정산: 끝난(목표 달성 7일 지난) 목표 100kg 이상 캠페인을 최종 달성률로 한 번만 ──
+  //  지급 시각은 캠페인이 끝난 때(달성 + 7일) — 언제 정산되든 같은 달 포인트로 들어가요
+  async function settleCampaigns() {
+    const tier = (col) => `CASE ${REWARD_TIERS.map((t) => `WHEN ratio >= ${t.pct / 100} THEN ${t[col]}`).join(' ')} END`;
+    await sql().query(`
+      WITH due AS (
+        SELECT st.campaign_id AS cid, c.creator_id, st.goal_kg, st.reached_at + make_interval(days => ${END_DAYS}) AS end_at,
+               st.progress_g / (st.goal_kg * 1000.0) AS ratio
+        FROM v_campaign_stats st JOIN campaigns c ON c.id = st.campaign_id
+        WHERE st.status = 'approved' AND st.goal_kg >= ${POPULAR_MIN_KG} AND st.reached_at IS NOT NULL
+          AND st.reached_at < now() - make_interval(days => ${END_DAYS})
+          AND NOT EXISTS (SELECT 1 FROM point_transactions x WHERE x.campaign_id = c.id AND x.reason IN ('campaign_reward', 'campaign_bonus'))
+      ), m AS (
+        SELECT due.*, ${tier('maker')} AS cm, ${tier('member')} AS pm FROM due
+      ), a AS (
+        INSERT INTO point_transactions (user_id, amount, reason, campaign_id, created_at)
+        SELECT creator_id, ROUND(goal_kg * cm)::int, 'campaign_reward', cid, end_at FROM m
+        ON CONFLICT DO NOTHING RETURNING id
+      )
+      , b AS (
+        INSERT INTO point_transactions (user_id, amount, reason, campaign_id, created_at)
+        SELECT t.user_id, ROUND(SUM(t.saved_g) / 1000.0 * m.pm)::int, 'campaign_bonus', m.cid, m.end_at
+        FROM trips t JOIN m ON m.cid = t.campaign_id
+        GROUP BY t.user_id, m.cid, m.pm, m.end_at HAVING ROUND(SUM(t.saved_g) / 1000.0 * m.pm) > 0
+        ON CONFLICT DO NOTHING RETURNING id
+      )
+      SELECT (SELECT COUNT(*) FROM a) AS makers, (SELECT COUNT(*) FROM b) AS members`);
+  }
+  // ── 이달의 절약왕 보너스: 달이 바뀐 뒤 처음 들어온 사람이 지난달 1·2·3등에게 한 번만 지급 ──
+  async function awardLastMonth() {
+    const [{ m, d }] = await sql()`SELECT to_char((now() AT TIME ZONE 'Asia/Seoul') - interval '1 month', 'YYYY-MM') AS m,
+      to_char(date_trunc('month', (now() AT TIME ZONE 'Asia/Seoul') - interval '1 month'), 'YYYY-MM-DD') AS d`;
+    const [done] = await sql()`SELECT 1 AS x FROM point_transactions WHERE reason = 'monthly_award' AND award_month = ${d}::date LIMIT 1`;
+    if (done) return;
+    await sql()`INSERT INTO point_transactions (user_id, amount, reason, award_month)
+      SELECT user_id, CASE rn WHEN 1 THEN ${MONTH_AWARDS[0]}::int WHEN 2 THEN ${MONTH_AWARDS[1]}::int ELSE ${MONTH_AWARDS[2]}::int END, 'monthly_award', ${d}::date FROM (
+        SELECT p.user_id, ROW_NUMBER() OVER (ORDER BY SUM(p.amount) DESC, u.name) AS rn
+        FROM point_transactions p JOIN users u ON u.id = p.user_id
+        WHERE to_char(p.created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = ${m} AND u.blocked_at IS NULL AND p.reason NOT IN ('monthly_award', 'shop')
+        GROUP BY p.user_id, u.name HAVING SUM(p.amount) > 0
+      ) r WHERE rn <= ${MONTH_AWARDS.length}
+      ON CONFLICT DO NOTHING`;
+  }
+  // 지난달 절약왕 (랭킹 화면 위에 보여 줘요)
+  async function lastAwards(uid) {
+    const rows = await sql()`SELECT p.user_id, u.name, p.amount, to_char(p.award_month, 'YYYY-MM') AS m
+      FROM point_transactions p JOIN users u ON u.id = p.user_id
+      WHERE p.reason = 'monthly_award' AND p.award_month = (SELECT MAX(award_month) FROM point_transactions WHERE reason = 'monthly_award')
+      ORDER BY p.amount DESC`;
+    return rows.map((r, i) => ({ rank: i + 1, name: r.name, points: num(r.amount), month: r.m, me: Number(r.user_id) === Number(uid) }));
+  }
+
+  // ── 포인트 상점 ──
+  async function shopData(uid) {
+    const [items, orders] = await Promise.all([
+      sql()`SELECT code, category, name, sub, price_p, icon FROM shop_items WHERE active ORDER BY sort, code`,
+      sql()`SELECT o.id, o.item_code, i.name, i.icon, o.price_p, o.coupon, o.created_at
+        FROM shop_orders o JOIN shop_items i ON i.code = o.item_code WHERE o.user_id = ${uid} ORDER BY o.created_at DESC, o.id DESC LIMIT 50`,
+    ]);
+    return {
+      items: items.map((r) => ({ code: r.code, cat: r.category, name: r.name, sub: r.sub, price: num(r.price_p), icon: r.icon })),
+      orders: orders.map((r) => ({ id: String(r.id), code: r.item_code, name: r.name, icon: r.icon, price: num(r.price_p), coupon: r.coupon, at: ms(r.created_at) })),
+    };
+  }
+  async function shopBuy(me, b) {
+    const code = str(b.code, 40);
+    const [item] = await sql()`SELECT code, name, icon, price_p FROM shop_items WHERE code = ${code} AND active`;
+    if (!item) bad('지금은 교환할 수 없는 상품이에요.', 404);
+    const [{ n }] = await sql()`SELECT COUNT(*) AS n FROM shop_orders WHERE user_id = ${me.id} AND created_at > now() - interval '1 day'`;
+    if (num(n) >= SHOP_DAILY_MAX) bad(`하루에 ${SHOP_DAILY_MAX}번까지 교환할 수 있어요.`, 429);
+    const coupon = Array.from(require('crypto').randomBytes(12), (x) => String(x % 10)).join('');
+    // 잔액이 충분할 때만 교환 + 포인트 차감을 한 문장으로 (중간에 실패하면 아무것도 안 들어가요)
+    const rows = await sql()`
+      WITH bal AS (SELECT COALESCE(SUM(amount), 0) AS p FROM point_transactions WHERE user_id = ${me.id}),
+      o AS (
+        INSERT INTO shop_orders (user_id, item_code, price_p, coupon)
+        SELECT ${me.id}::int, ${item.code}::text, ${item.price_p}::int, ${coupon}::text FROM bal WHERE bal.p >= ${item.price_p}::int
+        RETURNING id, created_at
+      ), t AS (
+        INSERT INTO point_transactions (user_id, amount, reason, order_id)
+        SELECT ${me.id}::int, ${-num(item.price_p)}::int, 'shop', o.id FROM o
+      )
+      SELECT id, created_at FROM o`;
+    if (!rows.length) bad('포인트가 부족해요.', 409);
+    const [st] = await sql()`SELECT points FROM v_user_stats WHERE user_id = ${me.id}`;
+    return { ok: true, points: num(st && st.points),
+      order: { id: String(rows[0].id), code: item.code, name: item.name, icon: item.icon, price: num(item.price_p), coupon, at: ms(rows[0].created_at) } };
+  }
+
   async function sync(me) {
-    const [s, camps, rank] = await Promise.all([summary(me.id), campaigns(me), monthRank(me.id)]);
-    const out = { user: userOut(me), ...s, camps, rank };
+    try { await settleCampaigns(); await awardLastMonth(); } catch (e) { console.log('[정산 오류]', e && e.message); }
+    const [s, camps, rank, shop, awards] = await Promise.all([summary(me.id), campaigns(me), monthRank(me.id), shopData(me.id), lastAwards(me.id)]);
+    const out = { user: userOut(me), ...s, camps, rank, shop, lastAwards: awards };
     if (isAdminRow(me)) { const d = await demoCounts(me.id); out.demoUsers = d.users; out.demoCal = d.cal; }
     return out;
   }
@@ -324,23 +422,9 @@ module.exports = function makeData(db) {
       const [c] = await sql()`SELECT st.goal_kg, st.progress_g, st.status, c.creator_id, c.title
         FROM v_campaign_stats st JOIN campaigns c ON c.id = st.campaign_id WHERE st.campaign_id = ${campId}`;
       out.campaign = { id: String(campId), beforeG: num(before[0] && before[0].progress_g), afterG: num(c.progress_g) };
-      // 인기 캠페인 보상: 목표 100kg 이상을 100% 달성하는 순간 한 번만
-      //  - 만든 사람: 목표 1kg당 10P
-      //  - 참여자: 목표를 채우는 데 기여한 만큼 1kg당 10P (만든 사람도 직접 이동했으면 받아요)
-      if (c.status === 'approved' && num(c.goal_kg) >= POPULAR_MIN_KG && num(c.progress_g) >= num(c.goal_kg) * 1000) {
-        const amount = Math.round(num(c.goal_kg) * REWARD_P_PER_KG);
-        const won = await sql()`INSERT INTO point_transactions (user_id, amount, reason, campaign_id)
-          VALUES (${c.creator_id}, ${amount}, 'campaign_reward', ${campId})
-          ON CONFLICT (campaign_id) WHERE reason = 'campaign_reward' DO NOTHING RETURNING user_id`;
-        if (won.length) {
-          if (Number(won[0].user_id) === Number(uid)) out.reward = { title: c.title, points: amount };
-          const bonus = await sql()`INSERT INTO point_transactions (user_id, amount, reason, campaign_id)
-            SELECT user_id, ROUND(SUM(saved_g) / 1000 * ${REWARD_P_PER_KG})::int, 'campaign_bonus', ${campId}::int
-            FROM trips WHERE campaign_id = ${campId} GROUP BY user_id HAVING ROUND(SUM(saved_g) / 1000 * ${REWARD_P_PER_KG}) > 0
-            ON CONFLICT (campaign_id, user_id) WHERE reason = 'campaign_bonus' DO NOTHING RETURNING user_id, amount`;
-          const mine = bonus.find((x) => Number(x.user_id) === Number(uid));
-          if (mine) out.bonus = { title: c.title, points: num(mine.amount) };
-        }
+      // 이번 이동으로 목표를 처음 넘겼으면 알려 줘요 (보상은 7일 뒤 최종 달성률로 정산)
+      if (num(c.goal_kg) * 1000 > out.campaign.beforeG && num(c.progress_g) >= num(c.goal_kg) * 1000) {
+        out.reached = { title: c.title, rewardable: num(c.goal_kg) >= POPULAR_MIN_KG };
       }
     }
     return out;
@@ -474,7 +558,7 @@ module.exports = function makeData(db) {
     return res.status(200).send(Buffer.from(m[2], 'base64'));
   }
 
-  const POSTS = { 'demo-seed': demoSeed, 'demo-clear': demoClear, 'admin-points': adminPoints, 'admin-carbon': adminCarbon, 'admin-block': adminBlock, 'admin-del-user': adminDelUser, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-join': joinCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
+  const POSTS = { 'shop-buy': shopBuy, 'demo-seed': demoSeed, 'demo-clear': demoClear, 'admin-points': adminPoints, 'admin-carbon': adminCarbon, 'admin-block': adminBlock, 'admin-del-user': adminDelUser, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-join': joinCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
 
   return async function handler(req, res) {
     const q = req.query || {};

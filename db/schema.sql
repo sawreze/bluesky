@@ -123,6 +123,43 @@ CREATE TABLE IF NOT EXISTS trip_segments (
   PRIMARY KEY (trip_id, seq)
 );
 
+-- 9-1) 포인트 상점 상품 (1만 원 이하 · 1P = 1원 가치)
+CREATE TABLE IF NOT EXISTS shop_items (
+  code          TEXT PRIMARY KEY,
+  category      TEXT NOT NULL CHECK (category IN ('transit', 'cafe', 'goods', 'donate')),
+  name          TEXT NOT NULL,
+  sub           TEXT NOT NULL DEFAULT '',
+  price_p       INT NOT NULL CHECK (price_p > 0 AND price_p <= 10000),
+  icon          TEXT NOT NULL DEFAULT '🎁',
+  sort          SMALLINT NOT NULL DEFAULT 0,
+  active        BOOLEAN NOT NULL DEFAULT true
+);
+INSERT INTO shop_items (code, category, name, sub, price_p, icon, sort) VALUES
+  ('bike-day', 'transit', '공공자전거 1일 이용권', '하루 동안 1시간씩 자유롭게', 1000, '🚲', 1),
+  ('transit-3000', 'transit', '대중교통 충전권 3,000원', '버스 · 지하철 교통카드 충전', 3000, '🚌', 2),
+  ('transit-5000', 'transit', '대중교통 충전권 5,000원', '버스 · 지하철 교통카드 충전', 5000, '🚇', 3),
+  ('coffee', 'cafe', '아메리카노 교환권', '텀블러를 가져가면 더 좋아요', 4500, '☕', 4),
+  ('store-5000', 'cafe', '편의점 상품권 5,000원', '전국 편의점에서 사용', 5000, '🏪', 5),
+  ('bamboo-brush', 'goods', '대나무 칫솔 2개 세트', '플라스틱 대신 대나무', 3900, '🪥', 6),
+  ('seed-kit', 'goods', '반려식물 씨앗 키트', '바질 · 방울토마토 중 랜덤', 6500, '🌱', 7),
+  ('straw-set', 'goods', '스테인리스 빨대 세트', '빨대 2개 + 세척솔', 5900, '🥤', 8),
+  ('eco-bag', 'goods', '접이식 장바구니', '주머니에 쏙, 비닐봉지 대신', 7900, '👜', 9),
+  ('tumbler', 'goods', '푸른하늘 텀블러 350ml', '일회용 컵 대신 매일 쓰기', 9900, '🧋', 10),
+  ('tree-donate', 'donate', '나무 한 그루 심기 기부', '숲 가꾸기 단체에 기부돼요', 10000, '🌳', 11)
+ON CONFLICT (code) DO UPDATE SET category = EXCLUDED.category, name = EXCLUDED.name, sub = EXCLUDED.sub,
+  price_p = EXCLUDED.price_p, icon = EXCLUDED.icon, sort = EXCLUDED.sort;
+
+-- 9-2) 상점 교환 내역 (price_p: 바꾼 그때의 가격 — 나중에 상품 가격이 바뀌어도 내역은 그대로 남게 따로 적어 둬요)
+CREATE TABLE IF NOT EXISTS shop_orders (
+  id            SERIAL PRIMARY KEY,
+  user_id       INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  item_code     TEXT NOT NULL REFERENCES shop_items(code),
+  price_p       INT NOT NULL CHECK (price_p > 0),
+  coupon        TEXT NOT NULL UNIQUE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS shop_orders_user_idx ON shop_orders (user_id, created_at);
+
 -- 10) 탄소 포인트 내역 (잔액·월별 합계는 저장하지 않고 합계로 계산)
 CREATE TABLE IF NOT EXISTS point_transactions (
   id            SERIAL PRIMARY KEY,
@@ -133,25 +170,34 @@ CREATE TABLE IF NOT EXISTS point_transactions (
   campaign_id   INT REFERENCES campaigns(id) ON DELETE CASCADE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE point_transactions ADD COLUMN IF NOT EXISTS award_month DATE;  -- 이달의 절약왕 보너스: 어느 달 순위인지 (그 달 1일)
+ALTER TABLE point_transactions ADD COLUMN IF NOT EXISTS order_id INT UNIQUE REFERENCES shop_orders(id) ON DELETE CASCADE; -- 상점 교환
 -- 사유별 규칙 (예전 규칙은 지우고 다시 만들어요 — 여러 번 실행해도 같은 결과)
---   trip           이동 포인트        → 이동(trip_id)만
---   campaign_reward 인기 캠페인 보상   → 만든 사람, 캠페인당 1번
---   campaign_bonus  인기 캠페인 참여 보상 → 목표 달성까지 기여한 참여자, 캠페인·회원당 1번
---   admin_grant     관리자가 직접 지급
+--   trip            이동 포인트          → 이동(trip_id)만
+--   campaign_reward 캠페인 보상(만든 사람) → 목표 100kg 이상 캠페인이 끝날 때 최종 달성률로, 캠페인당 1번
+--   campaign_bonus  캠페인 참여 보상       → 같은 때, 내가 아낀 kg × 배수, 캠페인·회원당 1번
+--   admin_grant / admin_deduct 관리자가 직접 지급 · 삭제
+--   monthly_award   이달의 절약왕 1·2·3등 보너스 (award_month)
+--   shop            포인트 상점 교환 (order_id, 음수)
 ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_transactions_reason_check;
 ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_transactions_check;
 ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_reason_ck;
 ALTER TABLE point_transactions ADD CONSTRAINT point_reason_ck CHECK (
-     (reason = 'trip' AND trip_id IS NOT NULL AND campaign_id IS NULL)
-  OR (reason IN ('campaign_reward', 'campaign_bonus') AND campaign_id IS NOT NULL AND trip_id IS NULL)
-  OR (reason IN ('admin_grant', 'admin_deduct') AND trip_id IS NULL AND campaign_id IS NULL));
--- 금액: 관리자 차감(admin_deduct)만 음수, 나머지는 모두 양수
+     (reason = 'trip' AND trip_id IS NOT NULL AND campaign_id IS NULL AND award_month IS NULL AND order_id IS NULL)
+  OR (reason IN ('campaign_reward', 'campaign_bonus') AND campaign_id IS NOT NULL AND trip_id IS NULL AND award_month IS NULL AND order_id IS NULL)
+  OR (reason IN ('admin_grant', 'admin_deduct') AND trip_id IS NULL AND campaign_id IS NULL AND award_month IS NULL AND order_id IS NULL)
+  OR (reason = 'monthly_award' AND award_month IS NOT NULL AND trip_id IS NULL AND campaign_id IS NULL AND order_id IS NULL)
+  OR (reason = 'shop' AND order_id IS NOT NULL AND trip_id IS NULL AND campaign_id IS NULL AND award_month IS NULL));
+-- 금액: 관리자 차감(admin_deduct) · 상점 교환(shop)만 음수, 나머지는 모두 양수
 ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_transactions_amount_check;
 ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_amount_ck;
-ALTER TABLE point_transactions ADD CONSTRAINT point_amount_ck CHECK ((reason = 'admin_deduct' AND amount < 0) OR (reason <> 'admin_deduct' AND amount > 0));
+ALTER TABLE point_transactions ADD CONSTRAINT point_amount_ck CHECK ((reason IN ('admin_deduct', 'shop') AND amount < 0) OR (reason NOT IN ('admin_deduct', 'shop') AND amount > 0));
 CREATE INDEX IF NOT EXISTS point_transactions_user_idx ON point_transactions (user_id, created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS point_reward_once_uq ON point_transactions (campaign_id) WHERE reason = 'campaign_reward';
 CREATE UNIQUE INDEX IF NOT EXISTS point_bonus_once_uq ON point_transactions (campaign_id, user_id) WHERE reason = 'campaign_bonus';
+-- 이달의 절약왕 보너스: 한 달에 한 사람 한 번, 1등·2등·3등 금액(1000·500·300)도 달마다 하나씩만
+CREATE UNIQUE INDEX IF NOT EXISTS point_award_user_uq ON point_transactions (award_month, user_id) WHERE reason = 'monthly_award';
+CREATE UNIQUE INDEX IF NOT EXISTS point_award_rank_uq ON point_transactions (award_month, amount) WHERE reason = 'monthly_award';
 
 -- 11) 탄소 절약량 조절 (관리자가 더하거나 뺀 기록 · 이동 기록과 따로 남겨서 언제 누가 바꿨는지 알 수 있어요)
 CREATE TABLE IF NOT EXISTS carbon_adjustments (

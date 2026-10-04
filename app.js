@@ -1307,12 +1307,15 @@ const ICON = {
 //  - 누구나 커버 이미지 + 글 + 목표(kg)로 캠페인을 올려요.
 //  - 참여한 사람이 친환경으로 이동해 아낀 탄소가 캠페인 목표에 쌓여요.
 //  - 인기 캠페인: 목표가 크고(100kg 이상) 그 목표를 100% 달성한 캠페인
-//    → 만든 사람에게 탄소 포인트 보상 (1kg당 10P)
+//  - 캠페인 보상 (목표 100kg 이상인 모든 캠페인): 끝날 때(달성 7일 뒤) 최종 달성률로 한 번 정산
+//    100% / 120% / 150% / 200% → 만든 사람 목표kg × 2·3·4·5P, 참여자 내가 아낀 kg × 10·12·15·20P
 //  - 메인 화면 TOP 5: 인기 캠페인 먼저 → 좋아요 많은 순 → 달성률 높은 순
 //  ※ 서버 DB가 있으면 서버가 진짜 목록을 주고(campStore 는 그걸 받아 둔 것), 없으면 이 휴대폰에만 저장돼요.
 // ---------------------------------------------------------------------
 const POPULAR_MIN_KG = 100;
-const REWARD_P_PER_KG = 10;
+const REWARD_TIERS = [{ pct: 100, maker: 2, member: 10 }, { pct: 120, maker: 3, member: 12 }, { pct: 150, maker: 4, member: 15 }, { pct: 200, maker: 5, member: 20 }]; // 서버(_data.cjs)와 같게
+const campRatioPct = (c) => (c.goalKg > 0 ? (c.progressG / (c.goalKg * 1000)) * 100 : 0); // 100% 넘어도 그대로
+const rewardTier = (c) => [...REWARD_TIERS].reverse().find((t) => campRatioPct(c) >= t.pct) || null;
 const CAMP_KEY = 'pureun-campaigns';
 const POINT_KEY = 'pureun-points';
 const CAMP_TAGS = [
@@ -1487,7 +1490,7 @@ function tripPoints(route) {
 const kgShort = (g) => `${(g / 1000).toLocaleString(undefined, { maximumFractionDigits: g >= 100000 ? 0 : 1 })}kg`;
 const campPct = (c) => Math.min(100, (c.progressG / (c.goalKg * 1000)) * 100);
 const isPopular = (c) => c.goalKg >= POPULAR_MIN_KG && c.progressG >= c.goalKg * 1000;
-const campReward = (c) => c.goalKg * REWARD_P_PER_KG;
+const campReward = (c, t = rewardTier(c) || REWARD_TIERS[0]) => Math.round(c.goalKg * t.maker);
 // ── 관리자 검토 ──
 //  새 캠페인은 status 'pending'(검토 대기) → 관리자가 'approved'(게시) 또는 'rejected'(반려, 사유 포함)
 //  예시 캠페인처럼 status 가 없으면 이미 게시된 캠페인이에요.
@@ -1521,20 +1524,24 @@ function rankCampaigns(list) {
   return list.filter(isPublic).sort((a, b) => (isPopular(b) - isPopular(a)) || (b.likes - a.likes) || (campPct(b) - campPct(a)));
 }
 function topCampaigns(n) { return rankCampaigns(publicCampaigns()).slice(0, n); }
-// 인기 캠페인이 되면 만든 사람에게 보상 (내가 만든 거면 내 포인트에 바로 더해요)
+// 캠페인 보상 정산 (이 휴대폰에만 저장하는 체험 모드용 — 서버 DB가 있으면 서버가 정산해요)
+//  목표 100kg 이상 캠페인이 끝나면(달성 7일 뒤) 최종 달성률 배수로 한 번
 function checkRewards(list) {
-  if (dbMode()) return []; // 서버 DB: 보상은 서버가 계산해서 줘요
+  if (dbMode()) return [];
   const won = [];
   list.forEach((c) => {
-    if (!isPublic(c) || !isPopular(c) || c.rewarded) return;
-    if (c.ownerId && !isMine(c)) return; // 만든 사람이 로그인했을 때 지급해요
+    if (!isApproved(c) || !campEnded(c) || c.goalKg < POPULAR_MIN_KG || c.rewarded) return;
+    const t = rewardTier(c);
+    if (!t) return;
     c.rewarded = true;
-    if (isMine(c)) { addPoints(campReward(c)); won.push(c); }
-    if (c.myG > 0) { const b = Math.round((c.myG / 1000) * REWARD_P_PER_KG); if (b > 0) { addPoints(b); c.myBonus = b; won.push({ ...c, bonus: b }); } } // 참여자 보상
+    let mine = 0;
+    if (isMine(c)) mine += addPoints(campReward(c, t));
+    if (c.myG > 0) mine += addPoints(Math.round((c.myG / 1000) * t.member)); // 참여자 보상
+    if (mine) { c.myReward = mine; won.push({ ...c, myReward: mine, tierPct: t.pct }); }
   });
   return won;
 }
-const wonText = (w) => (w.bonus ? `"${w.title}" 목표 달성! 참여 보상 +${w.bonus.toLocaleString()}P` : `내 캠페인이 인기 캠페인이 됐어요 +${campReward(w).toLocaleString()}P`);
+const wonText = (w) => `"${w.title}" 최종 달성률 ${w.tierPct}% 이상! 캠페인 보상 +${w.myReward.toLocaleString()}P`;
 // 캠페인 길찾기로 도착하면: 그 캠페인에 아낀 탄소를 더하고 내 기여로 기록해요
 function addSavingToCampaign(id, g) {
   g = Math.max(0, Math.round(g || 0));
@@ -1551,6 +1558,36 @@ function addSavingToCampaign(id, g) {
   campStore.save(list);
   if (won.length) setTimeout(() => toast(wonText(won[0])), 600);
   return { beforeG, afterG: c.progressG };
+}
+// 캠페인 보상표: 최종 달성률 100 · 120 · 150 · 200% → 만든 사람 ×2~5, 참여자 ×10~20 (지금 단계에 불이 들어와요)
+function rewardLadderHTML(c) {
+  const cur = c ? rewardTier(c) : null;
+  const cls = (t) => `${cur && cur.pct === t.pct ? 'on' : ''}${cur && t.pct < cur.pct ? ' past' : ''}`;
+  return `<div class="rw-ladder" role="table" aria-label="최종 달성률별 보상 배수">
+    <span class="rw-k" role="rowheader">최종 달성률</span>${REWARD_TIERS.map((t) => `<b class="rw-c ${cls(t)}">${t.pct}%${t.pct > 100 ? '↑' : ''}</b>`).join('')}
+    <span class="rw-k">만든 사람<small>목표 kg ×</small></span>${REWARD_TIERS.map((t) => `<span class="rw-c ${cls(t)}">${t.maker}P</span>`).join('')}
+    <span class="rw-k">참여자<small>아낀 kg ×</small></span>${REWARD_TIERS.map((t) => `<span class="rw-c ${cls(t)}">${t.member}P</span>`).join('')}
+  </div>`;
+}
+function campRewardBoxHTML(c) {
+  if (c.goalKg < POPULAR_MIN_KG) {
+    return `<section class="cd-reward"><b>ℹ️ 목표가 ${POPULAR_MIN_KG}kg 미만이라 보상 대상이 아니에요</b><p>목표를 ${POPULAR_MIN_KG}kg 이상으로 크게 잡은 캠페인만 탄소 포인트 보상을 받아요.</p></section>`;
+  }
+  const t = rewardTier(c);
+  const pct = Math.floor(campRatioPct(c));
+  let head; let note;
+  if (c.rewarded) {
+    head = `🏆 정산 완료 · 최종 달성률 ${pct}%`;
+    note = c.myReward ? `나는 <strong>+${c.myReward.toLocaleString()}P</strong>를 받았어요.` : '만든 사람과 참여자에게 보상이 지급됐어요.';
+  } else if (t) {
+    head = `🎉 지금 달성률 ${pct}% · ${campEnded(c) ? '곧 정산돼요' : `${endsInDays(c)}일 뒤 정산`}`;
+    const nextT = REWARD_TIERS.find((x) => x.pct > t.pct);
+    note = `지금 끝나면 만든 사람(${esc(c.creator)}) <strong>${campReward(c, t).toLocaleString()}P</strong>, 참여자는 아낀 kg × <strong>${t.member}P</strong>${nextT ? ` · ${nextT.pct}%를 넘기면 ×${nextT.maker} · ×${nextT.member}로 올라가요` : ' · 최고 단계예요!'}`;
+  } else {
+    head = '🎯 목표를 달성하면 보상이 쌓여요';
+    note = `목표 달성 ${CAMP_END_DAYS}일 뒤 <strong>최종 달성률</strong>로 정산해요. 더 많이 달성할수록 배수가 커져요.`;
+  }
+  return `<section class="cd-reward ${c.rewarded || t ? 'won' : ''}"><b>${head}</b><p>${note}</p>${rewardLadderHTML(c)}</section>`;
 }
 // 캠페인 카드 배경 (올린 사진이 있으면 사진, 없으면 분류별 하늘·초록 그라데이션)
 function campBg(c, shade) {
@@ -1711,7 +1748,7 @@ function mainHTML() {
       <p class="m-note">${log.trips ? `${esc(im.short)} · 다음 나무까지 ${formatG(TREE_YEAR_G - (log.g % TREE_YEAR_G))}` : '첫 친환경 이동을 하면 여기에 쌓여요'}</p>
     </section>
 
-    <section class="m-card kg-card" id="kg-card">${kgCardHTML(state.kgView || 'one', log.g)}</section>
+    <section class="m-card kg-card ${state.kgOpen ? 'open' : ''}" id="kg-card">${kgCardHTML(state.kgView || 'one', log.g)}</section>
 
     ${myJoined.length ? `<section class="m-card m-myc-card" data-act="open-my-camps" role="button" tabindex="0" aria-label="내가 참여한 캠페인 보기">
       <div class="m-card-head">
@@ -1772,17 +1809,21 @@ function kgCardHTML(view, myG) {
       <span class="kg-ic" aria-hidden="true">${t.icon}</span>
       <b class="num">${t.big}<small>${t.unit}</small></b>
       <span>${t.text}</span></li>`).join('')}</ul>`;
-  return `<div class="kg-head">
+  // 제목을 누르면 아래 설명(풍선·나무·휴대폰·자동차)이 펼쳐져요
+  const open = !!state.kgOpen;
+  return `<button type="button" class="kg-head" data-act="kg-toggle" aria-expanded="${open}" aria-controls="kg-fold">
       <div><p class="m-label">탄소량 쉽게 보기</p><h3 class="m-h3">${title}</h3></div>
-      <span class="m-tile">ⓘ</span>
-    </div>
+      <span class="kg-chev" aria-hidden="true">${ICON.chev}</span>
+    </button>
+    <div class="kg-fold ${open ? 'open' : ''}" id="kg-fold"><div class="kg-fold-in">
     <div class="kg-seg" role="tablist" aria-label="기준" data-from="${state.kgSegFrom != null ? state.kgSegFrom : (mine ? 1 : 0)}" data-to="${mine ? 1 : 0}">
       <span class="kg-seg-ind" aria-hidden="true"></span>
       <button type="button" role="tab" class="${mine ? '' : 'on'}" aria-selected="${!mine}" data-act="kg-view" data-id="one">1kg 기준</button>
       <button type="button" role="tab" class="${mine ? 'on' : ''}" aria-selected="${mine}" data-act="kg-view" data-id="mine">내가 아낀 양</button>
     </div>
     ${body}
-    <p class="kg-src">풍선 지름 30cm · 소나무(국립산림과학원) · 전력배출계수 2023 · 승용차 210g/km 기준</p>`;
+    <p class="kg-src">풍선 지름 30cm · 소나무(국립산림과학원) · 전력배출계수 2023 · 승용차 210g/km 기준</p>
+    </div></div>`;
 }
 // ── 그린 캘린더: 하루에 아낀 양이 많을수록 진한 하늘색 ──
 //  단계: 1 연한 하늘(500g 미만) · 2 하늘(500g~2kg) · 3 파랑(2~5kg) · 4 진한 파랑(5kg 이상)
@@ -1916,8 +1957,8 @@ function campaignsHTML() {
       <div class="c-rule-body">
         <p>새 캠페인은 <strong>관리자 검토</strong>를 거쳐 올라가요.</p>
         <p>목표 <strong>${POPULAR_MIN_KG}kg 이상</strong>을 참여자들이 <strong>100% 달성</strong>하면 인기 캠페인이 돼요.</p>
-        <p>인기 캠페인이 되면 <strong>만든 사람</strong>은 목표 1kg당 ${REWARD_P_PER_KG}P, 목표를 채우는 데 <strong>함께한 참여자</strong>는 내가 아낀 1kg당 ${REWARD_P_PER_KG}P를 탄소 포인트로 받아요.</p>
-        <p>목표를 달성하고 <strong>${CAMP_END_DAYS}일</strong>이 지나면 캠페인이 마무리돼요.</p>
+        <p>목표를 달성하고 <strong>${CAMP_END_DAYS}일</strong>이 지나면 캠페인이 마무리되고, 그때의 <strong>최종 달성률</strong>로 탄소 포인트 보상을 정산해요. (목표 ${POPULAR_MIN_KG}kg 이상인 모든 캠페인)</p>
+        ${rewardLadderHTML(null)}
         <p>메인 화면에는 인기 캠페인 → 좋아요 순으로 TOP 5가 올라가요.</p>
       </div>
     </details>
@@ -1995,10 +2036,7 @@ function campaignHTML() {
         <p class="m-note">${pct >= 100 ? '🎉 목표 달성!' : `목표까지 ${kgShort(left)} 남았어요`} · ${c.participants.toLocaleString()}명 참여${c.progressG > 0 ? ` · ${impact(c.progressG).icon} ${esc(impact(c.progressG).short)}` : ''}</p>
       </section>
       ${pub || ended ? campRankHTML(c) : ''}
-      <section class="cd-reward ${pop ? 'won' : ''}">
-        <b>${pop ? '🏆 인기 캠페인 선정 · 보상 지급 완료' : c.goalKg >= POPULAR_MIN_KG ? '🎯 목표를 달성하면 인기 캠페인!' : `ℹ️ 목표가 ${POPULAR_MIN_KG}kg 미만이라 인기 캠페인 대상이 아니에요`}</b>
-        <p>${c.goalKg >= POPULAR_MIN_KG ? `만든 사람(${esc(c.creator)})에게 <strong>${campReward(c).toLocaleString()}P</strong>, 목표를 채운 참여자에게는 <strong>내가 아낀 1kg당 ${REWARD_P_PER_KG}P</strong>${pop ? '를 드렸어요' : '를 드려요'}` : '목표를 크게 잡을수록 인기 캠페인이 될 수 있어요'}</p>
-      </section>
+      ${campRewardBoxHTML(c)}
       <article class="cd-body">
         <p class="c-by">by <b>${esc(c.creator)}</b> · ${new Date(c.createdAt).toLocaleDateString('ko-KR')}</p>
         ${esc(c.body).split(/\n{2,}/).map((para) => `<p>${para.replace(/\n/g, '<br>')}</p>`).join('')}
@@ -2081,8 +2119,8 @@ function goalHelp(kg) {
   if (!kg) return `목표가 ${POPULAR_MIN_KG}kg 이상이고 100% 달성하면 인기 캠페인이 돼요.`;
   const im = impact(kg * 1000);
   return kg >= POPULAR_MIN_KG
-    ? `${im.icon} ${im.short} · 달성하면 인기 캠페인 + 탄소 포인트 ${(kg * REWARD_P_PER_KG).toLocaleString()}P`
-    : `${im.icon} ${im.short} · ${POPULAR_MIN_KG}kg 이상이어야 인기 캠페인 후보가 돼요`;
+    ? `${im.icon} ${im.short} · 달성하면 만든 사람에게 ${(kg * REWARD_TIERS[0].maker).toLocaleString()}P부터 최대 ${(kg * REWARD_TIERS[3].maker).toLocaleString()}P`
+    : `${im.icon} ${im.short} · ${POPULAR_MIN_KG}kg 이상이어야 캠페인 보상을 받을 수 있어요`;
 }
 // 커버 사진: 긴 변 1080px 로 줄여 저장 (휴대폰 저장 공간 아끼기)
 function readCover(file) {
@@ -2790,6 +2828,159 @@ function crownSVG() {
     <circle cx="20" cy="37" r="1.6" fill="#E5293F"/><circle cx="32" cy="37" r="1.6" fill="#2F6BFF"/><circle cx="44" cy="37" r="1.6" fill="#E5293F"/>
   </svg>`;
 }
+// ---------------------------------------------------------------------
+// 포인트 상점: 모은 탄소 포인트를 1만 원 이하 상품으로 바꿔요 (1P = 1원 가치)
+//  서버 DB가 있으면 서버가 잔액을 확인하고 교환권 번호를 만들어요. 없으면 이 휴대폰에서만.
+// ---------------------------------------------------------------------
+const SHOP_ORDER_KEY = 'pureun-shop-orders';
+const SHOP_CATS = [{ id: 'all', label: '전체' }, { id: 'transit', label: '교통' }, { id: 'cafe', label: '카페·편의점' }, { id: 'goods', label: '친환경 굿즈' }, { id: 'donate', label: '기부' }];
+const SHOP_TONE = { transit: 'sky', cafe: 'sun', goods: 'mint', donate: 'leaf' };
+// 서버를 못 쓸 때(체험 모드) 보여 줄 상품 — 서버(db/schema.sql shop_items)와 같게
+const SHOP_ITEMS_LOCAL = [
+  ['bike-day', 'transit', '공공자전거 1일 이용권', '하루 동안 1시간씩 자유롭게', 1000, '🚲'],
+  ['transit-3000', 'transit', '대중교통 충전권 3,000원', '버스 · 지하철 교통카드 충전', 3000, '🚌'],
+  ['transit-5000', 'transit', '대중교통 충전권 5,000원', '버스 · 지하철 교통카드 충전', 5000, '🚇'],
+  ['coffee', 'cafe', '아메리카노 교환권', '텀블러를 가져가면 더 좋아요', 4500, '☕'],
+  ['store-5000', 'cafe', '편의점 상품권 5,000원', '전국 편의점에서 사용', 5000, '🏪'],
+  ['bamboo-brush', 'goods', '대나무 칫솔 2개 세트', '플라스틱 대신 대나무', 3900, '🪥'],
+  ['seed-kit', 'goods', '반려식물 씨앗 키트', '바질 · 방울토마토 중 랜덤', 6500, '🌱'],
+  ['straw-set', 'goods', '스테인리스 빨대 세트', '빨대 2개 + 세척솔', 5900, '🥤'],
+  ['eco-bag', 'goods', '접이식 장바구니', '주머니에 쏙, 비닐봉지 대신', 7900, '👜'],
+  ['tumbler', 'goods', '푸른하늘 텀블러 350ml', '일회용 컵 대신 매일 쓰기', 9900, '🧋'],
+  ['tree-donate', 'donate', '나무 한 그루 심기 기부', '숲 가꾸기 단체에 기부돼요', 10000, '🌳'],
+].map(([code, cat, name, sub, price, icon]) => ({ code, cat, name, sub, price, icon }));
+const shopItems = () => (state.shopItems && state.shopItems.length ? state.shopItems : SHOP_ITEMS_LOCAL);
+const loadOrders = () => { try { return JSON.parse(localStorage.getItem(SHOP_ORDER_KEY) || '[]') || []; } catch (e) { return []; } };
+function spendPoints(p) { try { localStorage.setItem(POINT_KEY, String(Math.max(0, loadPoints() - p))); } catch (e) { /* 무시 */ } }
+const couponText = (c) => String(c || '').replace(/(\d{4})(?=\d)/g, '$1 ');
+// 바코드 그림 (교환권 번호로 만든 EAN 모양 막대 — 시연용)
+function barcodeSVG(code) {
+  const L = ['0001101', '0011001', '0010011', '0111101', '0100011', '0110001', '0101111', '0111011', '0110111', '0001011'];
+  const R = L.map((p) => p.replace(/./g, (b) => (b === '0' ? '1' : '0')));
+  const d = String(code).replace(/\D/g, '').padEnd(12, '0').slice(0, 12).split('').map(Number);
+  const bits = `101${d.slice(0, 6).map((x) => L[x]).join('')}01010${d.slice(6).map((x) => R[x]).join('')}101`;
+  let bars = '';
+  const guard = (i) => i < 3 || i >= bits.length - 3 || (i >= 45 && i < 50); // 양 끝·가운데 구분 막대는 조금 더 길게
+  [...bits].forEach((b, i) => { if (b === '1') bars += `<rect x="${i}" y="0" width="1" height="${guard(i) ? 60 : 54}"/>`; });
+  return `<svg class="cp-bar" viewBox="0 0 ${bits.length} 60" preserveAspectRatio="none" aria-hidden="true"><g fill="#0F1626">${bars}</g></svg>`;
+}
+function shopHTML() {
+  const bal = loadPoints();
+  const tab = state.shopTab || 'items';
+  const cat = state.shopCat || 'all';
+  const orders = loadOrders();
+  const items = shopItems().filter((i) => cat === 'all' || i.cat === cat);
+  const itemsHTML = `<div class="shop-cats" role="tablist">${SHOP_CATS.map((c) => `<button type="button" role="tab" class="${cat === c.id ? 'on' : ''}" data-act="shop-cat" data-id="${c.id}">${c.label}</button>`).join('')}</div>
+    <ul class="shop-grid">${items.map((i) => `<li><button type="button" class="shop-item ${bal < i.price ? 'short' : ''}" data-act="shop-item" data-id="${i.code}">
+      <span class="shop-pic tone-${SHOP_TONE[i.cat] || 'sky'}" aria-hidden="true">${i.icon}</span>
+      <b>${esc(i.name)}</b><small>${esc(i.sub)}</small>
+      <span class="shop-price">${i.price.toLocaleString()}P${bal < i.price ? `<em>${(i.price - bal).toLocaleString()}P 부족</em>` : ''}</span>
+    </button></li>`).join('')}</ul>`;
+  const ordersHTML = orders.length
+    ? `<ul class="shop-orders">${orders.map((o) => `<li><button type="button" data-act="shop-coupon" data-id="${esc(o.id)}">
+        <span class="shop-pic sm" aria-hidden="true">${o.icon}</span>
+        <span class="so-t"><b>${esc(o.name)}</b><small>${new Date(o.at).toLocaleDateString('ko-KR')} · ${couponText(o.coupon)}</small></span>
+        <span class="so-p">-${o.price.toLocaleString()}P</span></button></li>`).join('')}</ul>`
+    : '<div class="shop-empty"><span aria-hidden="true">🎁</span><b>아직 교환한 상품이 없어요</b><p>포인트를 모아 첫 상품으로 바꿔 보세요.</p></div>';
+  return `${appBar('포인트 상점', 'back')}
+    <main class="content shop">
+      <section class="shop-hero">
+        <div><p>보유 포인트</p><b>${bal.toLocaleString()}<small>P</small></b><span>1P = 1원 · 친환경 이동과 캠페인으로 모아요</span></div>
+        <span class="shop-hero-ic" aria-hidden="true">🛍️</span>
+      </section>
+      <div class="shop-tabs" role="tablist">
+        <button type="button" role="tab" class="${tab === 'items' ? 'on' : ''}" data-act="shop-tab" data-id="items">상품</button>
+        <button type="button" role="tab" class="${tab === 'orders' ? 'on' : ''}" data-act="shop-tab" data-id="orders">교환 내역${orders.length ? ` <i>${orders.length}</i>` : ''}</button>
+      </div>
+      ${tab === 'items' ? itemsHTML : ordersHTML}
+      <p class="shop-note">교환권은 시연용이에요. 실제 매장에서는 사용할 수 없어요.</p>
+    </main>`;
+}
+// 상품을 누르면: 교환 확인 시트 → 교환 → 교환권
+function shopBuySheet(code) {
+  const it = shopItems().find((i) => i.code === code);
+  if (!it) return;
+  const bal = loadPoints();
+  const enough = bal >= it.price;
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-wrap';
+  sheet.innerHTML = `<div class="sheet-bg" data-no></div>
+    <section class="sheet-card shop-sheet" role="dialog" aria-label="${esc(it.name)} 교환">
+      <span class="sheet-grab" aria-hidden="true"></span>
+      <span class="shop-pic big tone-${SHOP_TONE[it.cat] || 'sky'}" aria-hidden="true">${it.icon}</span>
+      <div class="sheet-ask"><b>${esc(it.name)}</b><p>${esc(it.sub)}</p></div>
+      <dl class="ss-calc">
+        <div><dt>상품 가격</dt><dd>${it.price.toLocaleString()}P</dd></div>
+        <div><dt>보유 포인트</dt><dd>${bal.toLocaleString()}P</dd></div>
+        <div class="ss-after ${enough ? '' : 'neg'}"><dt>${enough ? '교환 후 남는 포인트' : '더 모아야 할 포인트'}</dt><dd>${(enough ? bal - it.price : it.price - bal).toLocaleString()}P</dd></div>
+      </dl>
+      <p class="rj-err" id="ss-err" hidden></p>
+      <button type="button" class="btn primary" data-yes ${enough ? '' : 'disabled'}>${enough ? `${it.price.toLocaleString()}P로 교환하기` : '포인트가 부족해요'}</button>
+      <button type="button" class="btn sheet-cancel" data-no>취소</button>
+    </section>`;
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => sheet.classList.add('open'));
+  const close = () => { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); };
+  sheet.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-no]')) return close();
+    const yes = e.target.closest('[data-yes]');
+    if (!yes || yes.disabled) return;
+    yes.disabled = true; yes.textContent = '교환하는 중…';
+    let order = null;
+    if (dbMode()) {
+      const r = await dataApi('shop-buy', { code });
+      if (r.status === 401) { close(); needRelogin(); return; }
+      if (r.status !== 200) { const err = sheet.querySelector('#ss-err'); err.textContent = r.data.error || '교환하지 못했어요.'; err.hidden = false; yes.textContent = '다시 시도'; yes.disabled = false; return; }
+      order = r.data.order;
+      lsSet(POINT_KEY, String(r.data.points));
+      lsSet(SHOP_ORDER_KEY, [order, ...loadOrders()]);
+      syncFromServer();
+    } else {
+      if (loadPoints() < it.price) return;
+      spendPoints(it.price);
+      order = { id: `l${Date.now()}`, code: it.code, name: it.name, icon: it.icon, price: it.price, at: Date.now(),
+        coupon: Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => String(x % 10)).join('') };
+      lsSet(SHOP_ORDER_KEY, [order, ...loadOrders()]);
+    }
+    close();
+    if (state.screen === 'shop') render();
+    setTimeout(() => couponSheet(order, true), 240);
+  });
+}
+// 교환권 (바코드 + 번호)
+function couponSheet(o, fresh) {
+  if (!o) return;
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-wrap';
+  sheet.innerHTML = `<div class="sheet-bg" data-no></div>
+    <section class="sheet-card cp-sheet" role="dialog" aria-label="교환권">
+      <span class="sheet-grab" aria-hidden="true"></span>
+      ${fresh ? '<p class="cp-done">🎉 교환 완료!</p>' : ''}
+      <div class="cp-ticket">
+        <div class="cp-top"><span class="shop-pic sm" aria-hidden="true">${o.icon}</span><div><b>${esc(o.name)}</b><small>푸른하늘 포인트 상점 · ${o.price.toLocaleString()}P</small></div></div>
+        <div class="cp-cut" aria-hidden="true"></div>
+        ${barcodeSVG(o.coupon)}
+        <p class="cp-num">${couponText(o.coupon)}</p>
+        <p class="cp-meta">교환일 ${new Date(o.at).toLocaleDateString('ko-KR')} · 시연용 교환권 (실제 사용 불가)</p>
+      </div>
+      <button type="button" class="btn primary" data-no>확인</button>
+    </section>`;
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => sheet.classList.add('open'));
+  sheet.addEventListener('click', (e) => { if (e.target.closest('[data-no]')) { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); } });
+}
+// 이달의 절약왕 보너스: 지난달 1·2·3등 (서버가 다음 달 1일 이후 처음 들어올 때 지급)
+const MONTH_AWARDS = [1000, 500, 300];
+function lastAwardsHTML() {
+  const list = state.lastAwards || [];
+  if (!list.length) return '';
+  const m = Number(String(list[0].month).slice(5));
+  const mine = list.find((x) => x.me);
+  return `<section class="rk-last" aria-label="지난달 절약왕">
+    <p class="rk-last-h">🎖️ ${m}월 절약왕 보너스${mine ? ` <em>나 ${mine.rank}등 +${mine.points.toLocaleString()}P</em>` : ''}</p>
+    <ol>${list.map((x) => `<li class="r${x.rank} ${x.me ? 'me' : ''}"><i>${x.rank}</i><b>${esc(x.name)}</b><span>+${x.points.toLocaleString()}P</span></li>`).join('')}</ol>
+  </section>`;
+}
 // 랭킹 화면에 들어올 때: 3등 → 2등 → 1등 순서로 단상이 아래에서 솟아오르고, 포인트는 0부터 세어 올라가요
 function podiumIntro() {
   const pod = appEl.querySelector('.rk .podium');
@@ -2834,11 +3025,13 @@ function rankHTML() {
       <h1 class="m-title sm">이달의 절약왕</h1>
       <p class="rk-sub">탄소 포인트를 가장 많이 모은 사람 · ${left ? `${left}일 남았어요` : '오늘 마감'}</p>
     </header>
+    ${lastAwardsHTML()}
     <section class="podium" aria-label="1~3위">
       ${pod(all[1], 2)}${pod(all[0], 1)}${pod(all[2], 3)}
     </section>
     <details class="rk-rule"><summary>ⓘ 탄소 포인트는 이렇게 모여요</summary>
-      <p>친환경 경로로 도착하면 <b>아낀 탄소 1kg당 ${PT_PER_KG}P</b> + <b>버스·지하철·걷기·자전거로 이동한 거리 1km당 ${PT_PER_KM}P</b>를 받아요. 인기 캠페인 보상도 함께 쌓이고, 매달 1일에 새로 시작해요.</p>
+      <p>친환경 경로로 도착하면 <b>아낀 탄소 1kg당 ${PT_PER_KG}P</b> + <b>버스·지하철·걷기·자전거로 이동한 거리 1km당 ${PT_PER_KM}P</b>를 받아요. 캠페인 보상도 함께 쌓이고, 매달 1일에 새로 시작해요.</p>
+      <p>🏆 매달 마지막 순위 <b>1등 ${MONTH_AWARDS[0].toLocaleString()}P · 2등 ${MONTH_AWARDS[1].toLocaleString()}P · 3등 ${MONTH_AWARDS[2].toLocaleString()}P</b> 보너스를 다음 달 1일에 드려요. (보너스와 상점에서 쓴 포인트는 순위에 들어가지 않아요)</p>
     </details>
     <ol class="rk-list">${top.slice(3).map((u) => `<li class="${u.me ? 'is-me' : ''}">
       <span class="rk-n">${u.rank}</span>${tierAvatarHTML(u.name, u.photo, '', u.me ? loadLog().g : u.g)}
@@ -2925,10 +3118,11 @@ function accountHTML() {
       <section class="acc-stats">
         <div><span>이번 달 탄소 포인트</span><b>${loadMonthPoints().toLocaleString()}P</b></div>
         <div><span>이번 달 순위</span><b>${me.rank}위</b></div>
-        <div><span>누적 탄소 포인트</span><b>${loadPoints().toLocaleString()}P</b></div>
+        <div><span>보유 포인트</span><b>${loadPoints().toLocaleString()}P</b></div>
       </section>
       ${myCampaignsHTML()}
       <section class="m-card acc-list">
+        <button type="button" class="acc-shop" data-act="open-shop"><span>🛍️ 포인트 상점</span><span class="acc-cnt"><em class="acc-pt">${loadPoints().toLocaleString()}P</em>${ICON.chev}</span></button>
         ${isAdmin() ? `<button type="button" class="acc-admin" data-act="open-admin"><span>🛡️ 캠페인 검토 <em>관리자</em></span><span class="acc-cnt">${pendingCampaigns().length ? `<i>${pendingCampaigns().length}</i>` : ''}${ICON.chev}</span></button>
         <button type="button" class="acc-admin" data-act="admin-points"><span>💰 포인트 지급 · 삭제 <em>관리자</em></span><span class="acc-cnt">${ICON.chev}</span></button>
         <button type="button" class="acc-admin" data-act="admin-carbon"><span>🌿 탄소 절약량 조절 <em>관리자</em></span><span class="acc-cnt">${ICON.chev}</span></button>
@@ -3131,7 +3325,7 @@ function needRelogin(msg) {
   go('login');
 }
 function clearServerCache() {
-  [LOG_KEY, POINT_KEY, POINT_MONTH_KEY, CAMP_KEY, AVATAR_KEY, RECENT_KEY].forEach((k) => lsSet(k, null));
+  [LOG_KEY, POINT_KEY, POINT_MONTH_KEY, CAMP_KEY, AVATAR_KEY, RECENT_KEY, SHOP_ORDER_KEY].forEach((k) => lsSet(k, null));
   state.rank = null; state.campRanks = {};
 }
 // 서버에서 받은 내 기록을 저장 공간에 덮어쓰기
@@ -3144,6 +3338,8 @@ function applySync(d) {
   lsSet(AVATAR_KEY, d.user && d.user.avatar ? d.user.avatar : null);
   state.rank = d.rank || null;
   state.campRanks = {};
+  state.lastAwards = d.lastAwards || [];
+  if (d.shop) { state.shopItems = d.shop.items || []; lsSet(SHOP_ORDER_KEY, d.shop.orders || []); }
   state.demoUsers = d.demoUsers || 0; // 관리자에게만: 예시 회원 수
   state.demoCal = d.demoCal || 0;     // 관리자에게만: 내 캘린더 예시 이동 수
   if (Array.isArray(d.recentPlaces)) lsSet(RECENT_KEY, mergeRecent(d.recentPlaces, loadRecent())); // 다른 기기에서 간 곳도
@@ -3199,8 +3395,7 @@ function flushTrips() {
       if (r.status === 0 || r.status >= 500) break; // 인터넷·서버 문제: 다음에 다시
       if (r.status === 401) break;
       lsSet(PENDING_KEY, loadPending().filter((x) => x.key !== t.key)); // 저장됐거나(200) 잘못된 기록(4xx)이면 목록에서 빼요
-      if (r.status === 200 && r.data.reward) toast(`내 캠페인 "${r.data.reward.title}"이(가) 인기 캠페인이 됐어요 +${r.data.reward.points.toLocaleString()}P`);
-      if (r.status === 200 && r.data.bonus) setTimeout(() => toast(`"${r.data.bonus.title}" 목표 달성! 참여 보상 +${r.data.bonus.points.toLocaleString()}P`), r.data.reward ? 2600 : 0);
+      if (r.status === 200 && r.data.reached) toast(`"${r.data.reached.title}" 목표 달성! ${r.data.reached.rewardable ? `${CAMP_END_DAYS}일 뒤 최종 달성률로 보상을 정산해요` : '함께해 줘서 고마워요'}`);
     }
   })().finally(() => { flushing = null; });
   return flushing;
@@ -3845,7 +4040,7 @@ function campDoneHTML() {
     ${cta('<button type="button" class="btn" data-act="go-main">홈으로 돌아가기</button><button type="button" class="btn primary" data-act="camp-back">캠페인 화면으로 돌아가기</button>')}`;
 }
 
-const VIEWS = { 'admin-users': adminUsersHTML, 'my-camps': myJoinedCampsHTML, campdone: campDoneHTML, titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
+const VIEWS = { shop: shopHTML, 'admin-users': adminUsersHTML, 'my-camps': myJoinedCampsHTML, campdone: campDoneHTML, titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
 
 // 화면 전체 그리기
 function render() {
@@ -3922,7 +4117,7 @@ function go(screen, dir) {
 // 뒤로 가면 나올 화면 (손가락으로 밀기·뒤로 버튼 공통)
 function backOf(screen) {
   return {
-    titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', 'my-camps': 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', 'admin-users': 'account', home: state.campTrip ? 'campaign' : 'main', campdone: 'campaign', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
+    titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', 'my-camps': 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', 'admin-users': 'account', shop: 'account', home: state.campTrip ? 'campaign' : 'main', campdone: 'campaign', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
     'email-login': 'login', signup: 'login',
   }[screen] || null;
 }
@@ -4133,6 +4328,11 @@ const actions = {
   'to-login': () => { state.auth = { busy: false, message: '' }; go('login', 'back'); },
   home: () => go('home', 'back'),
   back: () => goBack(),
+  'open-shop': () => { state.shopTab = 'items'; state.shopCat = 'all'; go('shop'); if (dbMode()) syncFromServer(); },
+  'shop-tab': (el) => { state.shopTab = el.dataset.id; render(); },
+  'shop-cat': (el) => { state.shopCat = el.dataset.id; render(); },
+  'shop-item': (el) => shopBuySheet(el.dataset.id),
+  'shop-coupon': (el) => couponSheet(loadOrders().find((o) => String(o.id) === el.dataset.id)),
   'open-route': () => go('home'),
   soon: () => toast('준비 중인 기능이에요'),
   reload: () => window.location.reload(),
@@ -4287,6 +4487,16 @@ const actions = {
     placeCalRing(true);
     const box = document.getElementById('cal-detail');
     if (box) box.innerHTML = calDetailHTML(loadLog());
+  },
+  'kg-toggle': (el) => {
+    state.kgOpen = !state.kgOpen;
+    const card = el.closest('#kg-card');
+    if (!card) return;
+    el.setAttribute('aria-expanded', String(state.kgOpen));
+    card.classList.toggle('open', state.kgOpen);
+    const fold = card.querySelector('.kg-fold');
+    if (fold) fold.classList.toggle('open', state.kgOpen);
+    if (state.kgOpen) setTimeout(() => { const r = card.getBoundingClientRect(); if (r.bottom > innerHeight - 110) window.scrollBy({ top: r.bottom - innerHeight + 120, behavior: 'smooth' }); }, 360); // 펼친 내용이 아래 바에 가리지 않게
   },
   'kg-view': (el) => {
     state.kgView = el.dataset.id;
