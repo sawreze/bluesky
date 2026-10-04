@@ -144,8 +144,8 @@ INSERT INTO shop_items (code, category, name, sub, price_p, icon, sort) VALUES
   ('seed-kit', 'goods', '반려식물 씨앗 키트', '바질 · 방울토마토 중 랜덤', 6500, '🌱', 7),
   ('straw-set', 'goods', '스테인리스 빨대 세트', '빨대 2개 + 세척솔', 5900, '🥤', 8),
   ('eco-bag', 'goods', '에코백', '튼튼한 캔버스 천 · 비닐봉지 대신', 7900, '👜', 9),
-  ('cloud-cushion', 'goods', '구름이 쿠션', '말랑말랑 구름이 얼굴 쿠션', 9900, '☁️', 10),
-  ('cloud-tumbler', 'goods', '구름이 텀블러 350ml', '구름이가 그려진 보온·보냉 텀블러', 9500, '🥤', 11),
+  ('cloud-cushion', 'goods', '구름이 쿠션', '말랑말랑 구름이 얼굴 쿠션', 9000, '☁️', 10),
+  ('cloud-tumbler', 'goods', '구름이 텀블러 350ml', '구름이가 그려진 보온·보냉 텀블러', 7000, '🥤', 11),
   ('tree-donate', 'donate', '나무 한 그루 심기 기부', '숲 가꾸기 단체에 기부돼요', 10000, '🌳', 12)
 ON CONFLICT (code) DO UPDATE SET category = EXCLUDED.category, name = EXCLUDED.name, sub = EXCLUDED.sub,
   price_p = EXCLUDED.price_p, icon = EXCLUDED.icon, sort = EXCLUDED.sort, active = true;
