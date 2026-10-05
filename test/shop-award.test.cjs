@@ -131,6 +131,28 @@ const n = (v) => Number(v) || 0;
   r = await post('shop-buy', '', { code: 'coffee' });
   ok('로그인 안 하면 401', r.statusCode === 401);
 
+  console.log('4) 관리자 포인트 삭제: 상점에서 다 써서 보유 0P여도 이번 달 탄소 포인트에서 빼요');
+  const e5 = await join('마루', 'e@t.kr');
+  await post('admin-points', admin, { amount: 5000, name: '마루' });
+  for (let i = 0; i < 5; i++) await post('shop-buy', e5, { code: 'bike-day' });
+  const mk5 = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 7);
+  let s5 = (await api('sync', e5)).body;
+  ok('준비: 보유 0P · 이번 달 5,000P', s5.points === 0 && s5.monthPoints[mk5()] === 5000, { p: s5.points, m: s5.monthPoints });
+  r = await post('admin-points', admin, { amount: 2000, name: '마루', mode: 'deduct' });
+  ok('보유 0P여도 삭제 됨 (이번 달 5,000 → 3,000P)', r.statusCode === 200 && r.body.amount === 2000 && r.body.total === 0 && r.body.month === 3000, r.body);
+  r = await post('admin-points', admin, { amount: 99999, name: '마루', mode: 'deduct' });
+  ok('남은 것보다 많이 빼면 남은 만큼만 (3,000P)', r.statusCode === 200 && r.body.amount === 3000 && r.body.month === 0 && r.body.total === 0, r.body);
+  r = await post('admin-points', admin, { amount: 100, name: '마루', mode: 'deduct' });
+  ok('둘 다 0P면 뺄 포인트 없음', r.statusCode === 400 && /뺄 포인트가 없어요/.test(r.body.error), r.body);
+  s5 = (await api('sync', e5)).body;
+  ok('순위에서도 줄어듦 · 보유 포인트는 음수 안 됨', s5.points === 0 && n(s5.monthPoints[mk5()]) === 0, { p: s5.points, m: s5.monthPoints });
+  await post('admin-points', admin, { amount: 1000, name: '마루' });
+  r = await post('admin-points', admin, { amount: 400, name: '마루', mode: 'deduct' });
+  ok('보유 포인트가 있으면 보유에서 먼저 (1,000 → 600P, 이번 달도 600P)', r.statusCode === 200 && r.body.total === 600 && r.body.month === 600, r.body);
+  r = await post('shop-buy', e5, { code: 'bike-day' });
+  ok('순위에서만 뺀 포인트는 상점 잔액에 영향 없음 (600P로 1,000P 상품 못 삼)', r.statusCode === 409, r.body);
+  ok('음수 잔액 없음 (마지막 확인)', n((await sql()`SELECT COUNT(*) AS n FROM v_user_stats WHERE points < 0`)[0].n) === 0);
+
   console.log(`\n결과: ${pass}개 통과, ${fail}개 실패`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error('테스트 중단:', e); process.exit(1); });

@@ -195,13 +195,13 @@ ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_reason_ck;
 ALTER TABLE point_transactions ADD CONSTRAINT point_reason_ck CHECK (
      (reason = 'trip' AND trip_id IS NOT NULL AND campaign_id IS NULL AND award_month IS NULL AND order_id IS NULL)
   OR (reason IN ('campaign_reward', 'campaign_bonus') AND campaign_id IS NOT NULL AND trip_id IS NULL AND award_month IS NULL AND order_id IS NULL)
-  OR (reason IN ('admin_grant', 'admin_deduct') AND trip_id IS NULL AND campaign_id IS NULL AND award_month IS NULL AND order_id IS NULL)
+  OR (reason IN ('admin_grant', 'admin_deduct', 'rank_deduct') AND trip_id IS NULL AND campaign_id IS NULL AND award_month IS NULL AND order_id IS NULL)
   OR (reason = 'monthly_award' AND award_month IS NOT NULL AND trip_id IS NULL AND campaign_id IS NULL AND order_id IS NULL)
   OR (reason = 'shop' AND order_id IS NOT NULL AND trip_id IS NULL AND campaign_id IS NULL AND award_month IS NULL)) NOT VALID;
 -- 금액: 관리자 차감(admin_deduct) · 상점 교환(shop)만 음수, 나머지는 모두 양수
 ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_transactions_amount_check;
 ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_amount_ck;
-ALTER TABLE point_transactions ADD CONSTRAINT point_amount_ck CHECK ((reason IN ('admin_deduct', 'shop') AND amount < 0) OR (reason NOT IN ('admin_deduct', 'shop') AND amount > 0)) NOT VALID;
+ALTER TABLE point_transactions ADD CONSTRAINT point_amount_ck CHECK ((reason IN ('admin_deduct', 'rank_deduct', 'shop') AND amount < 0) OR (reason NOT IN ('admin_deduct', 'rank_deduct', 'shop') AND amount > 0)) NOT VALID;
 CREATE INDEX IF NOT EXISTS point_transactions_user_idx ON point_transactions (user_id, created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS point_reward_once_uq ON point_transactions (campaign_id) WHERE reason = 'campaign_reward';
 CREATE UNIQUE INDEX IF NOT EXISTS point_bonus_once_uq ON point_transactions (campaign_id, user_id) WHERE reason = 'campaign_bonus';
@@ -273,5 +273,5 @@ SELECT u.id AS user_id, u.name,
        (SELECT COUNT(*) FROM trips WHERE user_id = u.id) AS trip_count,
        COALESCE((SELECT SUM(saved_g) FROM trips WHERE user_id = u.id), 0)
          + COALESCE((SELECT SUM(amount_g) FROM carbon_adjustments WHERE user_id = u.id), 0) AS saved_g, -- 이동 + 관리자 조절
-       COALESCE((SELECT SUM(amount) FROM point_transactions WHERE user_id = u.id), 0) AS points
+       COALESCE((SELECT SUM(amount) FROM point_transactions WHERE user_id = u.id AND reason <> 'rank_deduct'), 0) AS points
 FROM users u;

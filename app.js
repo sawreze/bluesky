@@ -2290,7 +2290,7 @@ function adminAdjustSheet(kind, target = null) {
   sheet.innerHTML = `<div class="sheet-bg" data-no></div>
     <section class="sheet-card ap" role="dialog" aria-label="${c.title}">
       <span class="sheet-grab" aria-hidden="true"></span>
-      <div class="sheet-ask"><b>${c.title}</b><p>${target ? `<strong>${esc(target.name)}</strong>님에게 적용돼요.` : '받는 사람 닉네임을 비우면 내 계정에 적용돼요.'}</p></div>
+      <div class="sheet-ask"><b>${c.title}</b><p>${target ? `<strong>${esc(target.name)}</strong>님에게 적용돼요.` : '받는 사람 닉네임을 비우면 내 계정에 적용돼요.'}${kind === 'points' ? '<br>삭제는 보유 포인트에서 먼저 빼고, 모자라면 이번 달 탄소 포인트에서 빼요.' : ''}</p></div>
       <div class="ap-seg" role="tablist">${c.modes.map(([id, lb], i) => `<button type="button" role="tab" class="${i ? '' : 'on'} ${id === 'deduct' || id === 'minus' ? 'neg' : ''}" data-mode="${id}">${lb}</button>`).join('')}</div>
       ${target ? '' : '<label class="ap-l">대상 회원<input class="input" id="ap-name" maxlength="40" placeholder="닉네임 (비우면 나)"></label>'}
       <label class="ap-l">${c.label}<input class="input num" id="ap-amount" type="number" inputmode="decimal" min="${c.min}" max="${c.max}" step="${c.step}" placeholder="${c.ph}"></label>
@@ -2332,7 +2332,7 @@ function adminAdjustSheet(kind, target = null) {
     close();
     const who = r.data.me ? '내 계정' : `${r.data.name}님`;
     toast(kind === 'points'
-      ? `${who} ${r.data.mode === 'deduct' ? `-${r.data.amount.toLocaleString()}P 삭제` : `+${r.data.amount.toLocaleString()}P 지급`}했어요 (총 ${r.data.total.toLocaleString()}P)`
+      ? `${who} ${r.data.mode === 'deduct' ? `-${r.data.amount.toLocaleString()}P 삭제` : `+${r.data.amount.toLocaleString()}P 지급`}했어요 (보유 ${r.data.total.toLocaleString()}P · 이번 달 ${Number(r.data.month || 0).toLocaleString()}P)`
       : `${who} 탄소 절약량 ${r.data.mode === 'minus' ? '-' : '+'}${r.data.kg.toLocaleString()}kg (총 ${r.data.totalKg.toLocaleString(undefined, { maximumFractionDigits: 1 })}kg)`);
     await syncFromServer({ quiet: true });
     if (state.screen === 'admin-users') loadAdminUsers(state.adm && state.adm.q); else render();

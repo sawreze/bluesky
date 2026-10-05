@@ -231,7 +231,7 @@ module.exports = function makeData(db) {
       : Array.from(bytes, (x) => String(x % 10)).join('');
     // 잔액이 충분할 때만 교환 + 포인트 차감을 한 문장으로 (중간에 실패하면 아무것도 안 들어가요)
     const rows = await sql()`
-      WITH bal AS (SELECT COALESCE(SUM(amount), 0) AS p FROM point_transactions WHERE user_id = ${me.id}),
+      WITH bal AS (SELECT COALESCE(SUM(amount), 0) AS p FROM point_transactions WHERE user_id = ${me.id} AND reason <> 'rank_deduct'),
       o AS (
         INSERT INTO shop_orders (user_id, item_code, price_p, coupon)
         SELECT ${me.id}::int, ${item.code}::text, ${item.price_p}::int, ${coupon}::text FROM bal WHERE bal.p >= ${item.price_p}::int
@@ -307,15 +307,27 @@ module.exports = function makeData(db) {
     const deduct = b.mode === 'deduct';
     let applied = amount;
     if (deduct) {
+      // 보유 포인트에서 먼저 빼고, 모자라면 이번 달 탄소 포인트(순위용)에서 빼요
+      //  (상점에서 다 써서 보유 포인트가 0P여도 이번 달 순위 포인트는 남아 있을 수 있어요. 보유 포인트는 0 아래로 안 내려가요)
       const [st] = await sql()`SELECT points FROM v_user_stats WHERE user_id = ${target.id}`;
-      applied = Math.min(amount, Math.max(0, num(st && st.points))); // 가진 포인트보다 많이 빼지 않아요
-      if (applied <= 0) bad(`${target.name}님은 뺄 포인트가 없어요.`);
-      await sql()`INSERT INTO point_transactions (user_id, amount, reason) VALUES (${target.id}, ${-applied}, 'admin_deduct')`;
+      const [mp] = await sql()`SELECT COALESCE(SUM(amount), 0) AS p FROM point_transactions WHERE user_id = ${target.id}
+        AND reason NOT IN ('monthly_award', 'shop')
+        AND to_char(created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = to_char(now() AT TIME ZONE 'Asia/Seoul', 'YYYY-MM')`;
+      const fromBal = Math.min(amount, Math.max(0, num(st && st.points)));
+      const fromRank = Math.min(amount - fromBal, Math.max(0, num(mp && mp.p) - fromBal));
+      applied = fromBal + fromRank;
+      if (applied <= 0) bad(`${target.name}님은 보유 포인트와 이번 달 탄소 포인트가 모두 0P라서 뺄 포인트가 없어요.`);
+      if (fromBal > 0) await sql()`INSERT INTO point_transactions (user_id, amount, reason) VALUES (${target.id}, ${-fromBal}, 'admin_deduct')`;
+      if (fromRank > 0) await sql()`INSERT INTO point_transactions (user_id, amount, reason) VALUES (${target.id}, ${-fromRank}, 'rank_deduct')`;
     } else {
       await sql()`INSERT INTO point_transactions (user_id, amount, reason) VALUES (${target.id}, ${amount}, 'admin_grant')`;
     }
     const [st] = await sql()`SELECT points FROM v_user_stats WHERE user_id = ${target.id}`;
-    return { ok: true, name: target.name, me: Number(target.id) === Number(me.id), mode: deduct ? 'deduct' : 'grant', amount: applied, total: num(st && st.points) };
+    const [mt] = await sql()`SELECT COALESCE(SUM(amount), 0) AS p FROM point_transactions WHERE user_id = ${target.id}
+      AND reason NOT IN ('monthly_award', 'shop')
+      AND to_char(created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') = to_char(now() AT TIME ZONE 'Asia/Seoul', 'YYYY-MM')`;
+    return { ok: true, name: target.name, me: Number(target.id) === Number(me.id), mode: deduct ? 'deduct' : 'grant', amount: applied,
+      total: num(st && st.points), month: num(mt && mt.p) };
   }
   // ── 관리자: 탄소 절약량 조절 (kg, 더하기 · 빼기) ──
   async function adminCarbon(me, b) {
