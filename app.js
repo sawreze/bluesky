@@ -2847,6 +2847,33 @@ function mascotJoySVG() {
     </g>
   </svg>`;
 }
+// ── 푸름이가 울어요 (포인트가 모자랄 때, 구매 창) — 처진 눈썹, 볼을 타고 흐르는 눈물, 아래로 똑똑 떨어지는 빗방울 ──
+function mascotSadSVG() {
+  const ol = '#2F5597';
+  const body = '<circle cx="70" cy="47" r="26"/><circle cx="43" cy="59" r="19"/><circle cx="97" cy="57" r="20"/>'
+    + '<circle cx="27" cy="75" r="13"/><circle cx="113" cy="74" r="13"/><ellipse cx="70" cy="80" rx="46" ry="21"/>'
+    + '<ellipse cx="54" cy="99" rx="11" ry="7"/><ellipse cx="86" cy="99" rx="11" ry="7"/>';
+  const star = (cx, cy, R, r) => { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (Math.PI / 5) * i + 0.25; const rr = i % 2 ? r : R; d += `${i ? 'L' : 'M'}${(cx + Math.cos(a) * rr).toFixed(1)} ${(cy + Math.sin(a) * rr).toFixed(1)}`; } return `${d}Z`; };
+  const drop = (x, y, s) => `M${x} ${y}q${-3.4 * s} ${5 * s} ${-3.4 * s} ${7.6 * s}a${3.4 * s} ${3.4 * s} 0 0 0 ${6.8 * s} 0q0 ${-2.6 * s} ${-3.4 * s} ${-7.6 * s}z`;
+  const eye = (x) => `<g class="ms-eye"><ellipse cx="${x}" cy="67" rx="5.2" ry="6.2" fill="#1E2A44"/><circle cx="${x + 1.7}" cy="64.6" r="2.1" fill="#fff"/></g>`;
+  return `<svg class="ms" viewBox="0 0 140 130" aria-hidden="true">
+    <defs><linearGradient id="ms-g" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="110"><stop offset="0" stop-color="#F4F8FD"/><stop offset=".6" stop-color="#E4EDF8"/><stop offset="1" stop-color="#C9D9EF"/></linearGradient></defs>
+    <g class="ms-rain" fill="#5B9BFF">
+      <path style="--d:0s" d="${drop(48, 108, 1)}"/><path style="--d:.45s" d="${drop(70, 112, 1.1)}"/><path style="--d:.9s" d="${drop(92, 108, 1)}"/>
+    </g>
+    <g class="ms-body">
+      <g fill="${ol}" stroke="${ol}" stroke-width="6.5" stroke-linejoin="round">${body}</g>
+      <g fill="url(#ms-g)">${body}</g>
+      <g fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".8"><path d="M53 37a22 22 0 0 1 12-10"/><path d="M31 55a15 15 0 0 1 7-8"/></g>
+      <path class="ms-star" d="${star(97, 31, 8.5, 4)}" fill="#FFC94D" stroke="${ol}" stroke-width="2.4" stroke-linejoin="round"/>
+      <g class="ms-brow" fill="none" stroke="#1E2A44" stroke-width="3.6" stroke-linecap="round"><path d="M47.5 57.5 60.5 52.5"/><path d="M79.5 52.5 92.5 57.5"/></g>
+      ${eye(57)}${eye(83)}
+      <path class="ms-mouth" d="M62.5 84q7.5-7 15 0" fill="none" stroke="#1E2A44" stroke-width="3.4" stroke-linecap="round"/>
+      <path class="ms-tear l" d="${drop(52, 74, 0.9)}" fill="#5B9BFF"/>
+      <path class="ms-tear r" d="${drop(88, 74, 0.8)}" fill="#7DB3FF"/>
+    </g>
+  </svg>`;
+}
 // 1위 왕관 (SVG): 금 몸체 + 보석 3개 + 위쪽 구슬
 function crownSVG() {
   return `<svg class="crown-svg" viewBox="0 0 64 44" aria-hidden="true">
@@ -2992,6 +3019,7 @@ function shopBuySheet(code) {
         <div><dt>보유 포인트</dt><dd>${bal.toLocaleString()}P</dd></div>
         ${enough ? `<div class="ss-after"><dt>구매 후 남는 포인트</dt><dd>${(bal - it.price).toLocaleString()}P</dd></div>` : ''}
       </dl>
+      <p class="ss-short" id="ss-short" role="alert" hidden></p>
       <p class="rj-err" id="ss-err" hidden></p>
       <button type="button" class="btn primary" data-yes>${it.price.toLocaleString()}P로 구매하기</button>
       <button type="button" class="btn sheet-cancel" data-no>취소</button>
@@ -3003,8 +3031,13 @@ function shopBuySheet(code) {
     if (e.target.closest('[data-no]')) return close();
     const yes = e.target.closest('[data-yes]');
     if (!yes || yes.disabled) return;
-    if (loadPoints() < it.price) { // 포인트가 모자라면 팝업으로 알려 줘요
-      confirmSheet(`포인트가 ${(it.price - loadPoints()).toLocaleString()}P 부족합니다`, `${it.name}은(는) ${it.price.toLocaleString()}P예요. 친환경 이동과 캠페인으로 포인트를 더 모아 보세요.`, '확인', '', 'primary');
+    if (loadPoints() < it.price) { // 포인트가 모자라면: 신났던 푸름이가 울고, 창 안에 모자란 만큼 알려 줘요
+      const m = sheet.querySelector('.ss-mascot');
+      if (m && !m.classList.contains('sad')) { m.classList.add('sad'); m.innerHTML = mascotSadSVG(); }
+      const msg = sheet.querySelector('#ss-short');
+      msg.innerHTML = `<span>포인트가 <b>${(it.price - loadPoints()).toLocaleString()}P</b> 부족해요</span><small>친환경 이동이나 캠페인으로 조금만 더 모아 봐요</small>`;
+      msg.hidden = false;
+      [m, msg, yes].forEach((el) => { if (!el) return; el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }); // 다시 누르면 다시 흔들려요
       return;
     }
     yes.disabled = true; yes.textContent = '구매하는 중…';
@@ -3343,9 +3376,11 @@ function accountHTML() {
         ${isAdmin() ? `<button type="button" class="acc-admin" data-act="open-admin"><span>🛡️ 캠페인 검토 <em>관리자</em></span><span class="acc-cnt">${pendingCampaigns().length ? `<i>${pendingCampaigns().length}</i>` : ''}${ICON.chev}</span></button>
         <button type="button" class="acc-admin" data-act="admin-points"><span>💰 포인트 지급 · 삭제 <em>관리자</em></span><span class="acc-cnt">${ICON.chev}</span></button>
         <button type="button" class="acc-admin" data-act="admin-carbon"><span>🌿 탄소 절약량 조절 <em>관리자</em></span><span class="acc-cnt">${ICON.chev}</span></button>
-        <button type="button" class="acc-admin" data-act="admin-users"><span>🚫 회원 관리 · 차단 <em>관리자</em></span><span class="acc-cnt">${ICON.chev}</span></button>` : ''}
+        <button type="button" class="acc-admin" data-act="admin-users"><span>🚫 회원 관리 · 차단 <em>관리자</em></span><span class="acc-cnt">${ICON.chev}</span></button>
+        <button type="button" class="acc-admin" data-act="admin-feedback"><span>📬 받은 의견 <em>관리자</em></span><span class="acc-cnt">${state.fbNew ? `<i>${state.fbNew}</i>` : ''}${ICON.chev}</span></button>` : ''}
         <button type="button" data-act="open-rank"><span>🏆 이달의 절약왕 랭킹</span>${ICON.chev}</button>
         <button type="button" data-act="open-calendar"><span>📅 그린 캘린더</span>${ICON.chev}</button>
+        <button type="button" data-act="open-help"><span>❓ 자주 묻는 질문 · 의견 보내기</span>${ICON.chev}</button>
         <div class="acc-info"><span>로그인 방식</span><b>${esc(how)}${u.demo ? ' (체험용)' : ''}</b></div>
         ${u.email ? `<div class="acc-info"><span>이메일</span><b>${esc(u.email)}</b></div>` : ''}
       </section>
@@ -3353,6 +3388,142 @@ function accountHTML() {
       <p class="rk-note">프로필 사진과 닉네임은 이 기기에 저장돼요</p>
     </main>
     ${tabBarHTML('me')}`;
+}
+
+// ── 도움말: 자주 묻는 질문 + 관리자에게 의견 보내기 (계정정보 > 자주 묻는 질문 · 의견 보내기) ──
+//  질문·답은 되도록 두 줄 안에 들어오게 짧게 적어요
+const FAQ = [
+  { q: '이 앱은 무슨 앱이에요?', a: '자동차 대신 걷기·자전거·대중교통을 타면 아낀 탄소만큼 포인트를 주는 길찾기 앱이에요.' },
+  { q: '포인트는 어떻게 쌓고 어디에 써요?', a: `친환경 이동 1km에 ${PT_PER_KM}P, 탄소 1kg 절약에 ${PT_PER_KG}P예요. 상점에서 굿즈·쿠폰으로 바꿔요.` },
+  { q: '이동 기록은 언제 저장돼요?', a: '목적지에 도착하면 저장돼요. 인터넷이 끊겼다면 연결될 때 올라가요.' },
+  { q: '캠페인은 어떻게 만들어요?', a: '캠페인 탭의 만들기 버튼으로 신청해요. 관리자가 승인하면 목록에 올라가요.' },
+];
+const FB_KINDS = [
+  { id: 'bug', icon: '🐞', label: '오류 신고', hint: '어떤 화면에서 무슨 일이 있었는지 알려 주세요' },
+  { id: 'idea', icon: '✏️', label: '고칠 점', hint: '이렇게 바뀌면 좋겠다 싶은 점을 적어 주세요' },
+  { id: 'etc', icon: '💬', label: '기타', hint: '하고 싶은 말을 편하게 남겨 주세요' },
+];
+const FB_MAX = 500;
+const FB_MIN = 5;
+const FB_STATE = { new: '확인 전', read: '확인함', done: '처리 완료' };
+const fbKind = (id) => FB_KINDS.find((k) => k.id === id) || FB_KINDS[2];
+const fbWhen = (t) => {
+  const d = new Date(t); const p = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+function faqItemHTML(f, i) {
+  const open = state.faqOpen === i;
+  return `<div class="faq-item ${open ? 'open' : ''}">
+    <button type="button" class="faq-q" data-act="faq" data-id="${i}" aria-expanded="${open}" aria-controls="faq-a${i}"><i aria-hidden="true">Q</i><span>${esc(f.q)}</span>${ICON.chev}</button>
+    <div class="faq-a" id="faq-a${i}" role="region"><div><p>${esc(f.a)}</p></div></div>
+  </div>`;
+}
+function fbChipHTML(x) {
+  const k = fbKind(x.kind);
+  return `<div class="fb-row"><span class="fb-chip k-${esc(x.kind)}">${k.icon} ${k.label}</span><span class="fb-state s-${esc(x.status)}">${FB_STATE[x.status] || ''}</span><time>${fbWhen(x.at)}</time></div>`;
+}
+// 내가 보낸 의견 (관리자가 확인했는지 보여 줘요)
+function fbMineHTML() {
+  const m = (state.fb && state.fb.mine) || [];
+  if (!m.length) return '';
+  return `<section class="fb-mine" aria-label="내가 보낸 의견"><h3>내가 보낸 의견</h3>
+    <ul>${m.map((x) => `<li>${fbChipHTML(x)}<p>${esc(x.body)}</p></li>`).join('')}</ul></section>`;
+}
+function helpHTML() {
+  const f = state.fb || (state.fb = { kind: 'bug', text: '', busy: false, mine: null });
+  return `${appBar('도움말', 'back')}
+    <main class="content help">
+      <section class="m-card faq" aria-label="자주 묻는 질문">${FAQ.map(faqItemHTML).join('')}</section>
+      <section class="m-card fb-card">
+        <div class="fb-head"><h2>관리자에게 의견 보내기</h2><p>오류나 고쳤으면 하는 점을 남겨 주시면 관리자가 확인해요.</p></div>
+        <form id="fb-form" novalidate>
+          <div class="fb-kinds" role="radiogroup" aria-label="의견 종류">${FB_KINDS.map((k) => `<button type="button" role="radio" class="fb-kind ${f.kind === k.id ? 'on' : ''}" aria-checked="${f.kind === k.id}" data-act="fb-kind" data-id="${k.id}">${k.icon} ${k.label}</button>`).join('')}</div>
+          <textarea id="fb-text" class="input fb-text" rows="5" maxlength="${FB_MAX}" aria-label="의견 내용" placeholder="${esc(fbKind(f.kind).hint)}">${esc(f.text)}</textarea>
+          <div class="fb-foot"><span class="fb-count" id="fb-count">${f.text.length}/${FB_MAX}</span>
+            <button type="submit" class="btn primary" id="fb-send" ${f.busy ? 'disabled' : ''}>${f.busy ? '보내는 중…' : '보내기'}</button></div>
+        </form>
+      </section>
+      <div id="fb-mine">${fbMineHTML()}</div>
+    </main>`;
+}
+function loadMyFeedback() {
+  if (!dbMode()) return;
+  dataApi('feedback-mine').then((r) => {
+    if (r.status === 401) return needRelogin();
+    if (r.status !== 200 || !state.fb) return;
+    state.fb.mine = r.data.items || [];
+    const el = document.getElementById('fb-mine');
+    if (el && state.screen === 'help') el.innerHTML = fbMineHTML();
+  });
+}
+async function sendFeedback() {
+  const f = state.fb;
+  if (!f || f.busy) return;
+  const text = String(f.text || '').trim();
+  if (text.length < FB_MIN) { toast(`내용을 ${FB_MIN}자 이상 적어 주세요`); const t = document.getElementById('fb-text'); if (t) t.focus(); return; }
+  if (!dbMode()) { toast('의견 보내기는 서버에 연결된 곳에서만 쓸 수 있어요'); return; }
+  const setBtn = (busy) => { const b = document.getElementById('fb-send'); if (b) { b.disabled = busy; b.textContent = busy ? '보내는 중…' : '보내기'; } };
+  f.busy = true; setBtn(true);
+  const r = await dataApi('feedback-send', { kind: f.kind, body: text });
+  f.busy = false; setBtn(false);
+  if (r.status === 401) return needRelogin();
+  if (r.status !== 200) { toast(r.data.error || '보내지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+  f.text = '';
+  const t = document.getElementById('fb-text'); if (t) t.value = '';
+  const c = document.getElementById('fb-count'); if (c) c.textContent = `0/${FB_MAX}`;
+  toast('의견을 보냈어요. 관리자가 확인할게요');
+  loadMyFeedback();
+}
+
+// 관리자: 받은 의견 (계정정보 > 받은 의견)
+function loadAdminFeedback(f) {
+  const cur = state.fba || {};
+  state.fba = { ...cur, f: f || cur.f || 'new', loading: true, error: '' };
+  if (state.screen === 'admin-feedback') renderAdminFeedback();
+  const seq = (loadAdminFeedback.seq = (loadAdminFeedback.seq || 0) + 1);
+  dataApi('feedback-list', undefined, `&f=${state.fba.f}`).then((r) => {
+    if (seq !== loadAdminFeedback.seq) return; // 늦게 온 예전 결과는 버려요
+    if (r.status === 401) return needRelogin();
+    if (r.status === 200) {
+      state.fba = { f: r.data.f, items: r.data.items, newCount: r.data.newCount, total: r.data.total, loading: false };
+      state.fbNew = r.data.newCount; // 계정정보의 빨간 숫자
+    } else state.fba = { ...state.fba, loading: false, error: r.data.error || '불러오지 못했어요.' };
+    if (state.screen === 'admin-feedback') renderAdminFeedback();
+  });
+}
+function fbItemHTML(x) {
+  const who = x.email ? `${esc(x.name)} · ${esc(x.email)}` : `${esc(x.name)}${x.provider === 'kakao' ? ' · 카카오' : ''}`;
+  return `<li class="fb-item s-${esc(x.status)}">
+    ${fbChipHTML(x)}
+    <p class="fb-who">${who}</p>
+    <p class="fb-body">${esc(x.body)}</p>
+    <div class="au-acts fb-acts">
+      ${x.status === 'new' ? `<button type="button" class="btn small" data-act="fb-set" data-id="${esc(x.id)}" data-to="read">확인함</button>` : ''}
+      ${x.status === 'done' ? `<button type="button" class="btn small" data-act="fb-set" data-id="${esc(x.id)}" data-to="read">다시 열기</button>`
+        : `<button type="button" class="btn small fb-ok" data-act="fb-set" data-id="${esc(x.id)}" data-to="done">처리 완료</button>`}
+      <button type="button" class="btn small au-del" data-act="fb-del" data-id="${esc(x.id)}" aria-label="의견 삭제">${ICON.trash}</button>
+    </div>
+  </li>`;
+}
+function adminFeedbackListHTML() {
+  const a = state.fba || {};
+  const list = a.items || [];
+  const tab = a.f || 'new';
+  const tabBtn = (id, label, n) => `<button type="button" role="tab" class="${tab === id ? 'on' : ''}" aria-selected="${tab === id}" data-act="fb-tab" data-id="${id}">${label} ${(n || 0).toLocaleString()}</button>`;
+  return `<div class="c-sort ad-tabs" role="tablist">${tabBtn('new', '안 읽음', a.newCount)}${tabBtn('all', '전체', a.total)}</div>
+    ${a.newCount ? '<button type="button" class="au-blocked-link" data-act="fb-readall">모두 확인함으로 표시</button>' : ''}
+    ${a.error ? `<p class="hint">${esc(a.error)}</p>` : ''}
+    ${list.length ? `<ul class="fb-list">${list.map(fbItemHTML).join('')}</ul>`
+      : a.loading ? '<p class="acc-empty">불러오는 중…</p>' : `<p class="acc-empty">${tab === 'new' ? '✅ 새로 온 의견이 없어요.' : '아직 받은 의견이 없어요.'}</p>`}`;
+}
+function renderAdminFeedback() { const el = document.getElementById('fba-out'); if (el) el.innerHTML = adminFeedbackListHTML(); }
+function adminFeedbackHTML() {
+  if (!isAdmin()) return `${appBar('받은 의견', 'back')}<main class="content"><p class="empty">관리자만 볼 수 있어요.</p></main>`;
+  return `${appBar('받은 의견', 'back')}
+    <main class="content fba">
+      <p class="ad-lead">사용자가 보낸 오류 신고와 고칠 점이에요. 확인함이나 처리 완료로 표시하면 보낸 사람 화면에도 그대로 보여요.</p>
+      <div id="fba-out">${adminFeedbackListHTML()}</div>
+    </main>`;
 }
 
 // 아래 탭 바 (글라스 UI): 선택 표시가 눌린 탭으로 미끄러지듯 이동하고, 손가락으로 끌어서 옮길 수도 있어요
@@ -3544,6 +3715,7 @@ function needRelogin(msg) {
 function clearServerCache() {
   [LOG_KEY, POINT_KEY, POINT_MONTH_KEY, CAMP_KEY, AVATAR_KEY, RECENT_KEY, SHOP_ORDER_KEY].forEach((k) => lsSet(k, null));
   state.rank = null; state.campRanks = {};
+  state.fb = null; state.fba = null; state.fbNew = 0;
 }
 // 서버에서 받은 내 기록을 저장 공간에 덮어쓰기
 function applySync(d) {
@@ -3558,6 +3730,7 @@ function applySync(d) {
   state.lastAwards = d.lastAwards || [];
   if (d.shop) { state.shopItems = d.shop.items || []; lsSet(SHOP_ORDER_KEY, d.shop.orders || []); }
   state.demoUsers = d.demoUsers || 0; // 관리자에게만: 예시 회원 수
+  state.fbNew = d.feedbackNew || 0;   // 관리자에게만: 안 읽은 의견 수
   state.demoCal = d.demoCal || 0;     // 관리자에게만: 내 캘린더 예시 이동 수
   if (Array.isArray(d.recentPlaces)) lsSet(RECENT_KEY, mergeRecent(d.recentPlaces, loadRecent())); // 다른 기기에서 간 곳도
   if (state.user && d.user) {
@@ -4267,7 +4440,7 @@ function campDoneHTML() {
     ${cta('<button type="button" class="btn" data-act="go-main">홈으로 돌아가기</button><button type="button" class="btn primary" data-act="camp-back">캠페인 화면으로 돌아가기</button>')}`;
 }
 
-const VIEWS = { shop: shopHTML, 'admin-users': adminUsersHTML, 'my-camps': myJoinedCampsHTML, campdone: campDoneHTML, titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, verify: verifyHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
+const VIEWS = { shop: shopHTML, help: helpHTML, 'admin-feedback': adminFeedbackHTML, 'admin-users': adminUsersHTML, 'my-camps': myJoinedCampsHTML, campdone: campDoneHTML, titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, verify: verifyHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
 
 // 화면 전체 그리기
 function render() {
@@ -4344,7 +4517,7 @@ function go(screen, dir) {
 // 뒤로 가면 나올 화면 (손가락으로 밀기·뒤로 버튼 공통)
 function backOf(screen) {
   return {
-    titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', 'my-camps': 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', 'admin-users': 'account', shop: 'account', home: state.campTrip ? 'campaign' : 'main', campdone: 'campaign', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
+    titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', 'my-camps': 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', 'admin-users': 'account', help: 'account', 'admin-feedback': 'account', shop: 'account', home: state.campTrip ? 'campaign' : 'main', campdone: 'campaign', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
     'email-login': 'login', signup: 'login', verify: 'login',
   }[screen] || null;
 }
@@ -4694,6 +4867,48 @@ const actions = {
   'admin-points': () => { if (isAdmin()) adminAdjustSheet('points'); },
   'admin-carbon': () => { if (isAdmin()) adminAdjustSheet('carbon'); },
   'admin-users': () => { if (!isAdmin()) return; if (!dbMode()) { toast('회원 관리는 서버 DB가 연결된 곳에서만 쓸 수 있어요'); return; } state.adm = { q: '' }; go('admin-users'); loadAdminUsers(''); },
+  'open-help': () => { state.faqOpen = 0; if (state.fb) state.fb.mine = null; go('help'); loadMyFeedback(); },
+  faq: (el) => {
+    const i = Number(el.dataset.id);
+    state.faqOpen = state.faqOpen === i ? -1 : i; // 하나만 펼쳐요
+    document.querySelectorAll('#app .faq-item').forEach((n, j) => {
+      const on = j === state.faqOpen;
+      n.classList.toggle('open', on);
+      n.querySelector('.faq-q').setAttribute('aria-expanded', String(on));
+    });
+  },
+  'fb-kind': (el) => {
+    if (!state.fb) return;
+    state.fb.kind = el.dataset.id;
+    document.querySelectorAll('#app .fb-kind').forEach((b) => { const on = b.dataset.id === state.fb.kind; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+    const t = document.getElementById('fb-text'); if (t) t.placeholder = fbKind(state.fb.kind).hint;
+  },
+  'admin-feedback': () => { if (!isAdmin()) return; if (!dbMode()) { toast('받은 의견은 서버 DB가 연결된 곳에서만 볼 수 있어요'); return; } state.fba = { f: 'new' }; go('admin-feedback'); loadAdminFeedback('new'); },
+  'fb-tab': (el) => loadAdminFeedback(el.dataset.id),
+  'fb-set': async (el) => {
+    const to = el.dataset.to;
+    el.disabled = true;
+    const r = await dataApi('feedback-set', { id: el.dataset.id, to });
+    if (r.status === 401) return needRelogin();
+    if (r.status !== 200) { el.disabled = false; toast(r.data.error || '바꾸지 못했어요'); return; }
+    toast(to === 'done' ? '처리 완료로 표시했어요' : '확인함으로 표시했어요');
+    loadAdminFeedback();
+  },
+  'fb-readall': async () => {
+    const r = await dataApi('feedback-set', { all: true, to: 'read' });
+    if (r.status === 401) return needRelogin();
+    if (r.status !== 200) { toast(r.data.error || '바꾸지 못했어요'); return; }
+    toast(`의견 ${r.data.count}개를 확인함으로 표시했어요`);
+    loadAdminFeedback();
+  },
+  'fb-del': (el) => confirmSheet('이 의견을 지울까요?', '지우면 되돌릴 수 없고, 보낸 사람 목록에서도 사라져요.', '지우기').then(async (ok) => {
+    if (!ok) return;
+    const r = await dataApi('feedback-del', { id: el.dataset.id });
+    if (r.status === 401) return needRelogin();
+    if (r.status !== 200) { toast(r.data.error || '지우지 못했어요'); return; }
+    toast('의견을 지웠어요');
+    loadAdminFeedback();
+  }),
   'adm-blocked': () => { const i = document.getElementById('au-q'); if (i) i.value = ''; loadAdminUsers(''); render(); },
   'adm-pt': (el) => { const u = admUser(el.dataset.id); if (u) adminAdjustSheet('points', u); },
   'adm-co2': (el) => { const u = admUser(el.dataset.id); if (u) adminAdjustSheet('carbon', u); },
@@ -4893,6 +5108,7 @@ appEl.addEventListener('click', (e) => {
 appEl.addEventListener('submit', (e) => {
   if (e.target.id === 'search-form') { e.preventDefault(); runSearch(); }
   if (e.target.id === 'camp-form') { e.preventDefault(); submitCampaign(); }
+  if (e.target.id === 'fb-form') { e.preventDefault(); sendFeedback(); return; }
   if (e.target.id === 'au-form') { e.preventDefault(); loadAdminUsers(String(document.getElementById('au-q').value || '').trim()); }
   if (e.target.id === 'name-form') {
     e.preventDefault();
@@ -4934,6 +5150,7 @@ appEl.addEventListener('input', (e) => {
     if (state.verify.message && !state.verify.dead) { state.verify.message = ''; renderVerifyMsg(); }
     if (clean.length === 6) submitVerify(); // 6자리 다 넣으면 바로 확인
   }
+  if (e.target.id === 'fb-text' && state.fb) { state.fb.text = e.target.value; const c = document.getElementById('fb-count'); if (c) c.textContent = `${e.target.value.length}/${FB_MAX}`; }
   if (e.target.id === 'au-q') { clearTimeout(loadAdminUsers.t); const v = e.target.value.trim(); loadAdminUsers.t = setTimeout(() => loadAdminUsers(v), 300); }
   if (e.target.form && e.target.form.id === 'login-form' && (state.auth.errKey || state.auth.message)) {
     state.auth = { ...state.auth, errKey: null, errField: null, message: '' };

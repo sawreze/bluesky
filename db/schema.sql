@@ -260,6 +260,20 @@ CREATE OR REPLACE FUNCTION email_canon(e TEXT) RETURNS TEXT LANGUAGE sql IMMUTAB
     ELSE split_part(split_part(lower(e), '@', 1), '+', 1) || '@' || split_part(lower(e), '@', 2) END
 $f$;
 
+-- 14) 사용자 의견 (오류 신고 · 고칠 점 · 기타) — 관리자가 계정정보 > 받은 의견 에서 봐요
+--   read_at: 관리자가 확인한 시각, done_at: 처리를 끝낸 시각 (둘 다 비어 있으면 새 의견)
+CREATE TABLE IF NOT EXISTS feedback (
+  id            SERIAL PRIMARY KEY,
+  user_id       INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind          TEXT NOT NULL CHECK (kind IN ('bug', 'idea', 'etc')),
+  body          TEXT NOT NULL CHECK (length(body) BETWEEN 5 AND 500),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  read_at       TIMESTAMPTZ,
+  done_at       TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS feedback_created_idx ON feedback (created_at DESC);
+CREATE INDEX IF NOT EXISTS feedback_user_idx ON feedback (user_id, created_at DESC);
+
 -- ===================== 계산용 뷰 (저장 안 하고 그때그때 계산) =====================
 
 -- 이동별 배출량·거리

@@ -17,6 +17,10 @@
 //  POST a=admin-carbon             (관리자) 탄소 절약량 더하기 · 빼기 (mode: plus | minus)
 //  GET  a=admin-users&q=           (관리자) 회원 검색 (q 비우면 차단된 회원 목록)
 //  POST a=admin-block | admin-del-user (관리자) 회원 차단·해제 · 삭제
+//  POST a=feedback-send            (회원) 관리자에게 의견 보내기 (오류 신고 · 고칠 점 · 기타)
+//  GET  a=feedback-mine            (회원) 내가 보낸 의견과 확인 상태
+//  GET  a=feedback-list&f=new|all  (관리자) 받은 의견 목록
+//  POST a=feedback-set | feedback-del (관리자) 확인함 · 처리 완료 표시 · 삭제
 //
 //  누구인지는 출입증 쿠키로만 확인해요. 포인트도 서버가 계산해요.
 // =====================================================================
@@ -49,6 +53,8 @@ const kmBetween = (a, b) => {
 };
 const MAX_COVER = 1500000;     // 표지 사진 (글자로 바꾼 크기) 최대 약 1.5MB
 const MAX_AVATAR = 400000;
+// 사용자 의견: 종류 · 글자 수 · 도배 막기 (한 사람이 1시간에 5개까지)
+const FEEDBACK = { kinds: ['bug', 'idea', 'etc'], minLen: 5, maxLen: 500, hourMax: 5 };
 
 const SEED = require('./_seed.cjs');
 class Bad extends Error { constructor(status, msg) { super(msg); this.status = status; } }
@@ -271,6 +277,7 @@ function makeData(db) {
     const out = { user: userOut(me), ...s, camps, rank, shop, lastAwards: awards };
     if (isAdminRow(me) && db.schemaErrors && db.schemaErrors.length) out.schemaErrors = db.schemaErrors; // 관리자에게만: DB 구조 바꾸기 실패한 문장
     if (isAdminRow(me)) { const d = await demoCounts(me.id); out.demoUsers = d.users; out.demoCal = d.cal; }
+    if (isAdminRow(me)) out.feedbackNew = await soft(feedbackNewCount(), 0); // 관리자에게만: 안 읽은 의견 수
     return out;
   }
 
@@ -398,6 +405,68 @@ function makeData(db) {
     const u = await guardTarget(me, b.id);
     await sql()`DELETE FROM users WHERE id = ${u.id}`; // 이동·포인트·캠페인·좋아요·참여가 함께 지워져요
     return { ok: true, name: u.name };
+  }
+
+  // ── 사용자 의견 → 관리자 ──
+  const fbStatus = (r) => (r.done_at ? 'done' : r.read_at ? 'read' : 'new');
+  async function feedbackNewCount() {
+    const [r] = await sql()`SELECT COUNT(*) AS n FROM feedback WHERE read_at IS NULL AND done_at IS NULL`;
+    return num(r.n);
+  }
+  async function feedbackSend(me, b) {
+    const kind = FEEDBACK.kinds.includes(b.kind) ? b.kind : bad('의견 종류를 골라 주세요.');
+    const body = String(b.body == null ? '' : b.body).replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    if (body.length < FEEDBACK.minLen) bad(`내용을 ${FEEDBACK.minLen}자 이상 적어 주세요.`);
+    if (body.length > FEEDBACK.maxLen) bad(`의견은 ${FEEDBACK.maxLen}자까지 적을 수 있어요.`);
+    const [h] = await sql()`SELECT COUNT(*) AS n FROM feedback WHERE user_id = ${me.id} AND created_at > now() - interval '1 hour'`;
+    if (num(h.n) >= FEEDBACK.hourMax) bad('의견을 너무 자주 보내고 있어요. 잠시 뒤에 다시 보내 주세요.', 429);
+    const [dup] = await sql()`SELECT 1 AS x FROM feedback WHERE user_id = ${me.id} AND body = ${body} AND created_at > now() - interval '1 day'`;
+    if (dup) bad('같은 내용을 이미 보냈어요.');
+    await sql()`INSERT INTO feedback (user_id, kind, body) VALUES (${me.id}, ${kind}, ${body})`;
+    return { ok: true };
+  }
+  async function feedbackMine(me) {
+    const rows = await sql()`SELECT id, kind, body, created_at, read_at, done_at FROM feedback
+      WHERE user_id = ${me.id} ORDER BY created_at DESC, id DESC LIMIT 10`;
+    return { ok: true, items: rows.map((r) => ({ id: String(r.id), kind: r.kind, body: r.body, at: ms(r.created_at), status: fbStatus(r) })) };
+  }
+  async function feedbackList(me, q) {
+    if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
+    const f = q.f === 'all' ? 'all' : 'new';
+    const rows = f === 'new'
+      ? await sql()`SELECT x.id, x.kind, x.body, x.created_at, x.read_at, x.done_at, u.id AS uid, u.name, u.email, u.provider
+          FROM feedback x JOIN users u ON u.id = x.user_id WHERE x.read_at IS NULL AND x.done_at IS NULL
+          ORDER BY x.created_at DESC, x.id DESC LIMIT 100`
+      : await sql()`SELECT x.id, x.kind, x.body, x.created_at, x.read_at, x.done_at, u.id AS uid, u.name, u.email, u.provider
+          FROM feedback x JOIN users u ON u.id = x.user_id
+          ORDER BY x.created_at DESC, x.id DESC LIMIT 100`;
+    const [c] = await sql()`SELECT COUNT(*) FILTER (WHERE read_at IS NULL AND done_at IS NULL) AS n, COUNT(*) AS t FROM feedback`;
+    return {
+      ok: true, f, newCount: num(c.n), total: num(c.t),
+      items: rows.map((r) => ({ id: String(r.id), kind: r.kind, body: r.body, at: ms(r.created_at), status: fbStatus(r),
+        uid: String(r.uid), name: r.name, email: r.provider === 'email' ? (r.email || '') : '', provider: r.provider })),
+    };
+  }
+  async function feedbackSet(me, b) {
+    if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
+    const to = ['new', 'read', 'done'].includes(b.to) ? b.to : bad('상태를 골라 주세요.');
+    if (b.all) { // 안 읽은 의견 모두 확인함으로
+      if (to !== 'read') bad('한꺼번에는 확인함으로만 바꿀 수 있어요.');
+      const rows = await sql()`UPDATE feedback SET read_at = now() WHERE read_at IS NULL AND done_at IS NULL RETURNING id`;
+      return { ok: true, count: rows.length };
+    }
+    const id = intId(b.id);
+    const rows = to === 'new' ? await sql()`UPDATE feedback SET read_at = NULL, done_at = NULL WHERE id = ${id} RETURNING id`
+      : to === 'read' ? await sql()`UPDATE feedback SET read_at = COALESCE(read_at, now()), done_at = NULL WHERE id = ${id} RETURNING id`
+      : await sql()`UPDATE feedback SET read_at = COALESCE(read_at, now()), done_at = COALESCE(done_at, now()) WHERE id = ${id} RETURNING id`;
+    if (!rows.length) bad('의견을 찾지 못했어요.', 404);
+    return { ok: true, count: 1 };
+  }
+  async function feedbackDel(me, b) {
+    if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
+    const rows = await sql()`DELETE FROM feedback WHERE id = ${intId(b.id)} RETURNING id`;
+    if (!rows.length) bad('의견을 찾지 못했어요.', 404);
+    return { ok: true };
   }
 
   // ── 이동 저장 ──
@@ -615,7 +684,7 @@ function makeData(db) {
     return res.status(200).send(Buffer.from(m[2], 'base64'));
   }
 
-  const POSTS = { 'shop-buy': shopBuy, 'demo-seed': demoSeed, 'demo-clear': demoClear, 'admin-points': adminPoints, 'admin-carbon': adminCarbon, 'admin-block': adminBlock, 'admin-del-user': adminDelUser, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-join': joinCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
+  const POSTS = { 'shop-buy': shopBuy, 'demo-seed': demoSeed, 'demo-clear': demoClear, 'admin-points': adminPoints, 'admin-carbon': adminCarbon, 'admin-block': adminBlock, 'admin-del-user': adminDelUser, 'feedback-send': feedbackSend, 'feedback-set': feedbackSet, 'feedback-del': feedbackDel, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-join': joinCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
 
   return async function handler(req, res) {
     const q = req.query || {};
@@ -634,6 +703,8 @@ function makeData(db) {
         if (a === 'sync') return res.status(200).json(await sync(me));
         if (a === 'camp-rank') return res.status(200).json(await campRank(me, q));
         if (a === 'admin-users') return res.status(200).json(await adminUsers(me, q));
+        if (a === 'feedback-mine') return res.status(200).json(await feedbackMine(me));
+        if (a === 'feedback-list') return res.status(200).json(await feedbackList(me, q));
         if (a === 'rank') return res.status(200).json(await monthRank(me.id, /^\d{4}-\d{2}$/.test(q.m || '') ? q.m : null));
       } else if (req.method === 'POST' && POSTS[a]) {
         return res.status(200).json(await POSTS[a](me, body(req)));
