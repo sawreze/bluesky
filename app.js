@@ -33,6 +33,29 @@ const HAS_REST = keyOk(KAKAO_REST_KEY);
 const HAS_ODSAY = keyOk(ODSAY_KEY);
 const MAP_KIND = HAS_NAVER ? 'naver' : HAS_JS ? 'kakao' : null; // 지도 화면에 쓸 엔진
 
+// ── 화면 테마 (라이트 · 다크): 계정정보 오른쪽 위 스위치로 바꾸고, 이 기기에 기억해요 ──
+const THEME_KEY = 'pureun-theme';
+const THEME_BAR = { light: '#D5E7F6', dark: '#0D1829' }; // 휴대폰 상단 상태 표시줄 색
+const loadTheme = () => { try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch (e) { return 'light'; } };
+function applyTheme(t, animate) {
+  const root = document.documentElement;
+  if (animate) { root.classList.add('theme-anim'); clearTimeout(applyTheme.t); applyTheme.t = setTimeout(() => root.classList.remove('theme-anim'), 500); }
+  root.dataset.theme = t;
+  const bar = document.querySelector('meta[name="theme-color"]');
+  if (bar) bar.setAttribute('content', THEME_BAR[t]);
+}
+applyTheme(loadTheme()); // 첫 화면을 그리기 전에 적용 (깜빡임 없게)
+function themeSwitchHTML() {
+  const t = loadTheme();
+  const sun = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg>';
+  const moon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 1 1 9.8 3.5a6.8 6.8 0 0 0 10.7 10.7z"/></svg>';
+  return `<div class="thm-sw" role="group" aria-label="화면 테마" data-on="${t}">
+    <span class="thm-ind" aria-hidden="true"></span>
+    <button type="button" data-act="set-theme" data-id="light" aria-pressed="${t === 'light'}">${sun}라이트</button>
+    <button type="button" data-act="set-theme" data-id="dark" aria-pressed="${t === 'dark'}">${moon}다크</button>
+  </div>`;
+}
+
 // 이동수단별 탄소배출계수 (1인이 1km 이동할 때 CO₂, 단위 g)
 // 출처: 서울시 자료(그린피스 코리아 인용) — 승용차 210g, 버스 27.7g, 지하철 1.53g
 const FACTORS = { car: 210, bus: 27.7, subway: 1.53, bike: 0, walk: 0 };
@@ -3350,6 +3373,7 @@ function accountHTML() {
   return `<main class="main acc">
       <header class="m-top">
         <div><p class="m-kicker">${ICON.spark}내 정보</p><h1 class="m-title sm">계정정보</h1></div>
+        ${themeSwitchHTML()}
       </header>
       <section class="acc-top">
         <label class="acc-photo" aria-label="프로필 사진 바꾸기">
@@ -4826,6 +4850,13 @@ function goAuth(screen) {
 
 // 버튼 클릭 (data-act 값으로 구분)
 const actions = {
+  'set-theme': (el) => {
+    const t = el.dataset.id === 'dark' ? 'dark' : 'light';
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* 무시 */ }
+    applyTheme(t, true);
+    const sw = el.closest('.thm-sw');
+    if (sw) { sw.dataset.on = t; sw.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === t))); }
+  },
   'mascot-hop': (el) => {
     el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop'); setTimeout(() => el.classList.remove('hop'), 700);
     // 누르면 말풍선으로 인사하고 잠시 뒤 사라져요
