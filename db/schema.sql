@@ -230,6 +230,36 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 CREATE INDEX IF NOT EXISTS login_attempts_email_idx ON login_attempts (email, at);
 CREATE INDEX IF NOT EXISTS login_attempts_ip_idx ON login_attempts (ip_hash, at);
 
+-- 13) 이메일 인증 코드 (가입 · 새 기기 로그인 때 메일로 6자리 코드)
+--   코드는 그대로 저장하지 않고 서명(HMAC)만, 10분 지나거나 5번 틀리면 못 써요.
+--   가입은 인증이 끝나야 users 에 들어가요 (그 전까지 이름·비밀번호 해시는 여기서 기다려요)
+CREATE TABLE IF NOT EXISTS email_codes (
+  id            SERIAL PRIMARY KEY,
+  token         TEXT NOT NULL UNIQUE,
+  purpose       TEXT NOT NULL CHECK (purpose IN ('signup', 'login')),
+  email         TEXT NOT NULL,
+  name          TEXT,
+  pw_hash       TEXT,
+  user_id       INT REFERENCES users(id) ON DELETE CASCADE,
+  code_hash     TEXT NOT NULL,
+  attempts      INT NOT NULL DEFAULT 0,
+  ip_hash       TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at    TIMESTAMPTZ NOT NULL,
+  used_at       TIMESTAMPTZ,
+  CHECK ((purpose = 'signup' AND name IS NOT NULL AND pw_hash IS NOT NULL AND user_id IS NULL)
+      OR (purpose = 'login' AND user_id IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS email_codes_email_idx ON email_codes (email, created_at);
+CREATE INDEX IF NOT EXISTS email_codes_ip_idx ON email_codes (ip_hash, created_at);
+
+-- 같은 메일함인지 비교용: 지메일은 점(.)과 +뒤를 무시해요 (a.b+1@gmail.com = ab@gmail.com), 다른 메일은 +뒤만 무시
+CREATE OR REPLACE FUNCTION email_canon(e TEXT) RETURNS TEXT LANGUAGE sql IMMUTABLE AS $f$
+  SELECT CASE WHEN split_part(lower(e), '@', 2) IN ('gmail.com', 'googlemail.com')
+    THEN replace(split_part(split_part(lower(e), '@', 1), '+', 1), '.', '') || '@gmail.com'
+    ELSE split_part(split_part(lower(e), '@', 1), '+', 1) || '@' || split_part(lower(e), '@', 2) END
+$f$;
+
 -- ===================== 계산용 뷰 (저장 안 하고 그때그때 계산) =====================
 
 -- 이동별 배출량·거리

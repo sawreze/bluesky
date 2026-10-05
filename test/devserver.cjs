@@ -10,6 +10,7 @@ const routes = {
   '/api/data': require('../api/data.js'),
   '/api/auth/login': require('../api/auth/login.js'),
   '/api/auth/signup': require('../api/auth/signup.js'),
+  '/api/auth/code': require('../api/auth/code.js'),
 };
 const ROOT = path.join(__dirname, '..');
 // 보안 헤더: 배포(vercel.json)와 똑같이

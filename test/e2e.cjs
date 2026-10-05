@@ -26,8 +26,17 @@ async function signup(page, name, email) {
   await page.fill('#signup-form [name="email"]', email);
   await page.fill('#signup-form [name="pw"]', 'password1');
   await page.fill('#signup-form [name="pw2"]', 'password1');
-  const s = waitSync(page);
   await page.click('#signup-form [type="submit"]');
+  await passCode(page);
+}
+// 이메일 인증 코드 화면: 테스트 서버는 메일 설정이 없어서 화면에 시연용 코드가 나와요 → 그대로 입력
+async function passCode(page, shot) {
+  await page.waitForSelector('#verify-form', { timeout: 8000 });
+  const code = await page.textContent('.vf-demo b');
+  if (shot) { await sleep(300); await page.screenshot({ path: `${SHOTS}/${shot}` }); }
+  const s = waitSync(page);
+  await page.click('.vf-box');
+  await page.keyboard.type(code.trim(), { delay: 40 }); // 6자리 다 넣으면 바로 확인돼요
   await s;
   await sleep(400);
 }
@@ -163,9 +172,9 @@ async function signup(page, name, email) {
   const A2 = await newUser(browser, '지민-다른기기');
   await A2.page.fill('#login-form [name="email"]', 'jimin@test.kr');
   await A2.page.fill('#login-form [name="pw"]', 'password1');
-  s = waitSync(A2.page);
   await A2.page.click('#login-form [type="submit"]');
-  await s; await sleep(500);
+  ok('새 기기 로그인은 메일 인증 코드 화면', !!(await A2.page.waitForSelector('#verify-form', { timeout: 8000 }).catch(() => null)));
+  await passCode(A2.page, 'e2e-8-verify.png');
   ok('다른 기기: 같은 닉네임 · 같은 캠페인', await A2.page.evaluate((id) => state.user.name === 'DB지민' && campStore.load().some((c) => c.id === id && isMine(c)), String(campId)));
 
   console.log('10) 예전에 로그인해 둔 사람 (출입증 없음)');
@@ -184,6 +193,15 @@ async function signup(page, name, email) {
   await A.page.click('.sheet-wrap [data-yes]');
   await lo; await sleep(300);
   ok('로그인 화면 + 이 휴대폰의 기록 지움 + 쿠키 지움', await A.page.evaluate(() => state.screen === 'login' && !localStorage.getItem('pureun-campaigns') && !localStorage.getItem('pureun-points')) && !(await A.ctx.cookies()).some((c) => c.name === 'pureun_sid'));
+
+  console.log('12) 로그인 유지로 인증한 기기는 다시 로그인할 때 코드 없이');
+  await A.page.fill('#login-form [name="email"]', 'jimin@test.kr');
+  await A.page.fill('#login-form [name="pw"]', 'password1');
+  s = waitSync(A.page);
+  await A.page.click('#login-form [type="submit"]');
+  await s; await sleep(400);
+  ok('코드 화면 없이 바로 메인', await A.page.evaluate(() => state.screen === 'main' && !state.verify));
+  ok('기기 기억 쿠키는 인증 경로에만 (/api/auth)', (await A.ctx.cookies()).some((c) => c.name === 'pureun_dev' && c.path === '/api/auth' && c.httpOnly));
 
   await browser.close();
   console.log(`\n결과: ${pass}개 통과, ${fail}개 실패`);

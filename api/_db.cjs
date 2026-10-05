@@ -84,7 +84,7 @@ function readToken(tok) {
   if (sig.length !== want.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(want))) return null;
   try {
     const p = JSON.parse(Buffer.from(body, 'base64url').toString());
-    return p && Number.isInteger(p.u) && p.e > Date.now() ? p.u : null;
+    return p && !p.k && Number.isInteger(p.u) && p.e > Date.now() ? p.u : null; // k 가 있는 건 다른 용도(기기 기억) 토큰
   } catch (e) { return null; }
 }
 function cookieOf(req, name = COOKIE) {
@@ -96,20 +96,47 @@ function cookieOf(req, name = COOKIE) {
   return '';
 }
 // remember=false 면 브라우저를 닫을 때 사라지는 쿠키
+// 쿠키 여러 개를 같이 줄 수 있게 (출입증 + 기기 기억)
+function addCookie(res, c) {
+  const prev = res.getHeader ? res.getHeader('Set-Cookie') : (res.headers && res.headers['set-cookie']);
+  const list = prev ? [].concat(prev).filter((x) => !x.startsWith(`${c.split('=')[0]}=`)) : [];
+  res.setHeader('Set-Cookie', list.concat(c).length === 1 ? c : list.concat(c));
+}
 function setSession(res, uid, remember = true) {
   const parts = [`${COOKIE}=${makeToken(uid)}`, 'Path=/', 'HttpOnly', 'Secure', 'SameSite=Lax'];
   if (remember) parts.push(`Max-Age=${LONG_DAYS * 86400}`);
-  res.setHeader('Set-Cookie', parts.join('; '));
+  addCookie(res, parts.join('; '));
+}
+// ── 기기 기억 (로그인 유지): 인증 코드로 한 번 로그인한 브라우저는 다음부터 코드 없이 ──
+//  /api/auth 에만 가는 쿠키라 다른 곳에서는 안 보내요. 내용은 회원 번호 + 만료, 서명은 출입증과 같은 방식
+const DEVICE_COOKIE = 'pureun_dev';
+function setDevice(res, uid) {
+  const body = b64(JSON.stringify({ k: 'dev', u: Number(uid), e: Date.now() + LONG_DAYS * 86400000 }));
+  addCookie(res, `${DEVICE_COOKIE}=${body}.${sign(body)}; Path=/api/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=${LONG_DAYS * 86400}`);
+}
+function deviceUid(req) {
+  const [body, sig] = String(cookieOf(req, DEVICE_COOKIE) || '').split('.');
+  if (!body || !sig) return null;
+  const want = sign(body);
+  if (sig.length !== want.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(want))) return null;
+  try {
+    const p = JSON.parse(Buffer.from(body, 'base64url').toString());
+    return p && p.k === 'dev' && Number.isInteger(p.u) && p.e > Date.now() ? p.u : null;
+  } catch (e) { return null; }
 }
 function clearSession(res) {
-  res.setHeader('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
+  addCookie(res, `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
 }
 const sessionUid = (req) => readToken(cookieOf(req));
 
 const pub = (r) => ({ uid: r.id, provider: r.provider, email: r.email || undefined, name: r.name, role: String(r.role || 'user').trim() });
 
+// 인증 코드는 그대로 저장하지 않고 서명만 (티켓마다 달라요)
+const codeHash = (token, code) => crypto.createHmac('sha256', secret()).update(`code:${token}:${code}`).digest('hex');
+
 // ── 로그인 시도 제한 ──
 const LOGIN_LIMIT = { perEmail: 5, perIp: 20, minutes: 15 };
+const CODE_LIMIT = { minutes: 10, tries: 5, resendSec: 60, perEmailHour: 5, perIpHour: 20 };
 // 접속 IP 는 그대로 저장하지 않고 해시로 (같은 곳인지 비교만 해요)
 function ipKey(req) {
   const h = (req && req.headers) || {};
@@ -137,6 +164,47 @@ const store = {
     await sql()`DELETE FROM login_attempts WHERE at < now() - interval '1 day'`;
     const [r] = await sql()`SELECT COUNT(*) AS n FROM login_attempts WHERE email = ${email} AND at > now() - make_interval(mins => ${LOGIN_LIMIT.minutes})`;
     return Math.max(0, LOGIN_LIMIT.perEmail - Number(r.n));
+  },
+  // ── 이메일 인증 코드 ──
+  async codeCreate(row) {
+    await init();
+    const [r] = await sql()`INSERT INTO email_codes (token, purpose, email, name, pw_hash, user_id, code_hash, ip_hash, expires_at)
+      VALUES (${row.token}, ${row.purpose}, ${row.email}, ${row.name || null}, ${row.pw_hash || null}, ${row.user_id || null}, ${row.code_hash}, ${row.ip_hash},
+              now() + make_interval(mins => ${CODE_LIMIT.minutes})) RETURNING id`;
+    await sql()`DELETE FROM email_codes WHERE created_at < now() - interval '1 day'`;
+    return r;
+  },
+  async codeByToken(token) {
+    await init();
+    const [r] = await sql()`SELECT *, (expires_at < now()) AS expired, EXTRACT(EPOCH FROM (now() - created_at)) AS age FROM email_codes WHERE token = ${token}`;
+    return r || null;
+  },
+  // 보내기 제한: 아직 안 쓴 코드가 있으면 60초에 1번 · 같은 메일 1시간 5번 · 같은 접속지 1시간 20번
+  async codeWait(email, ip) {
+    await init();
+    const L = CODE_LIMIT;
+    const [r] = await sql()`SELECT
+        (SELECT EXTRACT(EPOCH FROM (now() - MAX(created_at))) FROM email_codes WHERE email = ${email} AND used_at IS NULL) AS last, -- 이미 인증에 쓴 코드는 빼고
+        (SELECT COUNT(*) FROM email_codes WHERE email = ${email} AND created_at > now() - interval '1 hour') AS he,
+        (SELECT COUNT(*) FROM email_codes WHERE ip_hash = ${ip} AND created_at > now() - interval '1 hour') AS hi`;
+    if (r.last != null && Number(r.last) < L.resendSec) return { sec: Math.ceil(L.resendSec - Number(r.last)) };
+    if (Number(r.he) >= L.perEmailHour || Number(r.hi) >= L.perIpHour) return { hour: true };
+    return null;
+  },
+  async codeFail(id) { await sql()`UPDATE email_codes SET attempts = attempts + 1 WHERE id = ${id}`; },
+  async codeUse(id) {
+    const rows = await sql()`UPDATE email_codes SET used_at = now() WHERE id = ${id} AND used_at IS NULL RETURNING id`;
+    return rows.length > 0; // 동시에 두 번 눌러도 한 번만
+  },
+  async emailTaken(email) {
+    await init();
+    const [r] = await sql()`SELECT 1 AS x FROM users WHERE provider = 'email' AND (lower(email) = lower(${email}) OR email_canon(email) = email_canon(${email})) LIMIT 1`;
+    return !!r;
+  },
+  async createEmailHashed(name, email, pwHash) {
+    await init();
+    const rows = await sql()`INSERT INTO users (provider, email, name, pw_hash) VALUES ('email', ${email}, ${name}, ${pwHash}) RETURNING *`;
+    return rows[0];
   },
   async loginOk(email) {
     await sql()`DELETE FROM login_attempts WHERE email = ${email}`;
@@ -167,4 +235,4 @@ const store = {
   },
 };
 
-module.exports = { hasDb, sql, init, store, checkPw, pub, setSession, clearSession, sessionUid, makeToken, readToken, ipKey, LOGIN_LIMIT };
+module.exports = { hasDb, sql, init, store, checkPw, hashPw, pub, setSession, clearSession, sessionUid, makeToken, readToken, ipKey, LOGIN_LIMIT, CODE_LIMIT, setDevice, deviceUid, codeHash };

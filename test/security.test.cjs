@@ -29,6 +29,7 @@ function call(handler, { method = 'GET', query = {}, body, cookie, headers: extr
     handler(req, res);
   });
 }
+call = require('./auth-auto.cjs')(call).call; // 가입·로그인 인증 코드는 자동으로
 const cookieFrom = (r) => String(r.headers['set-cookie'] || '').split(';')[0];
 const api = (a, cookie, opt = {}) => call(data, { ...opt, query: { a, ...(opt.query || {}) }, cookie });
 const post = (a, cookie, body) => api(a, cookie, { method: 'POST', body });

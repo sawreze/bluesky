@@ -988,6 +988,7 @@ async function authCall(kind, payload, demo) {
   if (res.status === 404 || res.status === 503 || res.status === 405) return demo;
   let data = null;
   try { data = await res.json(); } catch (e) { /* 무시 */ }
+  if (res.ok && data && data.needCode) return data; // 메일로 보낸 인증 코드를 입력하는 화면으로
   if (!res.ok || !data || !data.user) throw new Error((data && data.error) || '잠시 후 다시 시도해 주세요.');
   return data.user;
 }
@@ -1006,12 +1007,12 @@ const AUTH = {
     if (pw.length < 8) return Promise.reject(new Error('비밀번호는 8자 이상이에요.'));
     return authCall('login', { email, pw, remember }, { provider: 'email', email, name: email.split('@')[0] });
   },
-  signup: (name, email, pw, pw2) => {
+  signup: (name, email, pw, pw2, remember = true) => {
     if (!name) return Promise.reject(new Error('이름(닉네임)을 적어 주세요.'));
     if (!EMAIL_RE.test(email)) return Promise.reject(new Error('이메일 주소를 확인해 주세요.'));
     if (pw.length < 8) return Promise.reject(new Error('비밀번호는 8자 이상으로 만들어 주세요.'));
     if (pw !== pw2) return Promise.reject(new Error('비밀번호가 서로 달라요.'));
-    return authCall('signup', { name, email, pw }, { provider: 'email', email, name });
+    return authCall('signup', { name, email, pw, remember }, { provider: 'email', email, name });
   },
 };
 
@@ -1175,7 +1176,7 @@ function tripBox(compact) {
 // ── 로그인 ──
 // 로그인 화면 문구 (KO / EN)
 const LOGIN_I18N = {
-  ko: { eyebrow: '푸른하늘', title: '탄소 줄이는 길찾기', chip: '이메일로 로그인', email: '이메일', password: '비밀번호', showPw: '비밀번호 보기', hidePw: '비밀번호 숨기기', login: '로그인', remember: '로그인 상태 유지', forgot: '비밀번호 찾기', or: '또는', kakao: '카카오 로그인', noAccount: '아직 푸른하늘 회원이 아니신가요?', signup: '회원가입',
+  ko: { eyebrow: '푸른하늘', title: '탄소 줄이는 길찾기', chip: '이메일로 로그인', email: '이메일', password: '비밀번호', showPw: '비밀번호 보기', hidePw: '비밀번호 숨기기', login: '로그인', remember: '로그인 유지', forgot: '비밀번호 찾기', or: '또는', kakao: '카카오 로그인', noAccount: '아직 푸른하늘 회원이 아니신가요?', signup: '회원가입',
     errEmailEmpty: '이메일을 입력해 주세요.', errEmailFormat: '올바른 이메일 형식이 아닙니다.', errPwEmpty: '비밀번호를 입력해 주세요.', errPwShort: '비밀번호는 8자 이상이에요.', errKakao: '카카오 로그인에 실패했어요. 다시 시도해 주세요.',
     demoLive: '지금은 체험용 로그인이에요', demoKey: '지금은 체험용 로그인이에요', demoEmail: '지금은 체험용 로그인이에요', soon: '준비 중인 기능이에요' },
   en: { eyebrow: 'Welcome', title: 'Make the sky bluer', chip: 'Log in with email', email: 'Email', password: 'Password', showPw: 'Show password', hidePw: 'Hide password', login: 'Log in', remember: 'Keep me logged in', forgot: 'Forgot password?', or: 'or', kakao: 'Login with Kakao', noAccount: 'New to Blue Sky?', signup: 'Sign up',
@@ -1279,8 +1280,10 @@ function signupHTML() {
           <input class="input" name="pw" type="password" autocomplete="new-password" placeholder="8자 이상" required></label>
         <label class="field"><span class="label">비밀번호 확인</span>
           <input class="input" name="pw2" type="password" autocomplete="new-password" required></label>
+        <label class="su-keep"><input type="checkbox" name="remember" ${d.remember === false ? '' : 'checked'}> <span>로그인 유지 <small>(이 기기는 다음부터 인증 코드 없이)</small></span></label>
         ${message ? `<p class="login-msg" role="alert">${esc(message)}</p>` : ''}
-        <button type="submit" class="btn primary" ${busy ? 'disabled' : ''}>가입하기</button>
+        <button type="submit" class="btn primary" ${busy ? 'disabled' : ''}>인증 코드 받고 가입하기</button>
+        <p class="su-note">입력한 이메일로 6자리 인증 코드를 보내요. 인증을 마쳐야 가입이 완료돼요.</p>
       </form>
     </main>`;
 }
@@ -4264,7 +4267,7 @@ function campDoneHTML() {
     ${cta('<button type="button" class="btn" data-act="go-main">홈으로 돌아가기</button><button type="button" class="btn primary" data-act="camp-back">캠페인 화면으로 돌아가기</button>')}`;
 }
 
-const VIEWS = { shop: shopHTML, 'admin-users': adminUsersHTML, 'my-camps': myJoinedCampsHTML, campdone: campDoneHTML, titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
+const VIEWS = { shop: shopHTML, 'admin-users': adminUsersHTML, 'my-camps': myJoinedCampsHTML, campdone: campDoneHTML, titles: titlesHTML, admin: adminHTML, rank: rankHTML, account: accountHTML, campaigns: campaignsHTML, campaign: campaignHTML, 'campaign-new': campaignNewHTML, calendar: calendarHTML, login: loginHTML, verify: verifyHTML, 'email-login': emailLoginHTML, signup: signupHTML, main: mainHTML, home: homeHTML, search: searchHTML, result: resultHTML, nav: navHTML, done: doneHTML };
 
 // 화면 전체 그리기
 function render() {
@@ -4273,7 +4276,7 @@ function render() {
   let screen = state.screen;
   if ((screen === 'nav' || screen === 'done') && !chosen) screen = state.screen = 'home';
 
-  if (!state.user && !['login', 'email-login', 'signup'].includes(screen)) screen = state.screen = 'login';
+  if (!state.user && !['login', 'email-login', 'signup', 'verify'].includes(screen)) screen = state.screen = 'login';
   // 아래 탭 바는 탭끼리 오갈 때 지우고 새로 만들지 않고 그대로 둬요.
   //  (새로 만들면 유리 흐림 효과가 매번 다시 계산돼서 휴대폰에서 바가 깜빡이고 덜컥거렸어요)
   const keepNav = app.querySelector(':scope > .m-tabs');
@@ -4342,7 +4345,7 @@ function go(screen, dir) {
 function backOf(screen) {
   return {
     titles: state.titlesReturn || 'main', calendar: state.calReturn || 'main', rank: 'main', account: 'main', campaigns: 'main', 'my-camps': 'main', campaign: state.campReturn || 'campaigns', 'campaign-new': state.campNewReturn || 'campaigns', admin: 'account', 'admin-users': 'account', shop: 'account', home: state.campTrip ? 'campaign' : 'main', campdone: 'campaign', search: state.searchReturn === 'result' ? 'result' : 'home', result: 'home', nav: 'result', done: 'main',
-    'email-login': 'login', signup: 'login',
+    'email-login': 'login', signup: 'login', verify: 'login',
   }[screen] || null;
 }
 function goBack(dir) {
@@ -4518,11 +4521,126 @@ function runAuth(promise, draft) {
   render();
   promise
     .then((user) => {
-      state.user = user; saveUser(user, !draft || draft.remember !== false); state.auth = { busy: false, message: '' };
-      go('main');
-      syncFromServer().finally(() => setTimeout(showCampNotices, 300)); // 서버 DB가 있으면 내 기록을 받아 와요
+      if (user && user.needCode) { openVerify(user, draft); return; }
+      loggedIn(user, !draft || draft.remember !== false);
     })
     .catch((err) => { state.auth = { busy: false, message: err.message || '로그인하지 못했어요. 다시 시도해 주세요.', draft: draft || {} }; render(); });
+}
+function loggedIn(user, remember) {
+  state.user = user; saveUser(user, remember); state.auth = { busy: false, message: '' }; state.verify = null;
+  go('main');
+  syncFromServer().finally(() => setTimeout(showCampNotices, 300)); // 서버 DB가 있으면 내 기록을 받아 와요
+}
+// ── 이메일 인증 코드 입력 ──
+//  가입 · 새 기기 로그인 때 메일로 받은 6자리를 넣어요. 로그인 유지를 켜면 이 기기는 다음부터 코드 없이.
+function openVerify(r, draft) {
+  const now = Date.now();
+  state.verify = { ticket: r.ticket, email: r.email, purpose: r.purpose, demoCode: r.demoCode || '', remember: !draft || draft.remember !== false,
+    expiresAt: now + (r.expiresIn || 600) * 1000, resendAt: now + (r.resendIn || 60) * 1000, busy: false, message: '', code: '' };
+  state.auth = { busy: false, message: '', draft: draft || {} };
+  go('verify');
+  setTimeout(() => { const i = document.getElementById('vf-code'); if (i) i.focus(); renderVerifyMsg(); }, 50);
+}
+async function postCode(body) {
+  try {
+    const res = await fetch('/api/auth/code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    let data = {};
+    try { data = await res.json(); } catch (e) { /* 무시 */ }
+    return { status: res.status, data };
+  } catch (e) { return { status: 0, data: { error: '인터넷 연결을 확인해 주세요.' } }; }
+}
+async function submitVerify() {
+  const v = state.verify;
+  if (!v || v.busy || v.dead) return;
+  const code = String(v.code || '').replace(/\D/g, '');
+  if (code.length !== 6) { v.message = '6자리 숫자를 모두 입력해 주세요.'; return renderVerifyMsg(); }
+  v.busy = true; renderVerifyMsg();
+  const r = await postCode({ a: 'verify', ticket: v.ticket, code, remember: v.remember });
+  v.busy = false;
+  if (r.status === 200 && r.data.user) return loggedIn(r.data.user, v.remember);
+  v.message = r.data.error || '확인하지 못했어요. 다시 시도해 주세요.';
+  v.dead = !!(r.data.expired || r.data.restart);
+  v.restart = !!r.data.restart;
+  v.code = '';
+  const inp = document.getElementById('vf-code'); if (inp) { inp.value = ''; if (!v.dead) inp.focus(); }
+  renderVerifyMsg();
+}
+async function resendCode() {
+  const v = state.verify;
+  if (!v || v.busy || Date.now() < v.resendAt) return;
+  v.busy = true; renderVerifyMsg();
+  const r = await postCode({ a: 'resend', ticket: v.ticket });
+  v.busy = false;
+  if (r.status === 200 && r.data.ticket) {
+    const now = Date.now();
+    Object.assign(v, { ticket: r.data.ticket, demoCode: r.data.demoCode || '', expiresAt: now + (r.data.expiresIn || 600) * 1000, resendAt: now + (r.data.resendIn || 60) * 1000, message: '', dead: false, code: '' });
+    render(); renderVerifyMsg(); toast('인증 코드를 새로 보냈어요');
+    const i = document.getElementById('vf-code'); if (i) i.focus();
+    return;
+  }
+  if (r.data.wait) v.resendAt = Date.now() + r.data.wait * 1000;
+  v.message = r.data.error || '코드를 다시 보내지 못했어요.';
+  v.restart = !!r.data.restart;
+  renderVerifyMsg();
+}
+// 화면 전체를 다시 그리지 않고 안내 문구·타이머·버튼만 바꿔요 (입력 중인 칸이 지워지지 않게)
+function renderVerifyMsg() {
+  const v = state.verify; if (!v) return;
+  const m = document.querySelector('.vf-msg'); if (m) m.textContent = v.message || '';
+  const btn = document.querySelector('#verify-form [type="submit"]');
+  if (btn) { btn.disabled = !!v.busy || !!v.dead; btn.innerHTML = v.busy ? '<span class="lg-spin"></span>' : '확인'; }
+  const left = Math.max(0, Math.round((v.expiresAt - Date.now()) / 1000));
+  const t = document.querySelector('.vf-timer');
+  if (t) { t.textContent = left > 0 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : '시간 초과'; t.classList.toggle('over', left <= 0); }
+  const rs = document.querySelector('[data-act="code-resend"]');
+  const wait = Math.max(0, Math.ceil((v.resendAt - Date.now()) / 1000));
+  if (rs) { rs.disabled = wait > 0 || !!v.busy || !!v.restart; rs.textContent = wait > 0 ? `코드 다시 받기 (${wait}초)` : '코드 다시 받기'; }
+  const re = document.querySelector('.vf-restart'); if (re) re.hidden = !v.restart;
+  // 6칸에 숫자를 하나씩 보여 주고, 다음에 넣을 칸을 표시해요
+  const code = v.code || '';
+  const focused = document.activeElement && document.activeElement.id === 'vf-code';
+  document.querySelectorAll('.vf-cells i').forEach((c, i) => {
+    c.textContent = code[i] || '';
+    c.classList.toggle('fill', !!code[i]);
+    c.classList.toggle('cur', focused && i === Math.min(code.length, 5) && !v.dead);
+  });
+  const box = document.querySelector('.vf-box'); if (box) box.classList.toggle('bad', !!v.message && !v.busy);
+}
+setInterval(() => { if (state.screen === 'verify') renderVerifyMsg(); }, 1000);
+['focusin', 'focusout'].forEach((ev) => document.addEventListener(ev, (e) => { if (e.target && e.target.id === 'vf-code') setTimeout(renderVerifyMsg, 0); }));
+function verifyHTML() {
+  const v = state.verify;
+  if (!v) return loginHTML();
+  const what = v.purpose === 'signup' ? '회원가입' : '로그인';
+  return `<main class="lg vf">
+    <div class="lg-wrap">
+      <header class="lg-head">
+        <button type="button" class="vf-back" data-act="to-login" aria-label="뒤로">${ICON.chev}</button>
+        <div class="lg-brand"><span class="lg-mark"><span class="brand-mark" aria-hidden="true"></span></span><span><b>푸른하늘</b></span></div>
+      </header>
+      <section class="lg-hero vf-hero">
+        <span class="vf-icon" aria-hidden="true">${SVG_MAIL}</span>
+        <p>${what} 이메일 인증</p>
+        <h1>메일로 받은<br>6자리 코드를 입력해 주세요</h1>
+      </section>
+      <section class="lg-card">
+        <p class="vf-to"><b>${esc(v.email)}</b> 으로 인증 코드를 보냈어요.<small>메일이 안 보이면 스팸함도 확인해 주세요.</small></p>
+        ${v.demoCode ? `<p class="vf-demo">메일 발송 설정 전이라 화면에 보여 줘요 (시연용) · 코드 <b>${esc(v.demoCode)}</b></p>` : ''}
+        <form id="verify-form" novalidate>
+          <label class="vf-box" aria-label="인증 코드 6자리">
+            <input id="vf-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" value="${esc(v.code || '')}">
+            <span class="vf-cells" aria-hidden="true">${Array.from({ length: 6 }, (_, i) => `<i>${esc((v.code || '')[i] || '')}</i>`).join('')}</span>
+          </label>
+          <p class="vf-row"><span>남은 시간 <b class="vf-timer"></b></span><button type="button" class="lg-link" data-act="code-resend"></button></p>
+          <p class="lg-err vf-msg" role="alert">${esc(v.message || '')}</p>
+          <button type="submit" class="lg-btn lg-primary">확인</button>
+          <label class="vf-keep"><input type="checkbox" id="vf-remember" ${v.remember ? 'checked' : ''}>
+            <span><b>로그인 유지</b><small>이 기기에서는 다음부터 인증 코드 없이 바로 로그인돼요. 함께 쓰는 기기라면 꺼 주세요.</small></span></label>
+          <button type="button" class="lg-link vf-restart" data-act="to-login" hidden>처음부터 다시 하기</button>
+        </form>
+      </section>
+    </div>
+  </main>`;
 }
 function goAuth(screen) {
   state.auth = { busy: false, message: '' };
@@ -4549,6 +4667,7 @@ const actions = {
   'soon-login': () => toast(LI('soon')),
   'to-email-login': () => goAuth('email-login'),
   'to-signup': () => goAuth('signup'),
+  'code-resend': () => resendCode(),
   'to-login': () => { state.auth = { busy: false, message: '' }; go('login', 'back'); },
   home: () => go('home', 'back'),
   back: () => goBack(),
@@ -4786,6 +4905,7 @@ appEl.addEventListener('submit', (e) => {
     if (dbMode()) dbWrite('profile', { name }, '닉네임을 저장했어요');
     else toast('닉네임을 저장했어요');
   }
+  if (e.target.id === 'verify-form') { e.preventDefault(); submitVerify(); return; }
   if (e.target.id === 'login-form' || e.target.id === 'signup-form') {
     e.preventDefault();
     const f = new FormData(e.target);
@@ -4799,12 +4919,21 @@ appEl.addEventListener('submit', (e) => {
       if (fail) { state.auth = { busy: false, errKey: fail[0], errField: fail[1], draft }; render(); const el = document.querySelector(`#login-form [name="${fail[1] === 'pw' ? 'pw' : 'email'}"]`); if (el) el.focus(); return; }
       runAuth(AUTH.email(em, pw, draft.remember), draft);
     }
-    else runAuth(AUTH.signup(v('name'), v('email'), String(f.get('pw') || ''), String(f.get('pw2') || '')), draft);
+    else { draft.remember = !!f.get('remember'); runAuth(AUTH.signup(v('name'), v('email'), String(f.get('pw') || ''), String(f.get('pw2') || ''), draft.remember), draft); }
   }
 });
 
 appEl.addEventListener('input', (e) => {
   if (e.target.id === 'search-input') { state.search.query = e.target.value; scheduleSearch(); }
+  if (e.target.id === 'vf-remember' && state.verify) state.verify.remember = e.target.checked;
+  if (e.target.id === 'vf-code' && state.verify) {
+    const clean = e.target.value.replace(/\D/g, '').slice(0, 6);
+    if (clean !== e.target.value) e.target.value = clean;
+    state.verify.code = clean;
+    renderVerifyMsg();
+    if (state.verify.message && !state.verify.dead) { state.verify.message = ''; renderVerifyMsg(); }
+    if (clean.length === 6) submitVerify(); // 6자리 다 넣으면 바로 확인
+  }
   if (e.target.id === 'au-q') { clearTimeout(loadAdminUsers.t); const v = e.target.value.trim(); loadAdminUsers.t = setTimeout(() => loadAdminUsers(v), 300); }
   if (e.target.form && e.target.form.id === 'login-form' && (state.auth.errKey || state.auth.message)) {
     state.auth = { ...state.auth, errKey: null, errField: null, message: '' };
