@@ -2392,6 +2392,7 @@ function adminUserRowHTML(u) {
     <div class="au-acts">
       <button type="button" class="btn small" data-act="adm-pt" data-id="${u.id}">포인트</button>
       <button type="button" class="btn small" data-act="adm-co2" data-id="${u.id}">탄소</button>
+      <button type="button" class="btn small" data-act="adm-name" data-id="${u.id}">닉네임</button>
       ${u.admin || u.me ? '' : `<button type="button" class="btn small ${u.blocked ? '' : 'rv-no'}" data-act="adm-block" data-id="${u.id}" data-on="${u.blocked ? 0 : 1}">${u.blocked ? '차단 해제' : '차단'}</button>
       <button type="button" class="btn small au-del" data-act="adm-del" data-id="${u.id}" aria-label="${esc(u.name)} 삭제">${ICON.trash}</button>`}
     </div>
@@ -2420,6 +2421,50 @@ function adminUsersHTML() {
       ${a.q ? '<button type="button" class="au-blocked-link" data-act="adm-blocked">🚫 차단된 회원 목록 보기</button>' : ''}
       <div id="au-out">${adminListHTML()}</div>
     </main>`;
+}
+// 관리자: 회원 닉네임 바꾸기 (아래에서 올라오는 창)
+function adminRenameSheet(u) {
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-wrap';
+  sheet.innerHTML = `<div class="sheet-bg" data-no></div>
+    <section class="sheet-card ap" role="dialog" aria-label="닉네임 바꾸기">
+      <span class="sheet-grab" aria-hidden="true"></span>
+      <div class="sheet-ask"><b>✏️ 닉네임 바꾸기</b><p><strong>${esc(u.name)}</strong>님의 닉네임을 바꿔요. 랭킹과 캠페인에 바로 반영돼요.</p></div>
+      <form class="ap-form" novalidate><label class="ap-l">새 닉네임<input class="input" id="rn-name" maxlength="12" autocomplete="off" value="${esc(u.name)}" placeholder="2~12자"></label></form>
+      <p class="rj-err" id="rn-err" hidden></p>
+      <button type="button" class="btn primary" data-yes>바꾸기</button>
+      <button type="button" class="btn sheet-cancel" data-no>취소</button>
+    </section>`;
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => sheet.classList.add('open'));
+  const input = sheet.querySelector('#rn-name'); const err = sheet.querySelector('#rn-err'); const yes = sheet.querySelector('[data-yes]');
+  setTimeout(() => { input.focus(); input.select(); }, 250);
+  const close = () => { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); };
+  const fail = (m) => { err.textContent = m; err.hidden = false; input.focus(); };
+  const save = async () => {
+    if (yes.disabled) return;
+    const name = input.value.trim();
+    if (name.length < 2) return fail('닉네임은 2자 이상이에요.');
+    if (name === u.name) return fail('지금과 같은 닉네임이에요.');
+    yes.disabled = true; yes.textContent = '바꾸는 중…';
+    const r = await dataApi('admin-rename', { id: u.id, name });
+    if (r.status === 401) { close(); return needRelogin(); }
+    if (r.status !== 200) { yes.disabled = false; yes.textContent = '바꾸기'; return fail(r.data.error || '바꾸지 못했어요.'); }
+    close();
+    toast(`${r.data.old} → ${r.data.name} 으로 바꿨어요`);
+    await syncFromServer({ quiet: true }); // 랭킹 · 내 이름(나를 바꿨을 때)도 새로
+    // 검색 중이었는데 새 닉네임이 검색어와 안 맞으면, 바꾼 회원이 목록에서 사라지지 않게 새 닉네임으로 다시 찾아요
+    let q = (state.adm && state.adm.q) || '';
+    const low = (v) => String(v || '').toLowerCase();
+    if (q && !low(r.data.name).includes(low(q)) && !low(u.email).includes(low(q))) { q = r.data.name; const box = document.getElementById('au-q'); if (box) box.value = q; }
+    loadAdminUsers(q);
+  };
+  sheet.querySelector('form').addEventListener('submit', (e) => { e.preventDefault(); save(); });
+  input.addEventListener('input', () => { err.hidden = true; });
+  sheet.addEventListener('click', (e) => {
+    if (e.target.closest('[data-no]')) return close();
+    if (e.target.closest('[data-yes]')) save();
+  });
 }
 const admUser = (id) => ((state.adm && state.adm.users) || []).find((u) => u.id === String(id));
 // 승인 / 반려 처리
@@ -4954,6 +4999,7 @@ const actions = {
   }),
   'adm-blocked': () => { const i = document.getElementById('au-q'); if (i) i.value = ''; loadAdminUsers(''); render(); },
   'adm-pt': (el) => { const u = admUser(el.dataset.id); if (u) adminAdjustSheet('points', u); },
+  'adm-name': (el) => { const u = admUser(el.dataset.id); if (u) adminRenameSheet(u); },
   'adm-co2': (el) => { const u = admUser(el.dataset.id); if (u) adminAdjustSheet('carbon', u); },
   'adm-block': (el) => {
     const u = admUser(el.dataset.id); if (!u) return;

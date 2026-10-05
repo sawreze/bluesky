@@ -17,6 +17,7 @@
 //  POST a=admin-carbon             (관리자) 탄소 절약량 더하기 · 빼기 (mode: plus | minus)
 //  GET  a=admin-users&q=           (관리자) 회원 검색 (q 비우면 차단된 회원 목록)
 //  POST a=admin-block | admin-del-user (관리자) 회원 차단·해제 · 삭제
+//  POST a=admin-rename             (관리자) 회원 닉네임 바꾸기
 //  POST a=feedback-send            (회원) 관리자에게 의견 보내기 (오류 신고 · 고칠 점 · 기타)
 //  GET  a=feedback-mine            (회원) 내가 보낸 의견과 확인 상태
 //  GET  a=feedback-list&f=new|all  (관리자) 받은 의견 목록
@@ -393,6 +394,16 @@ function makeData(db) {
     if (isAdminRow(u)) bad('관리자 계정은 차단하거나 지울 수 없어요.', 403);
     return u;
   }
+  async function adminRename(me, b) {
+    if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
+    const [u] = await sql()`SELECT id, name FROM users WHERE id = ${intId(b.id)}`;
+    if (!u) bad('회원을 찾지 못했어요.', 404);
+    const name = str(b.name, 40);
+    if (name.length < 2 || name.length > 12) bad('닉네임은 2~12자로 적어 주세요.');
+    if (name === u.name) bad('지금과 같은 닉네임이에요.');
+    await sql()`UPDATE users SET name = ${name} WHERE id = ${u.id}`;
+    return { ok: true, old: u.name, name, me: Number(u.id) === Number(me.id) };
+  }
   async function adminBlock(me, b) {
     if (!isAdminRow(me)) bad('관리자만 할 수 있어요.', 403);
     const u = await guardTarget(me, b.id);
@@ -684,7 +695,7 @@ function makeData(db) {
     return res.status(200).send(Buffer.from(m[2], 'base64'));
   }
 
-  const POSTS = { 'shop-buy': shopBuy, 'demo-seed': demoSeed, 'demo-clear': demoClear, 'admin-points': adminPoints, 'admin-carbon': adminCarbon, 'admin-block': adminBlock, 'admin-del-user': adminDelUser, 'feedback-send': feedbackSend, 'feedback-set': feedbackSet, 'feedback-del': feedbackDel, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-join': joinCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
+  const POSTS = { 'shop-buy': shopBuy, 'demo-seed': demoSeed, 'demo-clear': demoClear, 'admin-points': adminPoints, 'admin-carbon': adminCarbon, 'admin-block': adminBlock, 'admin-del-user': adminDelUser, 'admin-rename': adminRename, 'feedback-send': feedbackSend, 'feedback-set': feedbackSet, 'feedback-del': feedbackDel, trip: saveTrip, 'camp-save': saveCamp, 'camp-del': delCamp, 'camp-like': likeCamp, 'camp-join': joinCamp, 'camp-review': reviewCamp, 'camp-seen': seenCamp, profile };
 
   return async function handler(req, res) {
     const q = req.query || {};

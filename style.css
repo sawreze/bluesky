@@ -2218,3 +2218,7 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
 :root[data-theme='dark'] .m-dots i { background: #3A4C6B; }
 :root[data-theme='dark'] .swipe-under .map { background: #142036; }
 :root[data-theme='dark'] .m-dots i.on { background: var(--ink); }
+/* 회원 관리 버튼 4개(포인트·탄소·닉네임·차단)가 한 줄에 같은 폭으로 */
+.au-acts .btn { white-space: nowrap; padding: 0 4px; min-width: 0; }
+.au-acts .btn.rv-no { flex: 1 1 0 !important; }
+.au-acts .btn:not(.au-del) { flex: 1 1 0; }

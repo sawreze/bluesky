@@ -137,6 +137,29 @@ const lineCount = (page, sel) => page.$$eval(sel, (els) => els.map((e) => { cons
   await sleep(400);
   ok('계정정보 빨간 숫자 1로 줄어듦', (await B.page.textContent('[data-act="admin-feedback"]')).replace(/\s/g, '').endsWith('관리자1'), await B.page.textContent('[data-act="admin-feedback"]'));
 
+  console.log('3-1) 회원 관리에서 닉네임 바꾸기');
+  await B.page.click('[data-act="admin-users"]');
+  await sleep(300);
+  const sr = B.page.waitForResponse((r) => r.url().includes('a=admin-users') && r.url().includes('q=%EA%B9%80'));
+  await B.page.fill('#au-q', '김하늘');
+  await sr; await sleep(300);
+  await B.page.click('.au-row [data-act="adm-name"]');
+  await sleep(400);
+  ok('닉네임 창에 지금 닉네임이 채워져 있음', await B.page.inputValue('#rn-name') === '김하늘');
+  await B.page.fill('#rn-name', '하');
+  await B.page.click('.sheet-card [data-yes]');
+  await sleep(200);
+  ok('1자는 창 안에서 안내', (await B.page.textContent('#rn-err')).includes('2자 이상'));
+  await B.page.fill('#rn-name', '푸른바다');
+  await B.page.screenshot({ path: `${SHOTS}/h-rename.png` });
+  const rl = B.page.waitForResponse((r) => r.url().includes('a=admin-users'));
+  await B.page.keyboard.press('Enter');
+  await rl; await sleep(400);
+  ok('DB 닉네임이 바뀜', psql("SELECT name FROM users WHERE email = 'sky@test.kr'") === '푸른바다');
+  ok('창이 닫히고 목록에 새 닉네임', !(await B.page.$('#rn-name')) && (await B.page.textContent('#au-out')).includes('푸른바다'));
+  await B.page.click('[data-act="back"]');
+  await sleep(300);
+
   console.log('4) 보낸 사람 화면에 상태 반영');
   await A.page.click('[data-act="back"]');
   await sleep(300);
