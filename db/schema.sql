@@ -219,6 +219,17 @@ CREATE TABLE IF NOT EXISTS carbon_adjustments (
 );
 CREATE INDEX IF NOT EXISTS carbon_adjustments_user_idx ON carbon_adjustments (user_id);
 
+-- 12) 로그인 실패 기록 (비밀번호 무작정 대입 막기: 15분 안에 같은 이메일 5번 · 같은 접속지 20번 틀리면 잠시 막아요)
+--   성공하면 그 이메일 기록은 지우고, 하루 지난 기록도 지워요. 접속 IP 는 그대로 두지 않고 해시로만 저장해요.
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id            SERIAL PRIMARY KEY,
+  email         TEXT NOT NULL,
+  ip_hash       TEXT NOT NULL,
+  at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS login_attempts_email_idx ON login_attempts (email, at);
+CREATE INDEX IF NOT EXISTS login_attempts_ip_idx ON login_attempts (ip_hash, at);
+
 -- ===================== 계산용 뷰 (저장 안 하고 그때그때 계산) =====================
 
 -- 이동별 배출량·거리

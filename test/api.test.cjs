@@ -5,6 +5,7 @@ const db = require('../api/_db.cjs');
 db._makeSql = require('./pgshim.cjs');
 const core = require('../api-core.cjs');
 const data = require('../api/data.js');
+require('../api/_data.cjs').TRIP_LIMITS.off = true; // 이 테스트는 보상·흐름 확인용이라 큰 가짜 이동을 써요 (부정 적립 상한은 security.test.cjs 에서)
 const login = require('../api/auth/login.js');
 const signup = require('../api/auth/signup.js');
 const kakao = require('../api/auth/kakao.js');

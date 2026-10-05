@@ -108,7 +108,39 @@ const sessionUid = (req) => readToken(cookieOf(req));
 
 const pub = (r) => ({ uid: r.id, provider: r.provider, email: r.email || undefined, name: r.name, role: String(r.role || 'user').trim() });
 
+// ── 로그인 시도 제한 ──
+const LOGIN_LIMIT = { perEmail: 5, perIp: 20, minutes: 15 };
+// 접속 IP 는 그대로 저장하지 않고 해시로 (같은 곳인지 비교만 해요)
+function ipKey(req) {
+  const h = (req && req.headers) || {};
+  const ip = String(h['x-forwarded-for'] || '').split(',')[0].trim() || String(h['x-real-ip'] || '') || String((req && req.socket && req.socket.remoteAddress) || '');
+  return crypto.createHash('sha256').update(`pureun-ip:${secret()}:${ip}`).digest('hex').slice(0, 32);
+}
+
 const store = {
+  // 막혀 있으면 남은 분, 아니면 0
+  async loginWait(email, ip) {
+    await init();
+    const L = LOGIN_LIMIT;
+    const [r] = await sql()`SELECT
+        (SELECT COUNT(*) FROM login_attempts WHERE email = ${email} AND at > now() - make_interval(mins => ${L.minutes})) AS fe,
+        (SELECT EXTRACT(EPOCH FROM (MAX(at) + make_interval(mins => ${L.minutes}) - now())) FROM login_attempts WHERE email = ${email}) AS we,
+        (SELECT COUNT(*) FROM login_attempts WHERE ip_hash = ${ip} AND at > now() - make_interval(mins => ${L.minutes})) AS fi,
+        (SELECT EXTRACT(EPOCH FROM (MAX(at) + make_interval(mins => ${L.minutes}) - now())) FROM login_attempts WHERE ip_hash = ${ip}) AS wi`;
+    const sec = Math.max(Number(r.fe) >= L.perEmail ? Number(r.we) || 0 : 0, Number(r.fi) >= L.perIp ? Number(r.wi) || 0 : 0);
+    return sec > 0 ? Math.max(1, Math.ceil(sec / 60)) : 0;
+  },
+  // 틀린 기록을 남기고, 이 이메일로 앞으로 몇 번 더 틀릴 수 있는지 알려 줘요
+  async loginFail(email, ip) {
+    await init();
+    await sql()`INSERT INTO login_attempts (email, ip_hash) VALUES (${email}, ${ip})`;
+    await sql()`DELETE FROM login_attempts WHERE at < now() - interval '1 day'`;
+    const [r] = await sql()`SELECT COUNT(*) AS n FROM login_attempts WHERE email = ${email} AND at > now() - make_interval(mins => ${LOGIN_LIMIT.minutes})`;
+    return Math.max(0, LOGIN_LIMIT.perEmail - Number(r.n));
+  },
+  async loginOk(email) {
+    await sql()`DELETE FROM login_attempts WHERE email = ${email}`;
+  },
   async findEmail(email) {
     await init();
     const rows = await sql()`SELECT * FROM users WHERE provider = 'email' AND lower(email) = lower(${email}) LIMIT 1`;
@@ -135,4 +167,4 @@ const store = {
   },
 };
 
-module.exports = { hasDb, sql, init, store, checkPw, pub, setSession, clearSession, sessionUid, makeToken, readToken };
+module.exports = { hasDb, sql, init, store, checkPw, pub, setSession, clearSession, sessionUid, makeToken, readToken, ipKey, LOGIN_LIMIT };

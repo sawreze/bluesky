@@ -27,6 +27,9 @@ const PORT = 5173;
 const APP_VERSION = '2026.10.03-db'; // app.js 의 APP_VERSION 과 같게
 const ROOT = __dirname;
 const PRIVATE_DIR = path.join(ROOT, 'private');
+// 보안 헤더: 배포(vercel.json)와 똑같이 붙여요
+let SEC_HEADERS = {};
+try { SEC_HEADERS = Object.fromEntries((JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8')).headers.find((h) => h.source === '/(.*)') || { headers: [] }).headers.filter((h) => h.key !== 'Strict-Transport-Security').map((h) => [h.key, h.value])); } catch (e) { /* 없으면 그냥 */ }
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -63,6 +66,7 @@ async function handleApi(req, res, url) {
 
 http
   .createServer((req, res) => {
+    Object.entries(SEC_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
     let url = decodeURIComponent((req.url || '/').split('?')[0]);
     if (url.startsWith('/api/') || url === '/auth/kakao') return handleApi(req, res, url);
 

@@ -34,6 +34,19 @@ const CAR_G_PER_KM = 210;
 const TAGS = ['transit', 'walk', 'bike', 'carfree', 'together'];
 const CAMP_MODES = ['bus', 'subway', 'bike', 'walk'];
 const TRIP_MODES = ['car', 'bus', 'subway', 'bike', 'walk'];
+// ── 이동 기록 부정 적립 막기 ──
+//  포인트가 상점에서 쓰이니까, 휴대폰이 보내는 거리·시간을 그대로 믿지 않고 말이 되는지 확인해요.
+//  - 출발·도착 직선거리보다 이동 거리가 터무니없이 길면 X (길이 돌아가는 건 3배 + 3km까지 인정)
+//  - 걸린 시간에 비해 너무 빠르면 X (수단별 최고 속도)
+//  - 하루 기록 수 · 하루 친환경 이동 거리에 상한
+//  - 같은 출발·도착을 짧은 시간에 또 보내면 X
+const TRIP_LIMITS = { detour: 3, slackKm: 3, perDay: 20, kmPerDay: 150, repeatMin: 10, off: false };
+const MAX_KMH = { walk: 15, bike: 40, bus: 90, subway: 120, car: 130 };
+const kmBetween = (a, b) => {
+  const r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLng = (b.lng - a.lng) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(h)));
+};
 const MAX_COVER = 1500000;     // 표지 사진 (글자로 바꾼 크기) 최대 약 1.5MB
 const MAX_AVATAR = 400000;
 
@@ -54,7 +67,9 @@ function body(req) {
   return b && typeof b === 'object' ? b : {};
 }
 
-module.exports = function makeData(db) {
+// 테스트에서 상한을 끄거나 바꿀 수 있게 (HTTP 로는 못 건드려요)
+module.exports = Object.assign(makeData, { TRIP_LIMITS });
+function makeData(db) {
   const sql = () => db.sql();
 
   // ── 내 기록 요약 ──
@@ -406,6 +421,26 @@ module.exports = function makeData(db) {
     const savedG = Math.round(Math.max(0, Math.min(num(b.savedG), Math.max(totalKm, 0.1) * CAR_G_PER_KM * 2)) * 10) / 10;
     const pts = Math.round((savedG / 1000) * PT_PER_KG) + Math.round(ecoKm * PT_PER_KM);
     const key = str(b.key, 64) || null;
+
+    // 부정 적립 확인 (이미 저장된 기록을 다시 보낸 거면 건너뛰어요 — 아래에서 중복으로 처리)
+    const again = key ? await sql()`SELECT 1 AS x FROM trips WHERE user_id = ${uid} AND client_key = ${key} LIMIT 1` : [];
+    if (!TRIP_LIMITS.off && !again.length) {
+      const L = TRIP_LIMITS;
+      if (totalKm > kmBetween(from, to) * L.detour + L.slackKm) bad('출발지·도착지 사이 거리보다 이동 거리가 너무 길어요. 길찾기를 다시 해 주세요.');
+      const needMin = segs.reduce((a, s) => a + (s.km / MAX_KMH[s.mode]) * 60, 0);
+      if (minutes + 1 < needMin) bad('걸린 시간에 비해 이동 거리가 너무 길어요.');
+      const [d] = await sql()`SELECT
+          (SELECT COUNT(*) FROM trips WHERE user_id = ${uid}
+             AND (arrived_at AT TIME ZONE 'Asia/Seoul')::date = (now() AT TIME ZONE 'Asia/Seoul')::date) AS n,
+          (SELECT COALESCE(SUM(s.km), 0) FROM trips t JOIN trip_segments s ON s.trip_id = t.id WHERE t.user_id = ${uid} AND s.mode_code <> 'car'
+             AND (t.arrived_at AT TIME ZONE 'Asia/Seoul')::date = (now() AT TIME ZONE 'Asia/Seoul')::date) AS km,
+          (SELECT COUNT(*) FROM trips WHERE user_id = ${uid} AND arrived_at > now() - make_interval(mins => ${L.repeatMin})
+             AND abs(origin_lat - ${from.lat}) < 0.001 AND abs(origin_lng - ${from.lng}) < 0.001
+             AND abs(dest_lat - ${to.lat}) < 0.001 AND abs(dest_lng - ${to.lng}) < 0.001) AS dup`;
+      if (num(d.n) >= L.perDay) bad(`이동 기록은 하루 ${L.perDay}번까지 저장돼요. 내일 다시 기록해 주세요.`, 429);
+      if (num(d.km) + ecoKm > L.kmPerDay) bad(`친환경 이동은 하루 ${L.kmPerDay}km까지 인정돼요.`, 429);
+      if (num(d.dup) > 0) bad(`같은 길을 ${L.repeatMin}분 안에 또 기록할 수 없어요.`, 429);
+    }
 
     // 캠페인: 게시 중인 캠페인만, 처음이면 참여자로 등록
     let campId = null;

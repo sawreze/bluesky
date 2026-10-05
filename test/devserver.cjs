@@ -12,9 +12,12 @@ const routes = {
   '/api/auth/signup': require('../api/auth/signup.js'),
 };
 const ROOT = path.join(__dirname, '..');
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
+// 보안 헤더: 배포(vercel.json)와 똑같이
+const SEC = Object.fromEntries((JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8')).headers.find((h) => h.source === '/(.*)') || { headers: [] }).headers.map((h) => [h.key, h.value]));
+const TYPES = { '.jpg': 'image/jpeg', '.json': 'application/json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 
 http.createServer((req, res) => {
+  Object.entries(SEC).forEach(([k, v]) => res.setHeader(k, v));
   const u = new URL(req.url, 'http://localhost');
   if (u.pathname === '/api/status') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ version: '2026.10.03-db', where: 'test', kakaoLogin: false })); }
   const fn = routes[u.pathname];

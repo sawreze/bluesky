@@ -3609,6 +3609,7 @@ function flushTrips() {
       if (r.status === 0 || r.status >= 500) break; // 인터넷·서버 문제: 다음에 다시
       if (r.status === 401) break;
       lsSet(PENDING_KEY, loadPending().filter((x) => x.key !== t.key)); // 저장됐거나(200) 잘못된 기록(4xx)이면 목록에서 빼요
+      if (r.status >= 400 && r.data && r.data.error) { toast(`기록이 저장되지 않았어요: ${r.data.error}`); syncFromServer({ quiet: true }); } // 서버가 거절한 이유 (하루 상한 등)
       if (r.status === 200 && r.data.reached) toast(`"${r.data.reached.title}" 목표 달성! ${r.data.reached.rewardable ? `${CAMP_END_DAYS}일 뒤 최종 달성률로 보상을 정산해요` : '함께해 줘서 고마워요'}`);
     }
   })().finally(() => { flushing = null; });
@@ -3940,9 +3941,18 @@ function resultSheetHTML() {
   const counts = ranked ? Object.fromEntries(TIERS.map((t) => [t.id, ranked.byTier[t.id].length])) : {};
   const tier = TIERS.find((t) => t.id === level);
 
-  const tabs = `<div class="stabs" role="tablist">${TIERS.map((t) =>
-    `<button type="button" role="tab" aria-selected="${level === t.id}" class="stab s-${t.id} ${level === t.id ? 'on' : ''}" data-act="tab" data-id="${t.id}">
-      <span class="stab-sky" aria-hidden="true">${t.sky}</span>${t.label}<small class="num">${counts[t.id] != null ? counts[t.id] : ''}</small></button>`).join('')}</div>`;
+  // 절약 강도: 끝이 둥근 바 안에서 색 알약이 하단 바처럼 미끄러져요 (조금 연파랑 · 중간 파랑 · 많이 새파랑)
+  const idx = Math.max(0, TIERS.findIndex((t) => t.id === level));
+  const fromIdx = TIERS.findIndex((t) => t.id === state.levelFrom);
+  state.levelFrom = null; // 한 번만 움직이고, 다시 그릴 때는 제자리
+  const tabs = `<div class="stabs-wrap">
+    <p class="stabs-h">절약 강도</p>
+    <div class="stabs lv-${level}" role="tablist" style="--i:${idx}">
+      <span class="stab-ind ${fromIdx >= 0 && fromIdx !== idx ? `slide from-${TIERS[fromIdx].id}` : ''}" style="--from:${fromIdx >= 0 ? fromIdx : idx}" aria-hidden="true"></span>
+      ${TIERS.map((t) => `<button type="button" role="tab" aria-selected="${level === t.id}" class="stab s-${t.id} ${level === t.id ? 'on' : ''}" data-act="tab" data-id="${t.id}">
+        <span class="stab-sky" aria-hidden="true">${t.sky}</span>${t.label.replace(' 절약', '')}<small class="num">${counts[t.id] != null ? counts[t.id] : ''}</small></button>`).join('')}
+    </div>
+  </div>`;
 
   const filters = `<div class="filters">
     <select id="sort" class="fsel" aria-label="정렬">${SORTS.map((s) => `<option value="${s.id}" ${prefs.sort === s.id ? 'selected' : ''}>${s.label}</option>`).join('')}</select>
@@ -4731,7 +4741,7 @@ const actions = {
   mine: () => useMyLocation(),
   swap: () => { [state.from, state.to] = [state.to, state.from]; findRoutes(); render(); },
   'to-result': () => go('result'),
-  tab: (el) => { state.level = el.dataset.id; state.chosenId = null; state.openDetail = null; refreshResult(); },
+  tab: (el) => { if (el.dataset.id === state.level) return; state.levelFrom = state.level; state.level = el.dataset.id; state.chosenId = null; state.openDetail = null; refreshResult(); },
   select: (el) => { if (state.chosenId === el.dataset.id) return; state.chosenId = el.dataset.id; refreshResult(); },
   detail: (el) => { state.chosenId = el.dataset.id; state.openDetail = state.openDetail === el.dataset.id ? null : el.dataset.id; refreshResult(); },
   fit: () => { if (mapCtl) mapCtl.fit(); },
