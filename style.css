@@ -2037,29 +2037,45 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
 .au-acts .btn.fb-ok { background: #E3F6EC; color: #157347; }
 
 /* ── 포인트 부족: 우는 푸름이 (구매 창) ── */
-.ss-mascot.sad { animation: msIn .5s cubic-bezier(.3, 1.4, .5, 1) both; }
-.ss-mascot.sad.shake { animation: msIn .5s cubic-bezier(.3, 1.4, .5, 1) both, msShake .45s ease-in-out .05s; }
-.ms-body { transform-box: view-box; transform-origin: 70px 104px; animation: msSob 1.6s ease-in-out infinite; }
-.ms-brow { transform-box: view-box; transform-origin: 70px 55px; animation: msBrow 1.6s ease-in-out infinite; }
-.ms-eye { transform-box: fill-box; transform-origin: center; animation: msBlink 3.4s ease-in-out infinite; }
-.ms-mouth { transform-box: fill-box; transform-origin: center; animation: msMouth 1.6s ease-in-out infinite; }
-.ms-star { transform-box: fill-box; transform-origin: 50% 100%; animation: msStar 2.4s ease-in-out infinite; }
-.ms-tear { transform-box: fill-box; opacity: 0; animation: msTear 1.8s ease-in infinite; }
-.ms-tear.r { animation-delay: .9s; }
-.ms-rain path { transform-box: fill-box; opacity: 0; animation: msRain 1.35s ease-in infinite; animation-delay: var(--d); }
+.ss-mascot.sad { animation: cryIn .5s cubic-bezier(.3, 1.4, .5, 1) both; }
+.ss-mascot.sad.shake { animation: cryIn .5s cubic-bezier(.3, 1.4, .5, 1) both, cryShake .45s ease-in-out .05s; }
+.cry-body { transform-box: view-box; transform-origin: 70px 104px; animation: crySob 1.6s ease-in-out infinite; }
+.cry-brow { transform-box: view-box; transform-origin: 70px 55px; animation: cryBrow 1.6s ease-in-out infinite; }
+.cry-eye { transform-box: fill-box; transform-origin: center; animation: cryBlink 3.4s ease-in-out infinite; }
+.cry-mouth { transform-box: fill-box; transform-origin: center; animation: cryMouth 1.6s ease-in-out infinite; }
+.cry-star { transform-box: fill-box; transform-origin: 50% 100%; animation: cryStar 2.4s ease-in-out infinite; }
+.cry-tear { transform-box: fill-box; opacity: 0; animation: cryTear 1.8s ease-in infinite; }
+.cry-tear.r { animation-delay: .9s; }
+.cry-rain path { transform-box: fill-box; opacity: 0; animation: cryRain 1.35s ease-in infinite; animation-delay: var(--d); }
 .ss-short { margin: 0; padding: 12px 14px; border-radius: 16px; background: #FFF1F1; color: #B42323; text-align: center; font-size: 15px; font-weight: 700; line-height: 1.45; display: grid; gap: 2px; }
 .ss-short b { font-weight: 800; color: #D92B2B; font-variant-numeric: tabular-nums; }
 .ss-short small { font-size: 12.5px; font-weight: 600; color: #B9585B; }
 .ss-short[hidden] { display: none; }
-.ss-short.shake, .shop-sheet .btn.shake { animation: msNope .42s ease-in-out; }
-@keyframes msIn { 0% { transform: translateY(-10px) scale(.86); opacity: 0; } 100% { transform: none; opacity: 1; } }
-@keyframes msShake { 0%, 100% { translate: 0; } 20% { translate: -5px; } 40% { translate: 5px; } 60% { translate: -3px; } 80% { translate: 3px; } }
-@keyframes msNope { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
-@keyframes msSob { 0%, 30%, 60%, 100% { transform: translateY(0) scale(1); } 10% { transform: translateY(1.5px) scale(1.025, .965); } 20% { transform: translateY(0) scale(.99, 1.01); } 40% { transform: translateY(1.5px) scale(1.025, .965); } 50% { transform: translateY(0) scale(.99, 1.01); } }
-@keyframes msBrow { 0%, 100% { transform: translateY(0); } 10%, 40% { transform: translateY(1px); } }
-@keyframes msBlink { 0%, 46%, 54%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.15); } }
-@keyframes msMouth { 0%, 100% { transform: scaleX(1); } 10%, 40% { transform: scaleX(.88) translateY(.6px); } }
-@keyframes msStar { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(10deg) translateY(1px); } }
-@keyframes msTear { 0% { opacity: 0; transform: translateY(-2px) scale(.6); } 15% { opacity: 1; transform: translateY(0) scale(1); } 80% { opacity: 1; transform: translateY(13px) scale(1, 1.08); } 100% { opacity: 0; transform: translateY(17px) scale(.9); } }
-@keyframes msRain { 0% { opacity: 0; transform: translateY(-6px); } 20% { opacity: 1; } 85% { opacity: .9; } 100% { opacity: 0; transform: translateY(12px); } }
-@media (prefers-reduced-motion: reduce) { .ms, .ms *, .ss-mascot.sad, .ss-short.shake, .shop-sheet .btn.shake { animation: none !important; } .ms-tear, .ms-rain path { opacity: 1; } }
+.ss-short.shake, .shop-sheet .btn.shake { animation: cryNope .42s ease-in-out; }
+@keyframes cryIn { 0% { transform: translateY(-10px) scale(.86); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes cryShake { 0%, 100% { translate: 0; } 20% { translate: -5px; } 40% { translate: 5px; } 60% { translate: -3px; } 80% { translate: 3px; } }
+@keyframes cryNope { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+@keyframes crySob { 0%, 30%, 60%, 100% { transform: translateY(0) scale(1); } 10% { transform: translateY(1.5px) scale(1.025, .965); } 20% { transform: translateY(0) scale(.99, 1.01); } 40% { transform: translateY(1.5px) scale(1.025, .965); } 50% { transform: translateY(0) scale(.99, 1.01); } }
+@keyframes cryBrow { 0%, 100% { transform: translateY(0); } 10%, 40% { transform: translateY(1px); } }
+@keyframes cryBlink { 0%, 46%, 54%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.15); } }
+@keyframes cryMouth { 0%, 100% { transform: scaleX(1); } 10%, 40% { transform: scaleX(.88) translateY(.6px); } }
+@keyframes cryStar { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(10deg) translateY(1px); } }
+@keyframes cryTear { 0% { opacity: 0; transform: translateY(-2px) scale(.6); } 15% { opacity: 1; transform: translateY(0) scale(1); } 80% { opacity: 1; transform: translateY(13px) scale(1, 1.08); } 100% { opacity: 0; transform: translateY(17px) scale(.9); } }
+@keyframes cryRain { 0% { opacity: 0; transform: translateY(-6px); } 20% { opacity: 1; } 85% { opacity: .9; } 100% { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce) { .cry, .cry *, .ss-mascot.sad, .ss-short.shake, .shop-sheet .btn.shake { animation: none !important; } .cry-tear, .cry-rain path { opacity: 1; } }
+
+/* ── 푸름이 말풍선 (메인): "오늘은" 오른쪽 빈자리, 꼬리는 푸름이 얼굴 쪽 ── */
+.mascot-say { position: absolute; right: 72px; bottom: calc(100% + 58px); z-index: 3; margin: 0; padding: 8px 12px 9px; max-width: 168px;
+  display: grid; gap: 1px; border-radius: 16px 16px 6px 16px; background: var(--card); border: 1px solid var(--glass-line, rgba(255, 255, 255, .7));
+  box-shadow: 0 6px 16px rgba(31, 61, 110, .12); font-size: 12px; line-height: 1.4; color: var(--muted); white-space: nowrap; pointer-events: none;
+  transform-origin: 100% 100%; animation: sayIn .55s cubic-bezier(.3, 1.4, .5, 1) .35s both, sayFloat 3.6s ease-in-out 1s infinite; }
+.mascot-say b { font-size: 12.5px; font-weight: 800; color: var(--ink); }
+.mascot-say::after { content: ''; position: absolute; right: -6px; bottom: 7px; width: 12px; height: 12px; background: var(--card);
+  border-right: 1px solid var(--glass-line, rgba(255, 255, 255, .7)); border-bottom: 1px solid var(--glass-line, rgba(255, 255, 255, .7));
+  border-bottom-right-radius: 3px; transform: rotate(-45deg) skew(10deg, 10deg); }
+.mascot-say.pop { animation: sayPop .4s cubic-bezier(.3, 1.6, .5, 1), sayFloat 3.6s ease-in-out .4s infinite; }
+@keyframes sayIn { 0% { opacity: 0; transform: translate(8px, 6px) scale(.6); } 100% { opacity: 1; transform: none; } }
+@keyframes sayPop { 0% { transform: scale(.85); } 100% { transform: none; } }
+@keyframes sayFloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+@media (max-width: 349px) { .mascot-say { display: none; } }
+@media (prefers-reduced-motion: reduce) { .mascot-say, .mascot-say.pop { animation: none; } }

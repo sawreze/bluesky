@@ -1741,6 +1741,7 @@ function mainHTML() {
       <span class="m-chev">${ICON.chev}</span>
     </button>
     ${mascotSVG()}
+    <p class="mascot-say" id="mascot-say" aria-live="polite">${mascotSayHTML()}</p>
     </div>
 
     <section class="m-card m-wk-card" id="wk-card" data-act="open-week" role="button" tabindex="0" aria-label="최근 7일 탄소 절약 자세히 보기">
@@ -2774,6 +2775,14 @@ function monthRanking(mKey = monthKey()) {
   all.forEach((u, i) => { u.rank = i + 1; });
   return { all, me: all.find((u) => u.me) };
 }
+// 푸름이 말풍선: 처음엔 자기소개, 푸름이를 누를 때마다 다음 말
+const MASCOT_SAYS = [
+  ['안녕, 난 푸름이야!', '푸른 하늘 지킴이야'],
+  ['가까운 곳은', '같이 걸어가 볼까?'],
+  ['아낀 탄소만큼', '포인트로 돌려줄게!'],
+  ['버스·지하철도 좋아', '하늘이 고마워할 거야'],
+];
+function mascotSayHTML() { const [a, b] = MASCOT_SAYS[(state.sayIdx || 0) % MASCOT_SAYS.length]; return `<b>${a}</b><span>${b}</span>`; }
 // ── 푸른하늘 푸름이 (마스코트): 빠른 길찾기 카드 위에 걸터앉아 다리를 흔들어요. 누르면 폴짝 ──
 function mascotSVG() {
   const sp = (x, y, r, c, d) => `<path class="ms-spark" style="animation-delay:${d}s" d="M${x} ${y - r}Q${x + r * 0.18} ${y - r * 0.18} ${x + r} ${y}Q${x + r * 0.18} ${y + r * 0.18} ${x} ${y + r}Q${x - r * 0.18} ${y + r * 0.18} ${x - r} ${y}Q${x - r * 0.18} ${y - r * 0.18} ${x} ${y - r}Z" fill="${c}"/>`;
@@ -2855,22 +2864,22 @@ function mascotSadSVG() {
     + '<ellipse cx="54" cy="99" rx="11" ry="7"/><ellipse cx="86" cy="99" rx="11" ry="7"/>';
   const star = (cx, cy, R, r) => { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (Math.PI / 5) * i + 0.25; const rr = i % 2 ? r : R; d += `${i ? 'L' : 'M'}${(cx + Math.cos(a) * rr).toFixed(1)} ${(cy + Math.sin(a) * rr).toFixed(1)}`; } return `${d}Z`; };
   const drop = (x, y, s) => `M${x} ${y}q${-3.4 * s} ${5 * s} ${-3.4 * s} ${7.6 * s}a${3.4 * s} ${3.4 * s} 0 0 0 ${6.8 * s} 0q0 ${-2.6 * s} ${-3.4 * s} ${-7.6 * s}z`;
-  const eye = (x) => `<g class="ms-eye"><ellipse cx="${x}" cy="67" rx="5.2" ry="6.2" fill="#1E2A44"/><circle cx="${x + 1.7}" cy="64.6" r="2.1" fill="#fff"/></g>`;
-  return `<svg class="ms" viewBox="0 0 140 130" aria-hidden="true">
-    <defs><linearGradient id="ms-g" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="110"><stop offset="0" stop-color="#F4F8FD"/><stop offset=".6" stop-color="#E4EDF8"/><stop offset="1" stop-color="#C9D9EF"/></linearGradient></defs>
-    <g class="ms-rain" fill="#5B9BFF">
+  const eye = (x) => `<g class="cry-eye"><ellipse cx="${x}" cy="67" rx="5.2" ry="6.2" fill="#1E2A44"/><circle cx="${x + 1.7}" cy="64.6" r="2.1" fill="#fff"/></g>`;
+  return `<svg class="cry" viewBox="0 0 140 130" aria-hidden="true">
+    <defs><linearGradient id="cry-g" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="110"><stop offset="0" stop-color="#F4F8FD"/><stop offset=".6" stop-color="#E4EDF8"/><stop offset="1" stop-color="#C9D9EF"/></linearGradient></defs>
+    <g class="cry-rain" fill="#5B9BFF">
       <path style="--d:0s" d="${drop(48, 108, 1)}"/><path style="--d:.45s" d="${drop(70, 112, 1.1)}"/><path style="--d:.9s" d="${drop(92, 108, 1)}"/>
     </g>
-    <g class="ms-body">
+    <g class="cry-body">
       <g fill="${ol}" stroke="${ol}" stroke-width="6.5" stroke-linejoin="round">${body}</g>
-      <g fill="url(#ms-g)">${body}</g>
+      <g fill="url(#cry-g)">${body}</g>
       <g fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".8"><path d="M53 37a22 22 0 0 1 12-10"/><path d="M31 55a15 15 0 0 1 7-8"/></g>
-      <path class="ms-star" d="${star(97, 31, 8.5, 4)}" fill="#FFC94D" stroke="${ol}" stroke-width="2.4" stroke-linejoin="round"/>
-      <g class="ms-brow" fill="none" stroke="#1E2A44" stroke-width="3.6" stroke-linecap="round"><path d="M47.5 57.5 60.5 52.5"/><path d="M79.5 52.5 92.5 57.5"/></g>
+      <path class="cry-star" d="${star(97, 31, 8.5, 4)}" fill="#FFC94D" stroke="${ol}" stroke-width="2.4" stroke-linejoin="round"/>
+      <g class="cry-brow" fill="none" stroke="#1E2A44" stroke-width="3.6" stroke-linecap="round"><path d="M47.5 57.5 60.5 52.5"/><path d="M79.5 52.5 92.5 57.5"/></g>
       ${eye(57)}${eye(83)}
-      <path class="ms-mouth" d="M62.5 84q7.5-7 15 0" fill="none" stroke="#1E2A44" stroke-width="3.4" stroke-linecap="round"/>
-      <path class="ms-tear l" d="${drop(52, 74, 0.9)}" fill="#5B9BFF"/>
-      <path class="ms-tear r" d="${drop(88, 74, 0.8)}" fill="#7DB3FF"/>
+      <path class="cry-mouth" d="M62.5 84q7.5-7 15 0" fill="none" stroke="#1E2A44" stroke-width="3.4" stroke-linecap="round"/>
+      <path class="cry-tear l" d="${drop(52, 74, 0.9)}" fill="#5B9BFF"/>
+      <path class="cry-tear r" d="${drop(88, 74, 0.8)}" fill="#7DB3FF"/>
     </g>
   </svg>`;
 }
@@ -4822,7 +4831,11 @@ function goAuth(screen) {
 
 // 버튼 클릭 (data-act 값으로 구분)
 const actions = {
-  'mascot-hop': (el) => { el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop'); setTimeout(() => el.classList.remove('hop'), 700); },
+  'mascot-hop': (el) => {
+    el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop'); setTimeout(() => el.classList.remove('hop'), 700);
+    const say = document.getElementById('mascot-say');
+    if (say) { state.sayIdx = ((state.sayIdx || 0) + 1) % MASCOT_SAYS.length; say.innerHTML = mascotSayHTML(); say.classList.remove('pop'); void say.offsetWidth; say.classList.add('pop'); }
+  },
   'login-kakao': () => {
     const box = document.querySelector('#login-form [name="remember"]');
     const remember = box ? box.checked : true;

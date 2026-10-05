@@ -42,6 +42,10 @@ const lineCount = (page, sel) => page.$$eval(sel, (els) => els.map((e) => { cons
   console.log('1) 자주 묻는 질문');
   const A = await newUser(browser, '사용자');
   await signup(A.page, '김하늘', 'sky@test.kr');
+  await sleep(900);
+  ok('메인 푸름이 말풍선: 자기소개', (await A.page.textContent('#mascot-say')).replace(/\s/g, '') === '안녕,난푸름이야!푸른하늘지킴이야');
+  await A.page.click('.mascot');
+  ok('푸름이를 누르면 다음 말', (await A.page.textContent('#mascot-say')).includes('같이 걸어가 볼까?'));
   await A.page.click('[data-act="open-account"]');
   ok('계정정보에 "자주 묻는 질문 · 의견 보내기" 줄', (await A.page.textContent('#app')).includes('자주 묻는 질문 · 의견 보내기'));
   await A.page.click('[data-act="open-help"]');
@@ -132,7 +136,7 @@ const lineCount = (page, sel) => page.$$eval(sel, (els) => els.map((e) => { cons
   ok('처음엔 신난 푸름이', !!(await A.page.$('.shop-sheet .ss-mascot .mj')));
   await A.page.click('.shop-sheet [data-yes]');
   await sleep(700);
-  ok('구매하기 → 우는 푸름이로 바뀜', !!(await A.page.$('.shop-sheet .ss-mascot.sad .ms')) && !(await A.page.$('.shop-sheet .ss-mascot .mj')));
+  ok('구매하기 → 우는 푸름이로 바뀜', !!(await A.page.$('.shop-sheet .ss-mascot.sad .cry')) && !(await A.page.$('.shop-sheet .ss-mascot .mj')));
   const short = await A.page.textContent('#ss-short');
   ok('"포인트가 1,000P 부족해요" 문구 (보유 0P)', short.includes('포인트가 1,000P 부족해요'), short);
   ok('구매 창은 그대로 (따로 팝업 없음)', (await A.page.$$('.sheet-wrap')).length === 1);
