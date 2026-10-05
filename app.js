@@ -1423,10 +1423,16 @@ function campRankHTML(c) {
     ${all.length > 50 || (dbMode() && state.campRanks[c.id] && state.campRanks[c.id].total > 50) ? `<p class="rk-note">50위까지 보여 드려요</p>` : ''}
   </section>`;
 }
-// 예시 캠페인 6개 (좋아요·참여·달성 정도를 다르게 넣어 순위가 매겨지는지 확인용)
+// 예시 캠페인 11개 (좋아요·참여·달성 정도를 다르게 넣어 순위가 매겨지는지 확인용)
+//  맨 앞 5개는 사진 있는 추천 캠페인 — 서버 예시 데이터(api/_seed.cjs FEATURED)와 같은 글이에요
 function seedCampaigns() {
   const day = 86400000; const now = Date.now();
   return [
+    {"id": "seed-f1", "tag": "walk", "mode": "walk", "title": "주말엔 공원까지 걸어서 가요", "sub": "차로 5분, 걸으면 25분인데 걷는 쪽이 더 좋더라고요", "body": "원래 주말마다 차 끌고 공원 가서 주차 자리 찾느라 빙빙 돌았거든요. 어느 날 그냥 걸어가 봤는데 생각보다 금방이었어요.\n\n요즘 가로수 잎이 물들기 시작해서 공원 가는 길 자체가 나들이 같아요. 커피 하나 들고 천천히 걷다 보면 도착하기 전에 이미 기분이 좋아져 있어요.\n\n왕복 4km만 걸어도 차로 다녀올 때보다 탄소가 1kg 가까이 줄어요. 주말에 걸어서 나들이 간 날 기록해 주세요. 같이 150kg 채워 봐요.", "goalKg": 150, "progressG": 159000, "participants": 212, "likes": 640, "creator": "동네한바퀴", "cover": "assets/camp/walk-park.jpg", "createdAt": now - 16 * day},
+    {"id": "seed-f2", "tag": "bike", "mode": "bike", "title": "해 뜰 무렵 자전거로 출근하기", "sub": "7시 전에 나오면 길도 한산하고 하늘이 예뻐요", "body": "출근길 버스에 끼어 타는 게 너무 지쳐서 자전거를 시작했어요. 집에서 회사까지 6km인데 25분이면 가요. 버스 기다리는 시간까지 치면 오히려 더 빨라요.\n\n조금만 일찍 나오면 해 뜨는 거 보면서 달릴 수 있어요. 아침에 땀 한 번 빼고 나면 오전 내내 덜 피곤하더라고요.\n\n왕복 12km를 차 대신 자전거로 다니면 하루에 탄소를 약 2.8kg 줄일 수 있어요. 일주일에 한두 번이라도 괜찮아요. 공공자전거로 참여해도 돼요.", "goalKg": 120, "progressG": 124800, "participants": 168, "likes": 572, "creator": "seoul_biker", "cover": "assets/camp/bike-commute.jpg", "createdAt": now - 12 * day},
+    {"id": "seed-f3", "tag": "walk", "mode": "walk", "title": "택시 말고 걸어서 도시 여행", "sub": "골목 사이로 걸어야 보이는 것들이 있어요", "body": "여행 가면 택시나 렌터카로 다니게 되는데, 지난번엔 숙소 근처는 전부 걸어 다녀 봤어요. 하루에 2만 보 넘게 걸었는데 지도에 안 나오는 작은 가게들, 해 질 무렵 하나둘 불 켜지는 빌딩들 구경하는 재미가 쏠쏠했어요.\n\n가까운 곳은 걷고, 멀면 지하철 타고. 이것만 지켜도 여행 중에 나오는 탄소가 꽤 줄어요.\n\n여행지에서 걸어서 이동한 날 기록해 주세요. 목표는 100kg이에요.", "goalKg": 100, "progressG": 102000, "participants": 151, "likes": 515, "creator": "걷다보면", "cover": "assets/camp/city-walk.jpg", "createdAt": now - 9 * day},
+    {"id": "seed-f4", "tag": "carfree", "mode": "walk", "title": "꽃 축제는 차 두고 걸어서", "sub": "축제장 앞 주차 대기 한 시간, 이제 그만", "body": "작년 봄 튤립 축제 갔을 때 주차장 들어가는 데만 한 시간 넘게 걸렸어요. 올해는 역에서 내려서 20분 걸어갔더니 차 타고 온 친구들보다 먼저 도착했어요.\n\n축제장 가는 길에도 꽃이 심어져 있어서 걷는 동안 심심하지 않아요. 사진 찍을 곳도 훨씬 많고요.\n\n관광지나 축제 갈 때 가까운 역이나 정류장에서 내려 걸어 들어가 주세요. 걸은 거리만큼 아낀 탄소로 쌓여요.", "goalKg": 130, "progressG": 136500, "participants": 183, "likes": 468, "creator": "노을맛집탐방", "cover": "assets/camp/tulip-walk.jpg", "createdAt": now - 20 * day},
+    {"id": "seed-f5", "tag": "together", "mode": "walk", "title": "야경 보러 걸어서 올라가요", "sub": "친구랑 저녁 먹고 뒷산까지 천천히", "body": "서울 야경 명소 중에 걸어서 갈 수 있는 곳이 생각보다 많아요. 저녁 먹고 친구들이랑 수다 떨면서 40분쯤 걸어 올라가면 롯데타워랑 한강이 한눈에 들어와요.\n\n차로 전망대까지 올라가면 편하긴 한데, 걸어서 올라간 날 본 야경이 훨씬 오래 기억에 남더라고요.\n\n친구나 가족이랑 같이 걸어서 다녀온 날 기록해 주세요. 같이 간 사람도 각자 기록하면 목표에 더 빨리 가까워져요.", "goalKg": 110, "progressG": 111100, "participants": 126, "likes": 433, "creator": "밤산책러", "cover": "assets/camp/night-view.jpg", "createdAt": now - 6 * day},
     { id: 'seed-1', tag: 'transit', title: '주말 나들이 버스로 가기', sub: '주말 나들이는 자동차 대신 버스로',
       body: '주말에 공원이나 한강 갈 때 버스 타고 가 봐요. 근교는 대부분 버스로 충분히 갈 수 있어요.\n\n이번 캠페인은 주말 나들이를 버스로 다녀오는 거예요. 혼자 자동차로 10km를 가면 CO₂ 약 2.1kg이 나오지만, 버스로 가면 약 0.28kg이에요. 한 번의 선택으로 탄소를 85% 넘게 줄일 수 있어요.',
       goalKg: 500, progressG: 523400, participants: 128, likes: 312, creator: '초록버스', createdAt: now - 20 * day },

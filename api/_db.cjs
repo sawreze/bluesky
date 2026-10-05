@@ -22,7 +22,9 @@ function sql() {
 //  실행이 끝나면 v_user_stats 뷰에 설계 지문(해시)을 적어 둬요.
 //  지문이 지금 코드와 같으면 건너뛰고, schema.sql 을 고쳐서 배포하면 지문이 달라져서 다시 실행해요.
 const SCHEMA = require('./_schema.cjs');
-const SCHEMA_HASH = crypto.createHash('sha256').update(JSON.stringify(SCHEMA)).digest('hex').slice(0, 16);
+// 사진 있는 추천 캠페인 5개도 배포할 때 같이 넣어요 (예시 회원이 있을 때만, 이미 있으면 건너뜀)
+const { FEATURED_SQL } = require('./_seed.cjs');
+const SCHEMA_HASH = crypto.createHash('sha256').update(JSON.stringify([SCHEMA, FEATURED_SQL])).digest('hex').slice(0, 16);
 function init() {
   if (!ready) {
     ready = (async () => {
@@ -37,6 +39,10 @@ function init() {
           failed.push({ i, sql: stmt.replace(/\s+/g, ' ').slice(0, 140), error: String(e && e.message).slice(0, 300) });
           console.error('[스키마 오류]', i, stmt.replace(/\s+/g, ' ').slice(0, 140), e && e.message);
         }
+      }
+      try { await db.query(FEATURED_SQL); } catch (e) {
+        failed.push({ i: 'featured', sql: '추천 캠페인 5개', error: String(e && e.message).slice(0, 300) });
+        console.error('[추천 캠페인 오류]', e && e.message);
       }
       module.exports.schemaErrors = failed;
       if (!failed.length) await db.query(`COMMENT ON VIEW v_user_stats IS '${SCHEMA_HASH}'`);

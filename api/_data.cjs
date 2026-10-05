@@ -84,7 +84,7 @@ module.exports = function makeData(db) {
     const admin = isAdminRow(me);
     const rows = await sql()`
       SELECT c.id, c.creator_id, u.name AS creator, c.tag_code, c.mode_code, c.title, c.subtitle, c.body,
-             (COALESCE(c.cover_url, '') <> '') AS has_cover, c.goal_kg, c.created_at, c.submitted_at,
+             (COALESCE(c.cover_url, '') <> '') AS has_cover, CASE WHEN c.cover_url LIKE 'assets/camp/%' THEN c.cover_url END AS static_cover, c.goal_kg, c.created_at, c.submitted_at,
              st.status, st.progress_g, st.participants, st.likes, s.reject_reason, s.reviewed_at, st.reached_at,
              (st.reached_at IS NOT NULL AND st.reached_at < now() - make_interval(days => ${END_DAYS})) AS ended,
              EXISTS (SELECT 1 FROM campaign_likes l WHERE l.campaign_id = c.id AND l.user_id = ${uid}) AS liked,
@@ -113,7 +113,7 @@ module.exports = function makeData(db) {
       const unseen = mine && r.last_decision && !r.last_seen && ms(r.last_reviewed) >= ms(r.submitted_at);
       return {
         id: String(r.id), tag: r.tag_code, mode: r.mode_code, title: r.title, sub: r.subtitle || '', body: r.body || '',
-        cover: r.has_cover ? imgUrl('c', r.id, ms(r.submitted_at)) : '',
+        cover: r.static_cover || (r.has_cover ? imgUrl('c', r.id, ms(r.submitted_at)) : ''), // 추천 캠페인은 앱에 들어 있는 사진
         goalKg: num(r.goal_kg), progressG: num(r.progress_g), participants: num(r.participants), likes: num(r.likes),
         creator: r.creator, ownerId: mine ? '@me' : `@u${r.creator_id}`, mine,
         status: r.status, rejectReason: r.reject_reason || '',
@@ -272,6 +272,7 @@ module.exports = function makeData(db) {
     const before = await demoCounts(me.id);
     if (before.users && before.cal) bad('예시 데이터가 이미 있어요. 먼저 지운 뒤 다시 넣어 주세요.', 409);
     if (!before.users) await sql().query(SEED.SEED_SQL);
+    await sql().query(SEED.FEATURED_SQL); // 사진 있는 추천 캠페인 5개 (이미 있으면 건너뜀)
     if (!before.cal) await sql().query(SEED.calSql(me.id));
     return { ok: true, ...(await demoCounts(me.id)) };
   }
@@ -456,7 +457,7 @@ module.exports = function makeData(db) {
     else if (cover.startsWith('data:')) {
       if (cover.length > MAX_COVER || !DATA_URL_RE.test(cover)) bad('사진이 너무 크거나 형식이 맞지 않아요. 다른 사진으로 바꿔 주세요.');
       coverSql = cover;
-    } else if (!cover.startsWith('/api/data?a=img&k=c')) bad('사진 형식이 맞지 않아요.');
+    } else if (!cover.startsWith('/api/data?a=img&k=c') && !/^assets\/camp\/[\w-]+\.jpg$/.test(cover)) bad('사진 형식이 맞지 않아요.');
 
     if (b.id) {
       const id = intId(b.id);

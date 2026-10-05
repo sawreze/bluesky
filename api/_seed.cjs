@@ -201,4 +201,91 @@ END
 $cal$`;
 const CAL_CLEAR = (uid) => `DELETE FROM trips WHERE user_id = ${Number(uid)} AND client_key LIKE 'demo-cal-%'`;
 
-module.exports = { SEED_SQL, CLEAR_SQL, NICKS, calSql, CAL_CLEAR };
+// ── 사진이 있는 추천 캠페인 5개 (메인 화면 인기 캠페인 TOP 5 시연용) ──
+//  예시 회원이 있을 때만 들어가요. 이미 있으면 건너뛰어요(여러 번 실행해도 한 번만).
+//  좋아요가 다른 예시 캠페인보다 많아서 TOP 5에 올라가요. 달성률은 74~92% (100% 되면 7일 뒤 종료되니까 일부러 남겨 둬요)
+//  [제목, 부제, 분류, 수단, 목표kg, 만든 사람 닉네임, 며칠 전, 참여 확률, 좋아요 확률, 달성 비율, 표지 사진, 본문]
+const FEATURED = [
+  ['주말엔 공원까지 걸어서 가요', '차로 5분, 걸으면 25분인데 걷는 쪽이 더 좋더라고요', 'walk', 'walk', 150, '동네한바퀴', 16, 0.55, 0.86, 0.92, 'assets/camp/walk-park.jpg',
+    '원래 주말마다 차 끌고 공원 가서 주차 자리 찾느라 빙빙 돌았거든요. 어느 날 그냥 걸어가 봤는데 생각보다 금방이었어요.\n\n요즘 가로수 잎이 물들기 시작해서 공원 가는 길 자체가 나들이 같아요. 커피 하나 들고 천천히 걷다 보면 도착하기 전에 이미 기분이 좋아져 있어요.\n\n왕복 4km만 걸어도 차로 다녀올 때보다 탄소가 1kg 가까이 줄어요. 주말에 걸어서 나들이 간 날 기록해 주세요. 같이 150kg 채워 봐요.'],
+  ['해 뜰 무렵 자전거로 출근하기', '7시 전에 나오면 길도 한산하고 하늘이 예뻐요', 'bike', 'bike', 120, 'seoul_biker', 12, 0.45, 0.8, 0.86, 'assets/camp/bike-commute.jpg',
+    '출근길 버스에 끼어 타는 게 너무 지쳐서 자전거를 시작했어요. 집에서 회사까지 6km인데 25분이면 가요. 버스 기다리는 시간까지 치면 오히려 더 빨라요.\n\n조금만 일찍 나오면 해 뜨는 거 보면서 달릴 수 있어요. 아침에 땀 한 번 빼고 나면 오전 내내 덜 피곤하더라고요.\n\n왕복 12km를 차 대신 자전거로 다니면 하루에 탄소를 약 2.8kg 줄일 수 있어요. 일주일에 한두 번이라도 괜찮아요. 공공자전거로 참여해도 돼요.'],
+  ['택시 말고 걸어서 도시 여행', '골목 사이로 걸어야 보이는 것들이 있어요', 'walk', 'walk', 100, '걷다보면', 9, 0.42, 0.74, 0.78, 'assets/camp/city-walk.jpg',
+    '여행 가면 택시나 렌터카로 다니게 되는데, 지난번엔 숙소 근처는 전부 걸어 다녀 봤어요. 하루에 2만 보 넘게 걸었는데 지도에 안 나오는 작은 가게들, 해 질 무렵 하나둘 불 켜지는 빌딩들 구경하는 재미가 쏠쏠했어요.\n\n가까운 곳은 걷고, 멀면 지하철 타고. 이것만 지켜도 여행 중에 나오는 탄소가 꽤 줄어요.\n\n여행지에서 걸어서 이동한 날 기록해 주세요. 목표는 100kg이에요.'],
+  ['꽃 축제는 차 두고 걸어서', '축제장 앞 주차 대기 한 시간, 이제 그만', 'carfree', 'walk', 130, '노을맛집탐방', 20, 0.48, 0.7, 0.89, 'assets/camp/tulip-walk.jpg',
+    '작년 봄 튤립 축제 갔을 때 주차장 들어가는 데만 한 시간 넘게 걸렸어요. 올해는 역에서 내려서 20분 걸어갔더니 차 타고 온 친구들보다 먼저 도착했어요.\n\n축제장 가는 길에도 꽃이 심어져 있어서 걷는 동안 심심하지 않아요. 사진 찍을 곳도 훨씬 많고요.\n\n관광지나 축제 갈 때 가까운 역이나 정류장에서 내려 걸어 들어가 주세요. 걸은 거리만큼 아낀 탄소로 쌓여요.'],
+  ['야경 보러 걸어서 올라가요', '친구랑 저녁 먹고 뒷산까지 천천히', 'together', 'walk', 110, '밤산책러', 6, 0.38, 0.66, 0.74, 'assets/camp/night-view.jpg',
+    '서울 야경 명소 중에 걸어서 갈 수 있는 곳이 생각보다 많아요. 저녁 먹고 친구들이랑 수다 떨면서 40분쯤 걸어 올라가면 롯데타워랑 한강이 한눈에 들어와요.\n\n차로 전망대까지 올라가면 편하긴 한데, 걸어서 올라간 날 본 야경이 훨씬 오래 기억에 남더라고요.\n\n친구나 가족이랑 같이 걸어서 다녀온 날 기록해 주세요. 같이 간 사람도 각자 기록하면 목표에 더 빨리 가까워져요.'],
+];
+
+const FEATURED_SQL = `DO $feat$
+DECLARE
+  pn text[] := ${arr(PLACES.map((p) => p[0]))};
+  plat float8[] := ${arr(PLACES.map((p) => p[1]), String)};
+  plng float8[] := ${arr(PLACES.map((p) => p[2]), String)};
+  ft text[] := ${arr(FEATURED.map((c) => c[0]))};
+  fs text[] := ${arr(FEATURED.map((c) => c[1]))};
+  ftag text[] := ${arr(FEATURED.map((c) => c[2]))};
+  fmode text[] := ${arr(FEATURED.map((c) => c[3]))};
+  fgoal int[] := ${arr(FEATURED.map((c) => c[4]), String)};
+  fcre text[] := ${arr(FEATURED.map((c) => c[5]))};
+  fdays int[] := ${arr(FEATURED.map((c) => c[6]), String)};
+  fjoin float8[] := ${arr(FEATURED.map((c) => c[7]), String)};
+  flike float8[] := ${arr(FEATURED.map((c) => c[8]), String)};
+  ffrac float8[] := ${arr(FEATURED.map((c) => c[9]), String)};
+  fcov text[] := ${arr(FEATURED.map((c) => c[10]))};
+  fb text[] := ${arr(FEATURED.map((c) => c[11]))};
+  uids int[]; parts int[]; admin_id int; cre int; cid int; uid int; pu int; tid int; o int; d int; k int;
+  made timestamptz; at timestamptz; target numeric; cur numeric; km numeric; saved numeric; pts int;
+BEGIN
+  SELECT array_agg(id ORDER BY id) INTO uids FROM users WHERE provider = 'seed';
+  IF uids IS NULL THEN RETURN; END IF;
+  PERFORM setseed(0.0505);
+  SELECT id INTO admin_id FROM users WHERE trim(role) = 'admin' ORDER BY id LIMIT 1;
+  FOR k IN 1..array_length(ft, 1) LOOP
+    CONTINUE WHEN EXISTS (SELECT 1 FROM campaigns c JOIN users u ON u.id = c.creator_id WHERE u.provider = 'seed' AND c.title = ft[k]);
+    cre := NULL;
+    SELECT id INTO cre FROM users WHERE provider = 'seed' AND name = fcre[k] LIMIT 1;
+    IF cre IS NULL THEN cre := uids[1 + k]; END IF;
+    made := now() - make_interval(days => fdays[k]);
+    INSERT INTO campaigns (creator_id, tag_code, mode_code, title, subtitle, body, cover_url, goal_kg, created_at, submitted_at)
+    VALUES (cre, ftag[k], fmode[k], ft[k], fs[k], fb[k], fcov[k], fgoal[k], made, made)
+    RETURNING id INTO cid;
+    INSERT INTO campaign_reviews (campaign_id, reviewer_id, decision, reviewed_at, seen_at)
+    VALUES (cid, admin_id, 'approved', made + interval '3 hours', now());
+    INSERT INTO campaign_participants (campaign_id, user_id, joined_at) VALUES (cid, cre, made);
+    FOREACH uid IN ARRAY uids LOOP
+      IF random() < fjoin[k] THEN
+        INSERT INTO campaign_participants (campaign_id, user_id, joined_at)
+        VALUES (cid, uid, made + random() * make_interval(days => fdays[k] - 1)) ON CONFLICT DO NOTHING;
+      END IF;
+      IF random() < flike[k] THEN
+        INSERT INTO campaign_likes (campaign_id, user_id, liked_at)
+        VALUES (cid, uid, made + random() * make_interval(days => fdays[k] - 1)) ON CONFLICT DO NOTHING;
+      END IF;
+    END LOOP;
+    -- 참여자들의 걷기·자전거 기록으로 목표의 74~92%까지 채워요 (포인트도 앱과 같은 식으로)
+    SELECT array_agg(user_id) INTO parts FROM campaign_participants WHERE campaign_id = cid;
+    target := fgoal[k] * 1000 * ffrac[k];
+    cur := 0;
+    WHILE cur < target LOOP
+      pu := parts[1 + floor(random() * array_length(parts, 1))::int];
+      km := round((CASE WHEN fmode[k] = 'bike' THEN 2.5 + random() * 6 ELSE 0.8 + random() * 2.8 END)::numeric, 1);
+      saved := round((km * 1.12 * 210)::numeric, 1);
+      pts := round(saved / 1000 * 10)::int + round(km)::int;
+      at := made + interval '4 hours' + random() * (now() - made - interval '4 hours');
+      o := 1 + floor(random() * array_length(pn, 1))::int;
+      d := 1 + ((o + floor(random() * (array_length(pn, 1) - 1))::int) % array_length(pn, 1));
+      INSERT INTO trips (user_id, campaign_id, origin_name, origin_lat, origin_lng, dest_name, dest_lat, dest_lng, minutes, saved_g, arrived_at)
+      VALUES (pu, cid, pn[o], plat[o], plng[o], pn[d], plat[d], plng[d],
+              round(CASE fmode[k] WHEN 'bike' THEN km * 4 ELSE km * 14 END)::int + 3, saved, at)
+      RETURNING id INTO tid;
+      INSERT INTO trip_segments (trip_id, seq, mode_code, km) VALUES (tid, 1, fmode[k], km);
+      IF pts > 0 THEN INSERT INTO point_transactions (user_id, amount, reason, trip_id, created_at) VALUES (pu, pts, 'trip', tid, at); END IF;
+      cur := cur + saved;
+    END LOOP;
+  END LOOP;
+END
+$feat$`;
+
+module.exports = { SEED_SQL, CLEAR_SQL, NICKS, calSql, CAL_CLEAR, FEATURED, FEATURED_SQL };
