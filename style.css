@@ -2064,18 +2064,22 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
 @keyframes cryRain { 0% { opacity: 0; transform: translateY(-6px); } 20% { opacity: 1; } 85% { opacity: .9; } 100% { opacity: 0; transform: translateY(12px); } }
 @media (prefers-reduced-motion: reduce) { .cry, .cry *, .ss-mascot.sad, .ss-short.shake, .shop-sheet .btn.shake { animation: none !important; } .cry-tear, .cry-rain path { opacity: 1; } }
 
-/* ── 푸름이 말풍선 (메인): "오늘은" 오른쪽 빈자리, 꼬리는 푸름이 얼굴 쪽 ── */
-.mascot-say { position: absolute; right: 72px; bottom: calc(100% + 58px); z-index: 3; margin: 0; padding: 8px 12px 9px; max-width: 168px;
-  display: grid; gap: 1px; border-radius: 16px 16px 6px 16px; background: var(--card); border: 1px solid var(--glass-line, rgba(255, 255, 255, .7));
-  box-shadow: 0 6px 16px rgba(31, 61, 110, .12); font-size: 12px; line-height: 1.4; color: var(--muted); white-space: nowrap; pointer-events: none;
-  transform-origin: 100% 100%; animation: sayIn .55s cubic-bezier(.3, 1.4, .5, 1) .35s both, sayFloat 3.6s ease-in-out 1s infinite; }
-.mascot-say b { font-size: 12.5px; font-weight: 800; color: var(--ink); }
-.mascot-say::after { content: ''; position: absolute; right: -6px; bottom: 7px; width: 12px; height: 12px; background: var(--card);
+/* ── 푸름이 말풍선 (메인): 푸름이를 누르면 머리 왼쪽 위에 잠깐 떠요 ── */
+.mascot-say { position: absolute; right: 74px; bottom: calc(100% + 62px); z-index: 3; margin: 0; padding: 7px 13px 8px;
+  border-radius: 16px 16px 6px 16px; background: var(--card); border: 1px solid var(--glass-line, rgba(255, 255, 255, .7));
+  box-shadow: 0 6px 16px rgba(31, 61, 110, .14); font-size: 13px; font-weight: 800; line-height: 1.35; color: var(--ink); white-space: nowrap;
+  pointer-events: none; opacity: 0; transform: translate(8px, 6px) scale(.6); transform-origin: 100% 100%;
+  transition: opacity .2s ease, transform .25s ease; }
+.mascot-say:empty { display: none; }
+.mascot-say::after { content: ''; position: absolute; right: -6px; bottom: 6px; width: 11px; height: 11px; background: var(--card);
   border-right: 1px solid var(--glass-line, rgba(255, 255, 255, .7)); border-bottom: 1px solid var(--glass-line, rgba(255, 255, 255, .7));
   border-bottom-right-radius: 3px; transform: rotate(-45deg) skew(10deg, 10deg); }
-.mascot-say.pop { animation: sayPop .4s cubic-bezier(.3, 1.6, .5, 1), sayFloat 3.6s ease-in-out .4s infinite; }
-@keyframes sayIn { 0% { opacity: 0; transform: translate(8px, 6px) scale(.6); } 100% { opacity: 1; transform: none; } }
-@keyframes sayPop { 0% { transform: scale(.85); } 100% { transform: none; } }
-@keyframes sayFloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
-@media (max-width: 349px) { .mascot-say { display: none; } }
-@media (prefers-reduced-motion: reduce) { .mascot-say, .mascot-say.pop { animation: none; } }
+.mascot-say.show { opacity: 1; transform: none; transition: opacity .2s ease, transform .45s cubic-bezier(.3, 1.6, .5, 1); }
+@media (prefers-reduced-motion: reduce) { .mascot-say, .mascot-say.show { transition: opacity .2s; transform: none; } }
+
+/* 자주 묻는 질문: 배출계수 표 + 출처 */
+.faq-ef { margin-top: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.faq-ef span { display: grid; gap: 1px; justify-items: center; padding: 7px 2px 6px; border-radius: 10px; background: var(--card); text-align: center; }
+.faq-ef small { font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; letter-spacing: -.02em; }
+.faq-ef b { font-size: 13.5px; font-weight: 800; color: var(--sky-strong); font-variant-numeric: tabular-nums; }
+.faq-src { display: block; margin-top: 8px; font-size: 11.5px; color: var(--muted); }

@@ -1741,7 +1741,7 @@ function mainHTML() {
       <span class="m-chev">${ICON.chev}</span>
     </button>
     ${mascotSVG()}
-    <p class="mascot-say" id="mascot-say" aria-live="polite">${mascotSayHTML()}</p>
+    <p class="mascot-say" id="mascot-say" role="status" aria-live="polite"></p>
     </div>
 
     <section class="m-card m-wk-card" id="wk-card" data-act="open-week" role="button" tabindex="0" aria-label="최근 7일 탄소 절약 자세히 보기">
@@ -2775,14 +2775,6 @@ function monthRanking(mKey = monthKey()) {
   all.forEach((u, i) => { u.rank = i + 1; });
   return { all, me: all.find((u) => u.me) };
 }
-// 푸름이 말풍선: 처음엔 자기소개, 푸름이를 누를 때마다 다음 말
-const MASCOT_SAYS = [
-  ['안녕, 난 푸름이야!', '푸른 하늘 지킴이야'],
-  ['가까운 곳은', '같이 걸어가 볼까?'],
-  ['아낀 탄소만큼', '포인트로 돌려줄게!'],
-  ['버스·지하철도 좋아', '하늘이 고마워할 거야'],
-];
-function mascotSayHTML() { const [a, b] = MASCOT_SAYS[(state.sayIdx || 0) % MASCOT_SAYS.length]; return `<b>${a}</b><span>${b}</span>`; }
 // ── 푸른하늘 푸름이 (마스코트): 빠른 길찾기 카드 위에 걸터앉아 다리를 흔들어요. 누르면 폴짝 ──
 function mascotSVG() {
   const sp = (x, y, r, c, d) => `<path class="ms-spark" style="animation-delay:${d}s" d="M${x} ${y - r}Q${x + r * 0.18} ${y - r * 0.18} ${x + r} ${y}Q${x + r * 0.18} ${y + r * 0.18} ${x} ${y + r}Q${x - r * 0.18} ${y + r * 0.18} ${x - r} ${y}Q${x - r * 0.18} ${y - r * 0.18} ${x} ${y - r}Z" fill="${c}"/>`;
@@ -3402,7 +3394,10 @@ function accountHTML() {
 // ── 도움말: 자주 묻는 질문 + 관리자에게 의견 보내기 (계정정보 > 자주 묻는 질문 · 의견 보내기) ──
 //  질문·답은 되도록 두 줄 안에 들어오게 짧게 적어요
 const FAQ = [
-  { q: '이 앱은 무슨 앱이에요?', a: '자동차 대신 걷기·자전거·대중교통을 타면 아낀 탄소만큼 포인트를 주는 길찾기 앱이에요.' },
+  { q: '이 앱은 무슨 앱이에요?', a: '푸른하늘은 이동 과정의 탄소 배출을 줄이도록 돕는 친환경 내비게이션이에요. 목적지까지 갈 수 있는 경로를 수단별 CO₂ 배출량과 함께 비교해 보여 주고, 자동차 대신 걷기·자전거·대중교통을 선택해 실제로 줄인 배출량을 기록해 포인트로 보상해요.' },
+  { q: '탄소 배출은 어떤 방식으로 계산해요?', a: '같은 목적지를 승용차로 갔을 때의 배출량에서, 실제로 이용한 경로의 배출량(구간 거리 × 수단별 배출계수)을 뺀 값이 아낀 탄소예요. 배출계수는 1인이 1km를 이동할 때 나오는 CO₂ 양이에요.',
+    table: [['승용차', FACTORS.car], ['버스', FACTORS.bus], ['지하철', FACTORS.subway], ['걷기·자전거', FACTORS.walk]],
+    src: '출처: 서울시 자료(그린피스 코리아 인용), 1인 1km 기준' },
   { q: '포인트는 어떻게 쌓고 어디에 써요?', a: `친환경 이동 1km에 ${PT_PER_KM}P, 탄소 1kg 절약에 ${PT_PER_KG}P예요. 상점에서 굿즈·쿠폰으로 바꿔요.` },
   { q: '이동 기록은 언제 저장돼요?', a: '목적지에 도착하면 저장돼요. 인터넷이 끊겼다면 연결될 때 올라가요.' },
   { q: '캠페인은 어떻게 만들어요?', a: '캠페인 탭의 만들기 버튼으로 신청해요. 관리자가 승인하면 목록에 올라가요.' },
@@ -3424,7 +3419,7 @@ function faqItemHTML(f, i) {
   const open = state.faqOpen === i;
   return `<div class="faq-item ${open ? 'open' : ''}">
     <button type="button" class="faq-q" data-act="faq" data-id="${i}" aria-expanded="${open}" aria-controls="faq-a${i}"><i aria-hidden="true">Q</i><span>${esc(f.q)}</span>${ICON.chev}</button>
-    <div class="faq-a" id="faq-a${i}" role="region"><div><p>${esc(f.a)}</p></div></div>
+    <div class="faq-a" id="faq-a${i}" role="region"><div><p>${esc(f.a)}${f.table ? `<span class="faq-ef">${f.table.map(([k, g]) => `<span><small>${esc(k)}</small><b>${g}g</b></span>`).join('')}</span>` : ''}${f.src ? `<small class="faq-src">${esc(f.src)}</small>` : ''}</p></div></div>
   </div>`;
 }
 function fbChipHTML(x) {
@@ -4833,8 +4828,12 @@ function goAuth(screen) {
 const actions = {
   'mascot-hop': (el) => {
     el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop'); setTimeout(() => el.classList.remove('hop'), 700);
+    // 누르면 말풍선으로 인사하고 잠시 뒤 사라져요
     const say = document.getElementById('mascot-say');
-    if (say) { state.sayIdx = ((state.sayIdx || 0) + 1) % MASCOT_SAYS.length; say.innerHTML = mascotSayHTML(); say.classList.remove('pop'); void say.offsetWidth; say.classList.add('pop'); }
+    if (!say) return;
+    say.textContent = '안녕, 난 푸름이야!';
+    say.classList.remove('show'); void say.offsetWidth; say.classList.add('show');
+    clearTimeout(say._t); say._t = setTimeout(() => say.classList.remove('show'), 2600);
   },
   'login-kakao': () => {
     const box = document.querySelector('#login-form [name="remember"]');
