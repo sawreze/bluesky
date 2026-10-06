@@ -751,7 +751,7 @@ function transitEstimates(km, from, to) {
   });
 }
 
-// 자동차: 기준(혼자 타기) + 함께 타기
+// 자동차: 기준(혼자 타기)
 function carRoutes(car, km, from, to) {
   const base = car
     ? { km: car.km, minutes: car.minutes, lines: [{ mode: 'car', color: MODES.car.color, path: car.path }], steps: car.guides.map((g) => ({ ...g, mode: 'car', radius: 50 })), real: true }
@@ -759,20 +759,14 @@ function carRoutes(car, km, from, to) {
         km, minutes: Math.round((km / SPEED.car) * 60 + 5), lines: straightLine('car', from, to), real: false,
         steps: [{ mode: 'car', text: `${to ? to.name : '도착지'} 방향으로 운전해요`, sub: '자세한 길은 카카오맵 자동차 안내에서 확인하세요', target: to || null, radius: ARRIVE_M }],
       };
-  const make = (id, name, people, extraMin, firstStep) => ({
-    id, name, kind: 'car', real: base.real,
-    segments: [{ mode: 'car', km: base.km, min: base.minutes + extraMin, name: people > 1 ? `${people}명 함께` : '자동차', color: MODES.car.color }],
-    legs: [{ mode: 'car', name: people > 1 ? `자동차 ${people}명` : '자동차', color: MODES.car.color, start: from ? from.name : '출발지', end: to ? to.name : '도착지' }],
-    steps: firstStep ? [firstStep, ...base.steps] : base.steps,
-    lines: base.lines, marks: [], km: base.km,
-    minutes: base.minutes + extraMin, walkM: 0, transfers: 0, people, kakaoMode: 'car',
-  });
   return {
-    baseline: make('car', '혼자 자동차 타기', 1, 0),
-    pools: [
-      make('carpool-2', '2명이 함께 차 타기', 2, 8, { mode: 'walk', text: '함께 갈 친구나 가족을 태워요', sub: '탄소를 두 사람이 나눠요' }),
-      make('carpool-3', '3명이 함께 차 타기', 3, 12, { mode: 'walk', text: '함께 갈 사람 2명을 태워요', sub: '탄소를 세 사람이 나눠요' }),
-    ],
+    baseline: {
+      id: 'car', name: '혼자 자동차 타기', kind: 'car', real: base.real,
+      segments: [{ mode: 'car', km: base.km, min: base.minutes, name: '자동차', color: MODES.car.color }],
+      legs: [{ mode: 'car', name: '자동차', color: MODES.car.color, start: from ? from.name : '출발지', end: to ? to.name : '도착지' }],
+      steps: base.steps, lines: base.lines, marks: [], km: base.km,
+      minutes: base.minutes, walkM: 0, transfers: 0, people: 1, kakaoMode: 'car',
+    },
   };
 }
 
@@ -1090,7 +1084,7 @@ function currentSource() {
   const km = Number(state.manualKm) || 0;
   if (km <= 0) return null;
   const cars = carRoutes(null, km, null, null);
-  return { baseline: cars.baseline, candidates: [...activeRoutes(km, null, null), ...transitEstimates(km, null, null), ...cars.pools] };
+  return { baseline: cars.baseline, candidates: [...activeRoutes(km, null, null), ...transitEstimates(km, null, null)] };
 }
 function currentPlan() {
   const source = currentSource();
@@ -1130,7 +1124,7 @@ function findRoutes() {
       else { msgs.push(`대중교통 길찾기 오류: ${r.message}`); transit = transitEstimates(car ? car.km : estKm, from, to); }
     }
     const cars = carRoutes(car, estKm, from, to);
-    state.raw = { baseline: cars.baseline, candidates: [...activeRoutes(estKm, from, to), ...transit, ...cars.pools] };
+    state.raw = { baseline: cars.baseline, candidates: [...activeRoutes(estKm, from, to), ...transit] };
     state.notes = msgs;
     state.loading = false;
     if (state.screen === 'home') render();
