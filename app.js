@@ -1061,6 +1061,7 @@ const state = {
   prefs: { sort: 'fast', maxWalkM: Infinity, canBike: true, hasCar: true }, // 거르기 없이 정렬만 바꿔요
   chosenId: null,
   openDetail: null, // 상세보기를 펼친 경로
+  cmpOpen: false, // "자동차보다 얼마나 아낄까요?" 목록을 펼쳤는지 (탭을 바꿔도 그대로)
 
   search: { which: 'from', query: '', results: [], message: '', busy: false },
 
@@ -4110,46 +4111,31 @@ function routeCardHTML(r, selected, baseEm) {
     ${open ? `<ol class="detail">${r.steps.map((s) => `<li style="--c:${s.color || MODES[s.mode].color}"><strong>${esc(s.text)}</strong>${s.sub ? `<span>${esc(s.sub)}</span>` : ''}</li>`).join('')}</ol>` : ''}
   </article>`;
 }
-// 자동차로 갈 때와 비교: "혼자 자동차로 가면 OOkg" 을 기준으로, 각 방법이 탄소를 몇 kg 아끼는지 + 나무 비유
-//  - 이름이 같은 경로(버스, 버스 → 버스 …)는 가장 많이 아끼는 것 하나만 보여줘요
-//  - 많이 아끼는 순서, 막대가 길수록 많이 아껴요
-// 나무 비유: 1그루 1년치(9.8kg)보다 적으면 "나무 한 그루가 N일 동안 흡수하는 양"으로 (차이가 잘 보이게)
-function treeText(g) {
-  if (g >= TREE_YEAR_G) return impact(g).short;
-  const d = Math.max(1, Math.round(g / EQUIV.pineDayG));
-  return `나무 한 그루가 ${d.toLocaleString()}일 동안 흡수하는 양`;
-}
+// 자동차로 갈 때와 비교: 지금 고른 절약 단계(조금·중간·많이)의 경로만, 위 경로 카드와 같은 순서로 보여줘요
+//  - "혼자 자동차로 가면 OOkg" 을 기준으로, 경로마다 아끼는 탄소 kg + 나무 몇 그루 심은 효과
+//  - 막대가 길수록 많이 아껴요 (자동차 배출량 대비 %)
 function cmpKg(g) {
   const kg = g / 1000;
   return kg >= 100 ? `${Math.round(kg)}kg` : kg >= 1 ? `${kg.toFixed(1)}kg` : `${Math.round(g)}g`;
 }
-function compareHTML(ranked, chosenId) {
-  const base = ranked.baseline.emission;
-  const best = new Map();
-  ranked.all.forEach((r) => {
-    const cur = best.get(r.name);
-    const score = (x) => (x.id === chosenId ? 2e9 : 0) + (x.blocked ? 0 : 1e9) + x.saving; // 선택한 것 > 막히지 않은 것 > 많이 아끼는 것
-    const better = !cur || score(r) > score(cur);
-    if (better) best.set(r.name, r);
-  });
-  const rows = [...best.values()].sort((a, b) => (!!a.blocked - !!b.blocked) || (b.saving - a.saving));
-  return `<details class="compare cmp2">
-    <summary class="label">자동차 대신 가면 얼마나 아낄까요? <small>(${rows.length}가지)</small></summary>
+function compareHTML(options, baseline, chosenId, tier) {
+  if (!options.length) return '';
+  const base = baseline.emission;
+  return `<details class="compare cmp2" ${state.cmpOpen ? 'open' : ''}>
+    <summary class="label">${tier.sky} ${esc(tier.label)} 경로 ${options.length}개, 자동차보다 얼마나 아낄까요?</summary>
     <div class="cmp-base">
       <span class="cmp-base-ic" aria-hidden="true">${MI.car}</span>
-      <div><b>혼자 자동차로 가면 CO₂ ${cmpKg(base)}</b><small>${esc(base >= TREE_YEAR_G ? `나무 ${impact(base).short.match(/나무 (\S+)그루/)[1]}그루가 1년 동안 흡수해야 하는 양이에요` : `나무 한 그루가 ${Math.max(1, Math.round(base / EQUIV.pineDayG))}일 동안 흡수해야 하는 양이에요`)}</small></div>
+      <div><b>혼자 자동차로 가면 CO₂ ${cmpKg(base)}</b><small>이 양을 기준으로 얼마나 덜 나오는지 비교해요</small></div>
     </div>
-    <ul>${rows.map((r) => {
+    <ul>${options.map((r, i) => {
       const pct = Math.max(0, Math.min(100, r.savingPct));
-      const icon = r.tier ? r.tier.sky : MI.car;
       const saved = Math.max(0, r.saving);
-      const tiny = saved < 50;
-      return `<li class="cmp-row ${r.id === chosenId ? 'me' : ''} ${r.blocked ? 'off' : ''}">
-        <span class="cmp-name">${icon} ${esc(r.name)}${r.id === chosenId ? '<em>선택</em>' : ''}${r.blocked ? `<small>${esc(r.blocked)}</small>` : ''}</span>
-        <span class="cmp-save num">${tiny ? '거의 같아요' : `−${cmpKg(saved)}`}</span>
+      return `<li class="cmp-row ${r.id === chosenId ? 'me' : ''}">
+        <span class="cmp-name"><i class="cmp-no num">${i + 1}</i>${esc(r.name)}${r.id === chosenId ? '<em>선택</em>' : ''}</span>
+        <span class="cmp-save num">−${cmpKg(saved)}</span>
         <span class="cmp-track"><span class="cmp-bar" style="width:${pct.toFixed(1)}%"></span></span>
-        <span class="cmp-sub">${tiny ? '자동차와 비슷하게 나와요' : `🌳 ${esc(treeText(saved))}`}</span>
-        <span class="cmp-pct num">${tiny ? '' : `${Math.round(pct)}% 줄여요`}</span>
+        <span class="cmp-sub">${impact(saved).icon} ${impact(saved).short}</span>
+        <span class="cmp-pct num">${Math.round(pct)}% 줄여요</span>
       </li>`;
     }).join('')}</ul>
     <p class="cmp-note">막대가 길수록 탄소를 많이 아껴요 · 나무 1그루는 1년에 CO₂ 약 9.8kg을 흡수해요</p>
@@ -4227,7 +4213,7 @@ function resultSheetHTML() {
     ${filters}
     ${state.notes.map((n) => `<p class="notice warn small">${esc(n)}</p>`).join('')}
     <div class="rlist">${list}</div>
-    ${ranked ? compareHTML(ranked, chosen && chosen.id) : ''}
+    ${ranked && !state.loading ? compareHTML(options, ranked.baseline, chosen && chosen.id, tier) : ''}
     ${kgGuideHTML()}
     <p class="source">배출계수: ${FACTOR_SOURCE}. 대중교통·자동차는 실제 경로로, 도보·자전거와 "추정" 표시 구간은 직선거리로 계산했어요.</p>`;
 }
@@ -5187,6 +5173,11 @@ appEl.addEventListener('click', (e) => {
   const fn = actions[el.dataset.act];
   if (fn) { e.stopPropagation(); fn(el); }
 });
+
+// "자동차보다 얼마나 아낄까요?" 목록: 펼친 상태를 기억해서 절약 강도 탭을 바꿔도 그대로 (toggle 은 버블링이 안 돼서 capture 로)
+appEl.addEventListener('toggle', (e) => {
+  if (e.target.classList && e.target.classList.contains('cmp2')) state.cmpOpen = e.target.open;
+}, true);
 
 appEl.addEventListener('submit', (e) => {
   if (e.target.id === 'search-form') { e.preventDefault(); runSearch(); }
