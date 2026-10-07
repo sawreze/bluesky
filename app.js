@@ -1728,7 +1728,8 @@ function weekChartHTML(series, big) {
 
 // ── 첫 로그인 튜토리얼 ──
 //  처음 들어온 사용자에게 메인 화면에서 한 단계씩 짚어 줘요. 1단계: 빠른 길찾기 버튼만 밝게, 나머지는 흐리게.
-//  끝낸 단계는 계정별로 이 기기에 저장해요 (1 = 1단계 끝, 99 = 건너뜀). 이동 기록이 이미 있는 사용자는 안 보여요.
+//  빠른 길찾기 버튼을 직접 눌러야만 닫혀요 (건너뛰기 없음, 어두운 곳을 누르면 버튼이 흔들려요).
+//  끝낸 단계는 계정별로 이 기기에 저장해요 (1 = 1단계 끝). 이동 기록이 이미 있는 사용자는 안 보여요.
 const TOUR_KEY = 'pureun-tour';
 function tourStep() {
   try { return Number((JSON.parse(localStorage.getItem(TOUR_KEY) || '{}'))[userKey(state.user)]) || 0; } catch (e) { return 0; }
@@ -1751,7 +1752,7 @@ function tourTipHTML() {
   if (!tourOn()) return '';
   return `<div class="tour-tip${state.tourShown ? '' : ' tour-in'}" role="status">
     <svg class="tour-arrow" viewBox="0 0 40 46" aria-hidden="true"><path d="M9 42 C 8 26 18 16 30 7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1 6"/><path d="M23 5 L31 5.5 L30 14" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div class="tour-txt"><p><b>1.</b> 여기를 눌러<br>첫 길찾기를 시작해 보세요</p><button type="button" class="tour-skip" data-act="tour-skip">건너뛰기</button></div>
+    <div class="tour-txt"><p><b>1.</b> 여기를 눌러<br>첫 길찾기를 시작해 보세요</p></div>
   </div>`;
 }
 function mainHTML() {
@@ -4948,7 +4949,6 @@ const actions = {
   'shop-item': (el) => shopBuySheet(el.dataset.id),
   'shop-coupon': (el) => couponSheet(loadOrders().find((o) => String(o.id) === el.dataset.id)),
   'open-route': () => { if (tourOn()) tourSet(1); go('home'); },
-  'tour-skip': () => { tourSet(99); render(); },
   'tour-nudge': () => { // 어두운 곳을 누르면 빠른 길찾기 버튼이 살짝 흔들려요
     const b = document.querySelector('.m-quick.tour-hl'); if (!b) return;
     b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); setTimeout(() => b.classList.remove('nudge'), 520);

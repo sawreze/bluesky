@@ -2240,8 +2240,7 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
 .tour-tip { position: absolute; z-index: 52; left: 6px; right: 6px; top: calc(100% + 16px); display: flex; align-items: flex-start; gap: 6px; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, .55); pointer-events: none; }
 .tour-tip.tour-in { animation: tourFade .45s ease .6s both; }
 .tour-arrow { flex: none; width: 38px; height: 44px; margin: -8px 0 0 12px; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .5)); }
-.tour-txt { display: grid; gap: 8px; justify-items: start; padding-top: 6px; }
+.tour-txt { padding-top: 6px; }
 .tour-txt p { margin: 0; font-size: 17px; line-height: 1.5; font-weight: 700; letter-spacing: -.01em; }
 .tour-txt b { font-weight: 800; color: #9CD0FF; margin-right: 2px; }
-.tour-skip { pointer-events: auto; min-height: 36px; padding: 0 2px; border: 0; background: none; color: rgba(255, 255, 255, .72); font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-shadow: none; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .m-quick.tour-hl { animation: none; } .tour-dim.tour-in, .tour-tip.tour-in { animation: none; } }
