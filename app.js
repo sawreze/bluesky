@@ -190,6 +190,7 @@ const COUNT_FMT = {
   tree: (v) => { const h = Math.max(0.5, Math.floor(v * 2) / 2); const w = Math.floor(h); return w === 0 ? '반 그루' : `${w.toLocaleString()}그루${h - w >= 0.5 ? ' 반' : ''}`; },
   times: (v) => `${Math.round(v).toLocaleString()}번`,
   g: (v) => formatG(Math.round(v)),
+  int: (v) => Math.round(v).toLocaleString(),
 };
 const countAttr = (to, fmt) => `data-count="${to}" data-fmt="${fmt}"`;
 function runCounters(root = document) {
@@ -4567,16 +4568,81 @@ function balloonsHTML(g) {
   return `<div class="balloons" role="img" aria-label="풍선 ${n}개 분량">${dots}</div>
     <p class="balloon-cap">CO₂ 풍선 ${n.toLocaleString()}개가 하늘로 안 올라갔어요</p>`;
 }
-// 내 숲: 아낀 양을 모아 "소나무 1그루의 1년치(9.8kg)"를 채울 때마다 나무가 한 그루 자라요.
+// ── 나의 숲 (도착 화면 아래) ──
+//  "지금까지 나무 N그루를 심은 만큼 절약했어요" + 붓으로 칠한 듯한 나무가 새싹부터 다 자란 나무까지 자라는 그림.
+//  나무 1그루 = 소나무가 1년 동안 흡수하는 CO₂ 9.8kg. 아직 1그루가 안 되면 모은 만큼만 자란 어린 나무예요.
+//  도착 화면에 처음 들어올 때만 자라는 모습 · 숫자 카운터가 나오고, 다시 그려질 땐 다 자란 모습 그대로.
+function myTreeSVG(fin) {
+  const c = (x, y, r, f) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${f}"/>`;
+  const e = (x, y, rx, ry, f) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${f}" transform="rotate(-16 ${x} ${y})"/>`;
+  const dark = [[121, 116, 38, '#3F7744'], [56, 104, 30], [82, 70, 33], [121, 50, 37], [161, 68, 33], [186, 100, 30], [172, 120, 22], [121, 114, 26], [70, 121, 22], [121, 88, 46]]
+    .map(([x, y, r, f]) => c(x, y, r, f || '#4C8A4E')).join('');
+  const mid = [[62, 98, 24], [87, 63, 26], [123, 43, 28], [157, 61, 26], [179, 95, 24], [119, 86, 36], [94, 105, 20], [150, 104, 20]].map(([x, y, r]) => c(x, y, r, '#5F9D59')).join('');
+  const light = [[100, 46, 17, 11], [142, 54, 15, 10], [76, 82, 15, 10], [170, 88, 13, 9], [122, 78, 17, 11], [98, 104, 12, 8], [150, 98, 11, 7]].map(([x, y, rx, ry]) => e(x, y, rx, ry, '#7EB665')).join('');
+  const hi = [[106, 38, 9, 5.5], [146, 46, 7, 4.5], [82, 70, 7, 4.5], [124, 68, 8, 5], [62, 96, 6, 4]].map(([x, y, rx, ry]) => e(x, y, rx, ry, '#A7D27F')).join('');
+  const leaf = (x, y, n, f) => `<g transform="translate(${x} ${y})"><path class="lf lf${n}" d="${ECO_LEAF}" fill="${f}"/></g>`;
+  return `<svg class="mf-tree" viewBox="0 0 240 222" aria-hidden="true">
+    <defs>
+      <linearGradient id="mf-bark" x1="0" x2="1"><stop offset="0" stop-color="#6E4321"/><stop offset=".45" stop-color="#A8743C"/><stop offset="1" stop-color="#7A4C25"/></linearGradient>
+      <filter id="mf-brush" x="-12%" y="-12%" width="124%" height="124%">
+        <feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="3" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="7" xChannelSelector="R" yChannelSelector="G" result="d"/>
+        <feTurbulence type="fractalNoise" baseFrequency=".075 .11" numOctaves="3" seed="9" result="s"/>
+        <feColorMatrix in="s" type="matrix" values="0 0 0 0 .86  0 0 0 0 .96  0 0 0 0 .7  0 0 0 1.1 -.5" result="sl"/>
+        <feComposite in="sl" in2="d" operator="in" result="tex"/>
+        <feGaussianBlur in="tex" stdDeviation=".6" result="tex2"/>
+        <feMerge><feMergeNode in="d"/><feMergeNode in="tex2"/></feMerge>
+      </filter>
+    </defs>
+    <ellipse class="mf-ground" cx="120" cy="209" rx="96" ry="9" fill="#CFE6B4"/>
+    <path class="mf-grass" d="M44 209q2-9 6 0M52 209q1-6 4 0M186 209q2-10 6 0M195 209q1-6 4 0M150 211q1-5 3 0" fill="none" stroke="#7DBB5E" stroke-width="2.2" stroke-linecap="round"/>
+    <g class="mf-grow" style="--fin:${fin.toFixed(3)}"><g class="mf-sway">
+      <g class="mf-trunk">
+        <path d="M108 209C112 196 113 176 112 160C111 148 106 138 92 124L87 118C86 116 89 114 91 116L100 125C108 132 113 138 115 140C116 128 114 112 112 100C112 97 116 96 117 99C119 112 121 126 121 138C125 130 132 122 146 108L156 98C158 96 161 98 159 101L150 112C138 126 130 138 127 150C126 166 128 190 134 209Z" fill="url(#mf-bark)"/>
+        <path d="M116 200C117 186 116 170 115 156M124 196C123 182 123 168 124 154M119 182C120 176 120 170 119 164" fill="none" stroke="#5E391B" stroke-width="1.2" stroke-linecap="round" opacity=".45"/>
+      </g>
+      <g class="mf-crown" filter="url(#mf-brush)">
+        <g class="mf-l mf-l1">${dark}</g><g class="mf-l mf-l2">${mid}</g><g class="mf-l mf-l3">${light}</g><g class="mf-l mf-l4">${hi}</g>
+      </g>
+    </g></g>
+    <g class="mf-sprout">
+      <path d="M120 209V189" stroke="#4E9A4E" stroke-width="2.8" stroke-linecap="round"/>
+      <path d="M120 195C110 195 103 189 103 182C112 182 119 187 120 195Z" fill="#6DBE5C"/>
+      <path d="M120 191C130 191 138 185 138 177C128 177 121 183 120 191Z" fill="#82CC69"/>
+    </g>
+    ${leaf(70, 120, 1, '#6DB35E')}${leaf(164, 112, 2, '#5FA255')}${leaf(120, 128, 3, '#86C46A')}${leaf(92, 140, 4, '#6DB35E')}
+    <path class="mf-spk s1" d="M206 30l2.4 5.6 5.6 2.4-5.6 2.4-2.4 5.6-2.4-5.6-5.6-2.4 5.6-2.4Z" fill="#FFD84D"/>
+    <path class="mf-spk s2" d="M30 58l1.6 3.8 3.8 1.6-3.8 1.6-1.6 3.8-1.6-3.8-3.8-1.6 3.8-1.6Z" fill="#9BE0B4"/>
+    <path class="mf-spk s3" d="M196 150l1.3 3 3 1.3-3 1.3-1.3 3-1.3-3-3-1.3 3-1.3Z" fill="#FFE58A"/>
+  </svg>`;
+}
+function mfKg(g) {
+  const kg = g / 1000;
+  return kg >= 100 ? `${Math.round(kg).toLocaleString()}kg` : kg >= 1 ? `${kg.toFixed(1)}kg` : `${Math.round(g)}g`;
+}
 function forestHTML(log) {
-  const trees = Math.floor(log.g / TREE_YEAR_G);
-  const part = ((log.g % TREE_YEAR_G) / TREE_YEAR_G) * 100;
-  const shown = Math.min(trees, 20);
-  return `<section class="forest">
-    <h3>나의 숲 <small>${log.trips}번 이동 · 총 ${formatG(log.g)} 아낌</small></h3>
-    <div class="trees" aria-hidden="true">${'🌳'.repeat(shown)}${trees > shown ? `<b>+${trees - shown}</b>` : ''}<span class="sprout">🌱</span></div>
-    <div class="grow"><span style="width:${part.toFixed(1)}%"></span></div>
-    <p>${trees ? `소나무 <b>${trees}그루</b>가 1년 동안 흡수하는 양이에요. ` : ''}다음 나무까지 <b class="num">${formatG(TREE_YEAR_G - (log.g % TREE_YEAR_G))}</b> 남았어요</p>
+  const g = Math.max(0, log.g || 0);
+  const trees = Math.floor(g / TREE_YEAR_G);
+  const left = TREE_YEAR_G - (g % TREE_YEAR_G);
+  const part = ((g % TREE_YEAR_G) / TREE_YEAR_G) * 100;
+  const play = !state.mfPlayed; // 도착 화면에 처음 들어왔을 때만 자라는 모습
+  state.mfPlayed = true;
+  if (play && trees > 0) setTimeout(() => runCounters(document.querySelector('.mf')), 850); // 잎이 피어날 때 숫자도 같이 올라가요
+  const fin = trees > 0 ? 1 : 0.42 + 0.58 * (part / 100); // 1그루가 안 되면 모은 만큼만 자란 어린 나무
+  const num = trees.toLocaleString();
+  const title = trees > 0
+    ? `지금까지 나무 <b ${play ? countAttr(trees, 'int') : ''}>${play ? '0' : num}</b>그루를<br>심은 만큼 절약했어요`
+    : '첫 번째 나무를<br>키우고 있어요';
+  const said = trees > 0 ? `지금까지 나무 ${num}그루를 심은 만큼 절약했어요` : '첫 번째 나무를 키우고 있어요';
+  return `<section class="mf${play ? ' play' : ''}" aria-label="${said}. ${log.trips}번 이동, CO₂ 총 ${mfKg(g)} 아낌. 다음 나무까지 ${formatG(left)}">
+    <div class="mf-art">${myTreeSVG(fin)}</div>
+    <h3 class="mf-title" aria-hidden="true">${title}</h3>
+    <p class="mf-sub" aria-hidden="true">${log.trips.toLocaleString()}번 이동 · CO₂ 총 <b>${mfKg(g)}</b> 아낌</p>
+    <div class="mf-next" aria-hidden="true">
+      <div class="mf-next-top"><span><i>🌱</i> 다음 나무까지</span><b class="num">${formatG(left)}</b></div>
+      <div class="mf-bar"><span style="--w:${part.toFixed(1)}%"></span></div>
+    </div>
+    <p class="mf-hint"><span aria-hidden="true">ⓘ</span>나무 1그루 = 1년 동안 CO₂ 9.8kg 흡수</p>
   </section>`;
 }
 function doneHTML() {
@@ -4646,6 +4712,7 @@ function render() {
   const keepNav = app.querySelector(':scope > .m-tabs');
   if (keepNav) keepNav.remove();
   if (screen === 'result' && state.lastRendered !== 'result') state.ecoPlayed = null; // 경로 화면에 새로 들어오면 그림 등장 효과를 다시
+  if (screen === 'done' && state.lastRendered !== 'done') state.mfPlayed = false; // 도착 화면에 새로 들어오면 나의 숲 나무가 다시 자라요
   app.innerHTML = VIEWS[screen]();
   app.dataset.screen = screen;
   const newNav = app.querySelector(':scope > .m-tabs');
