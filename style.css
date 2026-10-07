@@ -2235,7 +2235,15 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
   0%, 100% { box-shadow: 0 0 0 2px #fff, 0 0 14px 4px rgba(110, 180, 255, .7), 0 0 34px 10px rgba(60, 130, 255, .4); }
   50% { box-shadow: 0 0 0 3px #fff, 0 0 24px 9px rgba(140, 200, 255, .98), 0 0 60px 20px rgba(60, 130, 255, .6); }
 }
-.m-quick.tour-hl.nudge, .float-top.tour2 .trip-box.nudge { animation: tourNudge .5s ease; }
+.m-quick.tour-hl.nudge, .float-top.tour2 .trip-box.nudge, .cta.tour3 #go-result.nudge { animation: tourNudge .5s ease; }
+/* 3단계: 아래 길찾기 버튼만 막 위로 올려 빛나게, 안내 문구는 버튼 위에서 아래를 가리켜요 */
+.cta.tour3 { z-index: 52; background: none; }
+.cta.tour3 #go-result { position: relative; box-shadow: 0 0 0 2px #fff, 0 0 16px 5px rgba(110, 180, 255, .8), 0 0 40px 12px rgba(60, 130, 255, .45); animation: tourGlow 1.9s ease-in-out infinite; }
+.tour-tip.s3 { position: fixed; z-index: 52; top: auto; right: auto; left: max(16px, calc((100vw - 480px) / 2 + 16px)); bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  flex-direction: column-reverse; align-items: flex-start; gap: 0; }
+.tour-tip.s3 .tour-arrow { margin: 0 0 0 30px; transform: scaleY(-1); }
+.tour-tip.s3 .tour-txt { padding: 0 0 2px; }
+.tour-opt.s3 { bottom: auto; top: calc(14px + env(safe-area-inset-top, 0px)); }
 /* 2단계: 길찾기 화면 위쪽 묶음을 막 위로 올리고, 출발지 · 도착지 칸만 남기고 흐리게 */
 .float-top.tour2 { z-index: 52; }
 .float-top.tour2 > :not(.trip-box):not(.tour-tip) { opacity: .3; filter: blur(3px); pointer-events: none; }
@@ -2258,7 +2266,7 @@ b.rw-c.on { background: #0F1626; color: #fff; box-shadow: none; }
 .tour-never input:checked + .tour-box { background: #4C9BFF; border-color: #4C9BFF; }
 .tour-never input:checked + .tour-box::after { content: ''; width: 5px; height: 10px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: translateY(-1px) rotate(45deg); }
 .tour-never input:focus-visible + .tour-box { outline: 2px solid #9CD0FF; outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .m-quick.tour-hl, .float-top.tour2 .trip-box { animation: none; } .tour-dim.tour-in, .tour-tip.tour-in, .tour-opt.tour-in { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .m-quick.tour-hl, .float-top.tour2 .trip-box, .cta.tour3 #go-result { animation: none; } .tour-dim.tour-in, .tour-tip.tour-in, .tour-opt.tour-in { animation: none; } }
 
 /* ── 시작 화면: 하늘 바탕 · 흐르는 구름 · 아이콘은 화면 정가운데(톡 나타나 둥실) · 위에 굵은 검정 글씨 · 아래 로딩 바 ── */
 #splash { position: fixed; inset: 0; z-index: 1000; overflow: hidden; background: linear-gradient(180deg, #5FA6EE 0%, #8EC3F4 34%, #BFDDF8 66%, #DCEBF8 100%); transition: opacity .6s ease, visibility .6s; }

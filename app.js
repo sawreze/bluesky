@@ -1780,11 +1780,12 @@ function weekChartHTML(series, big) {
 // ── 튜토리얼 ──
 //  모든 사용자에게 앱을 새로 열 때마다 한 단계씩 짚어 줘요. "다음부터 보지 않기"를 체크하면 그 계정은 이 기기에서 그만.
 //  1단계(메인): 빠른 길찾기 버튼만 밝게 → 누르면 길찾기 화면으로 넘어가면서 바로 2단계
-//  2단계(길찾기): 출발지 · 도착지 칸만 밝게 → 둘 중 하나를 누르면 끝
+//  2단계(길찾기): 출발지 · 도착지 칸만 밝게 → 둘 중 하나를 누르면 검색 화면으로 넘어가며 3단계
+//  3단계(길찾기, 출발지 · 도착지를 다 넣고 경로를 찾은 뒤): 아래 길찾기 버튼만 밝게 → 누르면 끝
 //  밝은 곳을 직접 눌러야만 넘어가요 (건너뛰기 없음, 어두운 곳을 누르면 그 칸이 흔들려요).
 //  저장: "보지 않기"는 계정별로 이 기기(localStorage), 이번에 어디까지 봤는지는 이 창(sessionStorage).
 const TOUR_KEY = 'pureun-tour'; // { 계정: 'off' }
-const TOUR_NOW = 'pureun-tour-now'; // { 계정: 1 | 2 | 'done' }
+const TOUR_NOW = 'pureun-tour-now'; // { 계정: 1 | 2 | 3 | 'done' }
 function tourMap(where, key) { try { return JSON.parse(window[where].getItem(key) || '{}'); } catch (e) { return {}; } }
 function tourPut(where, key, v) {
   try {
@@ -1801,6 +1802,7 @@ function tourOn() {
   const st = tourMap('sessionStorage', TOUR_NOW)[userKey(state.user)] || 1;
   if (st === 1 && state.screen === 'main') return 1;
   if (st === 2 && state.screen === 'home' && state.ready && !campTripCamp()) return 2;
+  if (st === 3 && state.screen === 'home' && !state.loading && currentPlan().chosen && (!state.ready || (state.from && state.to)) && !campTripCamp()) return 3;
   return 0;
 }
 // 어두운 막 + 오른쪽 아래 "다음부터 보지 않기". 단계마다 처음 한 번만 천천히 나타나요 (다시 그려져도 안 깜빡이게)
@@ -1809,9 +1811,9 @@ function tourDimHTML(step) {
   const first = state.tourAnim !== step; state.tourAnim = step; state.tourActive = true;
   const fade = first ? ' tour-in' : '';
   return `<div class="tour-dim${fade}" data-act="tour-nudge" aria-hidden="true"></div>
-  <div class="tour-opt${fade}"><label class="tour-never"><input type="checkbox" id="tour-never" ${tourOff() ? 'checked' : ''}><span class="tour-box" aria-hidden="true"></span>다음부터 보지 않기</label></div>`;
+  <div class="tour-opt s${step}${fade}"><label class="tour-never"><input type="checkbox" id="tour-never" ${tourOff() ? 'checked' : ''}><span class="tour-box" aria-hidden="true"></span>다음부터 보지 않기</label></div>`;
 }
-const TOUR_TEXT = { 1: '<b>1.</b> 여기를 눌러<br>길찾기를 시작해 보세요', 2: '<b>2.</b> 출발지와 도착지를 눌러<br>어디로 갈지 정해 보세요' };
+const TOUR_TEXT = { 1: '<b>1.</b> 여기를 눌러<br>길찾기를 시작해 보세요', 2: '<b>2.</b> 출발지와 도착지를 눌러<br>어디로 갈지 정해 보세요', 3: '<b>3.</b> 길찾기를 눌러 탄소를<br>아끼는 경로를 확인해 보세요' };
 // 안내 문구: 1단계는 HTML 순서상 막보다 먼저 그려지고, 2단계는 막보다 먼저 그려져요 → 둘 다 막의 tourAnim 으로 처음인지 봐요
 function tourTipHTML(step) {
   if (tourOn() !== step) return '';
@@ -4056,8 +4058,8 @@ function homeHTML() {
   const ct = campTripCamp();
   if (ct) body = body.replace(/(<div class="float-head">[\s\S]*?<\/div><\/div>)/, `$1${campTripBanner(ct)}`);
   return `<main class="home ${ct ? 'camp-mode' : ''}">${body}${ecoFabHTML()}</main>
-    ${cta(`<button type="button" class="btn primary" id="go-result" data-act="to-result" ${can ? '' : 'disabled'}>길찾기</button>`)}
-    ${tourDimHTML(2)}`;
+    ${cta(`<button type="button" class="btn primary" id="go-result" data-act="to-result" ${can ? '' : 'disabled'}>길찾기</button>`).replace('class="cta"', tourOn() === 3 ? 'class="cta tour3"' : 'class="cta"')}
+    ${tourDimHTML(2)}${tourTipHTML(3)}${tourDimHTML(3)}`;
 }
 
 // ── 지도 화면 오른쪽 아래 앱 아이콘: 누르면 "이 길로 가면 얼마나 아끼는지" 카드가 아래에서 올라와요 ──
@@ -5168,7 +5170,7 @@ const actions = {
   'shop-coupon': (el) => couponSheet(loadOrders().find((o) => String(o.id) === el.dataset.id)),
   'open-route': () => { if (tourOn() === 1) tourGo(2); go('home'); }, // 튜토리얼 1단계 → 길찾기 화면에서 바로 2단계
   'tour-nudge': () => { // 어두운 곳을 누르면 빠른 길찾기 버튼이 살짝 흔들려요
-    const b = document.querySelector('.m-quick.tour-hl, .float-top.tour2 .trip-box'); if (!b) return;
+    const b = document.querySelector('.m-quick.tour-hl, .float-top.tour2 .trip-box, .cta.tour3 #go-result'); if (!b) return;
     b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); setTimeout(() => b.classList.remove('nudge'), 520);
   },
   soon: () => toast('준비 중인 기능이에요'),
@@ -5390,13 +5392,13 @@ const actions = {
   },
   result: () => go('result'),
   'back-search': () => goBack(),
-  'open-search-from': () => { if (tourOn() === 2) tourGo('done'); openSearch('from'); }, // 튜토리얼 2단계 끝
-  'open-search-to': () => { if (tourOn() === 2) tourGo('done'); openSearch('to'); },
+  'open-search-from': () => { if (tourOn() === 2) tourGo(3); openSearch('from'); }, // 튜토리얼 2단계 끝 → 출발 · 도착을 다 고르고 길찾기 화면에 돌아오면 3단계
+  'open-search-to': () => { if (tourOn() === 2) tourGo(3); openSearch('to'); },
   pick: (el) => pickPlace(state.search.results[Number(el.dataset.i)]),
   'pick-recent': (el) => { const p = loadRecent()[Number(el.dataset.i)]; if (p) pickPlace({ name: p.name, address: p.address, lat: p.lat, lng: p.lng }); },
   mine: () => useMyLocation(),
   swap: () => { [state.from, state.to] = [state.to, state.from]; findRoutes(); render(); },
-  'to-result': () => go('result'),
+  'to-result': () => { if (tourOn() === 3) tourGo('done'); go('result'); }, // 튜토리얼 3단계 끝
   'eco-peek': () => openEcoPeek(),
   'peek-close': () => closeEcoPeek(),
   'peek-go': () => { closeEcoPeek(true); go('result'); },
