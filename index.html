@@ -14,13 +14,18 @@
     <link rel="manifest" href="assets/manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
-    <link rel="stylesheet" href="style.css?v=2026.10.07-tour4" />
+    <link rel="stylesheet" href="style.css?v=2026.10.07-splash" />
   </head>
   <body>
+    <!-- 시작 화면: 앱을 열면 3초 보여 주고 사르르 사라져요 (app.js 가 닫아요) -->
+    <div id="splash" role="img" aria-label="푸른하늘, 탄소 절약 내비게이션 앱">
+      <p class="splash-txt">탄소 절약 내비게이션 앱</p>
+      <img class="splash-ic" src="assets/icon-512.png?v=2" alt="" width="112" height="112" />
+    </div>
     <!-- 앱 화면은 app.js 가 이 안에 그려요 -->
     <div id="app" class="shell"></div>
 
-    <script src="config.js?v=2026.10.07-tour4"></script>
-    <script src="app.js?v=2026.10.07-tour4"></script>
+    <script src="config.js?v=2026.10.07-splash"></script>
+    <script src="app.js?v=2026.10.07-splash"></script>
   </body>
 </html>
