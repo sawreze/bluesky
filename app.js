@@ -4053,11 +4053,51 @@ function homeHTML() {
   const can = state.ready ? state.from && state.to && !state.loading && state.raw : !!source;
   const ct = campTripCamp();
   if (ct) body = body.replace(/(<div class="float-head">[\s\S]*?<\/div><\/div>)/, `$1${campTripBanner(ct)}`);
-  return `<main class="home ${ct ? 'camp-mode' : ''}">${body}</main>
+  return `<main class="home ${ct ? 'camp-mode' : ''}">${body}${ecoFabHTML()}</main>
     ${cta(`<button type="button" class="btn primary" id="go-result" data-act="to-result" ${can ? '' : 'disabled'}>길찾기</button>`)}
     ${tourDimHTML(2)}`;
 }
 
+// ── 지도 화면 오른쪽 아래 앱 아이콘: 누르면 "이 길로 가면 얼마나 아끼는지" 카드가 아래에서 올라와요 ──
+//  출발지 · 도착지가 정해지고 경로를 다 찾으면 아이콘 둘레가 빛나며 "얼마나 아낄까?" 말풍선이 떠요
+function ecoFabHTML() {
+  const { chosen } = currentPlan();
+  const ready = !!chosen && !state.loading;
+  return `<button type="button" class="eco-fab${ready ? ' ready' : ''}" data-act="eco-peek" aria-label="이 길로 가면 아끼는 탄소 미리 보기">
+    <span class="eco-fab-tip">${ready ? '🌱 얼마나 아낄까?' : '🌱 탄소 절약 미리보기'}</span>
+    <span class="eco-fab-ic"><img src="assets/icon-180.png?v=2" alt="" width="56" height="56"></span>
+  </button>`;
+}
+function openEcoPeek() {
+  const { ranked, chosen } = currentPlan();
+  if (state.ready && (!state.from || !state.to)) { toast('출발지와 도착지를 먼저 정해 주세요'); return; }
+  if (state.loading || !ranked || !chosen) { toast('경로를 찾는 중이에요. 잠시만 기다려 주세요'); return; }
+  closeEcoPeek(true);
+  state.openDetail = null;
+  state.ecoPlayed = null; // 열 때마다 나무 · 배터리 그림과 숫자가 처음부터
+  const card = routeCardHTML(chosen, true, ranked.baseline.emission)
+    .replace(' data-act="select"', '')
+    .replace(/<div class="rc-actions">[\s\S]*?<\/div>\s*/, '');
+  const el = document.createElement('div');
+  el.className = 'sheet-wrap eco-peek';
+  el.id = 'eco-peek';
+  el.innerHTML = `<div class="sheet-bg" data-act="peek-close"></div>
+    <section class="sheet-card peek-card" role="dialog" aria-label="이 길로 가면 아끼는 탄소">
+      <span class="sheet-grab" aria-hidden="true"></span>
+      <p class="peek-h"><img src="assets/icon-180.png?v=2" alt="" width="26" height="26">이 길로 가면 이만큼 아껴요</p>
+      ${card}
+      <div class="peek-acts"><button type="button" class="btn" data-act="peek-close">닫기</button><button type="button" class="btn primary" data-act="peek-go">경로 모두 보기</button></div>
+    </section>`;
+  appEl.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('open'));
+}
+function closeEcoPeek(now) {
+  const el = document.getElementById('eco-peek');
+  if (!el) return;
+  if (now) { el.remove(); return; }
+  el.classList.remove('open');
+  setTimeout(() => el.remove(), 220);
+}
 // 캠페인 길찾기 중일 때 위쪽 띠: 어떤 캠페인 · 어떤 수단으로만 찾는지
 function campTripBanner(c, compact) {
   const m = campModeOf(state.campTrip.mode);
@@ -5355,6 +5395,9 @@ const actions = {
   mine: () => useMyLocation(),
   swap: () => { [state.from, state.to] = [state.to, state.from]; findRoutes(); render(); },
   'to-result': () => go('result'),
+  'eco-peek': () => openEcoPeek(),
+  'peek-close': () => closeEcoPeek(),
+  'peek-go': () => { closeEcoPeek(true); go('result'); },
   tab: (el) => { if (el.dataset.id === state.level) return; state.levelFrom = state.level; state.level = el.dataset.id; state.chosenId = null; state.openDetail = null; refreshResult(); },
   select: (el) => { if (state.chosenId === el.dataset.id) return; state.chosenId = el.dataset.id; refreshResult(); },
   detail: (el) => { state.chosenId = el.dataset.id; state.openDetail = state.openDetail === el.dataset.id ? null : el.dataset.id; refreshResult(); },
