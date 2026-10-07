@@ -1029,7 +1029,7 @@ const AUTH = {
     if (!EMAIL_RE.test(email)) return Promise.reject(new Error('이메일 주소를 확인해 주세요.'));
     if (pw.length < 8) return Promise.reject(new Error('비밀번호는 8자 이상으로 만들어 주세요.'));
     if (pw !== pw2) return Promise.reject(new Error('비밀번호가 서로 달라요.'));
-    return authCall('signup', { name, email, pw, remember }, { provider: 'email', email, name, isNew: true });
+    return authCall('signup', { name, email, pw, remember }, { provider: 'email', email, name });
   },
 };
 
@@ -1726,35 +1726,47 @@ function weekChartHTML(series, big) {
     <ol class="wk-days">${series.map((d) => `<li class="${d.today ? 'is-today' : ''}">${d.label}</li>`).join('')}</ol>`;
 }
 
-// ── 첫 로그인 튜토리얼 ──
-//  처음 들어온 사용자에게 메인 화면에서 한 단계씩 짚어 줘요. 1단계: 빠른 길찾기 버튼만 밝게, 나머지는 흐리게.
-//  방금 가입한 계정에만 떠요 (서버가 isNew 로 알려 줘요). 원래 있던 회원은 기록이 아직 안 받아졌어도 안 떠요.
-//  빠른 길찾기 버튼을 직접 눌러야만 닫혀요 (건너뛰기 없음, 어두운 곳을 누르면 버튼이 흔들려요).
-//  계정별로 이 기기에 저장해요: 0 = 가입해서 볼 차례, 1 = 1단계 끝. 값이 없으면(원래 회원) 안 떠요.
-const TOUR_KEY = 'pureun-tour';
-function tourStep() { // null = 이 계정은 튜토리얼 대상 아님
-  try { const v = (JSON.parse(localStorage.getItem(TOUR_KEY) || '{}'))[userKey(state.user)]; return v === undefined ? null : Number(v) || 0; } catch (e) { return null; }
-}
-const tourMarkNew = () => { if (state.user && tourStep() === null) tourSet(0); }; // 방금 가입 → 튜토리얼 시작
-function tourSet(n) {
+// ── 튜토리얼 ──
+//  모든 사용자에게 앱을 새로 열 때마다 한 단계씩 짚어 줘요. "다음부터 보지 않기"를 체크하면 그 계정은 이 기기에서 그만.
+//  1단계(메인): 빠른 길찾기 버튼만 밝게 → 누르면 길찾기 화면으로 넘어가면서 바로 2단계
+//  2단계(길찾기): 출발지 · 도착지 칸만 밝게 → 둘 중 하나를 누르면 끝
+//  밝은 곳을 직접 눌러야만 넘어가요 (건너뛰기 없음, 어두운 곳을 누르면 그 칸이 흔들려요).
+//  저장: "보지 않기"는 계정별로 이 기기(localStorage), 이번에 어디까지 봤는지는 이 창(sessionStorage).
+const TOUR_KEY = 'pureun-tour'; // { 계정: 'off' }
+const TOUR_NOW = 'pureun-tour-now'; // { 계정: 1 | 2 | 'done' }
+function tourMap(where, key) { try { return JSON.parse(window[where].getItem(key) || '{}'); } catch (e) { return {}; } }
+function tourPut(where, key, v) {
   try {
-    const m = JSON.parse(localStorage.getItem(TOUR_KEY) || '{}');
-    m[userKey(state.user)] = n;
-    localStorage.setItem(TOUR_KEY, JSON.stringify(m));
+    const m = tourMap(where, key);
+    if (v === null) delete m[userKey(state.user)]; else m[userKey(state.user)] = v;
+    window[where].setItem(key, JSON.stringify(m));
   } catch (e) { /* 무시 */ }
 }
-const tourOn = () => !!state.user && state.screen === 'main' && tourStep() === 0 && loadLog().trips === 0;
-// 어두운 막: 처음 한 번만 천천히 나타나고, 화면이 다시 그려져도 깜빡이지 않아요
-function tourDimHTML() {
-  if (!tourOn()) return '';
-  const first = !state.tourShown; state.tourShown = true;
-  return `<div class="tour-dim${first ? ' tour-in' : ''}" data-act="tour-nudge" aria-hidden="true"></div>`;
+const tourOff = () => tourMap('localStorage', TOUR_KEY)[userKey(state.user)] === 'off';
+const tourGo = (n) => tourPut('sessionStorage', TOUR_NOW, n);
+// 지금 화면에 보여 줄 단계 (0 = 없음). 보는 도중에 "보지 않기"를 체크해도 지금 튜토리얼은 끝까지 그대로예요.
+function tourOn() {
+  if (!state.user || (tourOff() && !state.tourActive)) return 0;
+  const st = tourMap('sessionStorage', TOUR_NOW)[userKey(state.user)] || 1;
+  if (st === 1 && state.screen === 'main') return 1;
+  if (st === 2 && state.screen === 'home' && state.ready && !campTripCamp()) return 2;
+  return 0;
 }
-function tourTipHTML() {
-  if (!tourOn()) return '';
-  return `<div class="tour-tip${state.tourShown ? '' : ' tour-in'}" role="status">
+// 어두운 막 + 오른쪽 아래 "다음부터 보지 않기". 단계마다 처음 한 번만 천천히 나타나요 (다시 그려져도 안 깜빡이게)
+function tourDimHTML(step) {
+  if (tourOn() !== step) return '';
+  const first = state.tourAnim !== step; state.tourAnim = step; state.tourActive = true;
+  const fade = first ? ' tour-in' : '';
+  return `<div class="tour-dim${fade}" data-act="tour-nudge" aria-hidden="true"></div>
+  <div class="tour-opt${fade}"><label class="tour-never"><input type="checkbox" id="tour-never" ${tourOff() ? 'checked' : ''}><span class="tour-box" aria-hidden="true"></span>다음부터 보지 않기</label></div>`;
+}
+const TOUR_TEXT = { 1: '<b>1.</b> 여기를 눌러<br>길찾기를 시작해 보세요', 2: '<b>2.</b> 출발지와 도착지를 눌러<br>어디로 갈지 정해 보세요' };
+// 안내 문구: 1단계는 HTML 순서상 막보다 먼저 그려지고, 2단계는 막보다 먼저 그려져요 → 둘 다 막의 tourAnim 으로 처음인지 봐요
+function tourTipHTML(step) {
+  if (tourOn() !== step) return '';
+  return `<div class="tour-tip s${step}${state.tourAnim === step ? '' : ' tour-in'}" role="status">
     <svg class="tour-arrow" viewBox="0 0 40 46" aria-hidden="true"><path d="M9 42 C 8 26 18 16 30 7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1 6"/><path d="M23 5 L31 5.5 L30 14" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div class="tour-txt"><p><b>1.</b> 여기를 눌러<br>첫 길찾기를 시작해 보세요</p></div>
+    <div class="tour-txt"><p>${TOUR_TEXT[step]}</p></div>
   </div>`;
 }
 function mainHTML() {
@@ -1781,7 +1793,7 @@ function mainHTML() {
     <h1 class="m-title">오늘은<br>어디로 가세요?</h1>
 
     <div class="m-quick-wrap">
-    <button type="button" class="m-quick${tourOn() ? ' tour-hl' : ''}" data-act="open-route">
+    <button type="button" class="m-quick${tourOn() === 1 ? ' tour-hl' : ''}" data-act="open-route">
       <span class="m-quick-ic">${ICON.route}</span>
       <span class="m-quick-txt">
         <small>빠른 길찾기</small>
@@ -1791,7 +1803,7 @@ function mainHTML() {
     </button>
     ${mascotSVG()}
     <p class="mascot-say" id="mascot-say" role="status" aria-live="polite"></p>
-    ${tourTipHTML()}
+    ${tourTipHTML(1)}
     </div>
 
     <section class="m-card m-wk-card" id="wk-card" data-act="open-week" role="button" tabindex="0" aria-label="최근 7일 탄소 절약 자세히 보기">
@@ -1836,7 +1848,7 @@ function mainHTML() {
       </div>
     </section>
   </main>
-  ${tourDimHTML()}
+  ${tourDimHTML(1)}
   ${tabBarHTML('route')}`;
 }
 // "CO₂ 1kg은 얼마나 될까요?" — kg을 생활 속 크기로 (1kg 기준 ↔ 내가 아낀 양)
@@ -3968,9 +3980,9 @@ function homeHTML() {
   if (state.ready) {
     body = `
       <div class="map full" id="map-home"></div>
-      <div class="float-top">
+      <div class="float-top${tourOn() === 2 ? ' tour2' : ''}">
         <div class="float-head"><button type="button" class="m-round back" data-act="back" aria-label="뒤로">←</button><div class="brand-line"><span class="brand-mark" aria-hidden="true"></span>푸른하늘 <small>탄소 절약 길찾기</small></div></div>
-        ${tripBox(false)}
+        ${tripBox(false)}${tourTipHTML(2)}
         ${state.loading ? '<p class="float-note"><span class="spinner" aria-hidden="true"></span>경로를 찾는 중이에요…</p>' : ''}
       </div>`;
   } else {
@@ -3993,7 +4005,8 @@ function homeHTML() {
   const ct = campTripCamp();
   if (ct) body = body.replace(/(<div class="float-head">[\s\S]*?<\/div><\/div>)/, `$1${campTripBanner(ct)}`);
   return `<main class="home ${ct ? 'camp-mode' : ''}">${body}</main>
-    ${cta(`<button type="button" class="btn primary" id="go-result" data-act="to-result" ${can ? '' : 'disabled'}>길찾기</button>`)}`;
+    ${cta(`<button type="button" class="btn primary" id="go-result" data-act="to-result" ${can ? '' : 'disabled'}>길찾기</button>`)}
+    ${tourDimHTML(2)}`;
 }
 
 // 캠페인 길찾기 중일 때 위쪽 띠: 어떤 캠페인 · 어떤 수단으로만 찾는지
@@ -4781,14 +4794,13 @@ function runAuth(promise, draft) {
   promise
     .then((user) => {
       if (user && user.needCode) { openVerify(user, draft); return; }
-      const { isNew, ...u } = user || {};
-      loggedIn(user ? u : user, !draft || draft.remember !== false, isNew);
+      loggedIn(user, !draft || draft.remember !== false);
     })
     .catch((err) => { state.auth = { busy: false, message: err.message || '로그인하지 못했어요. 다시 시도해 주세요.', draft: draft || {} }; render(); });
 }
-function loggedIn(user, remember, isNew) {
+function loggedIn(user, remember) {
   state.user = user; saveUser(user, remember); state.auth = { busy: false, message: '' }; state.verify = null;
-  if (isNew) tourMarkNew();
+  state.tourActive = false; state.tourAnim = 0;
   go('main');
   syncFromServer().finally(() => setTimeout(showCampNotices, 300)); // 서버 DB가 있으면 내 기록을 받아 와요
 }
@@ -4818,7 +4830,7 @@ async function submitVerify() {
   v.busy = true; renderVerifyMsg();
   const r = await postCode({ a: 'verify', ticket: v.ticket, code, remember: v.remember });
   v.busy = false;
-  if (r.status === 200 && r.data.user) return loggedIn(r.data.user, v.remember, !!r.data.isNew);
+  if (r.status === 200 && r.data.user) return loggedIn(r.data.user, v.remember);
   v.message = r.data.error || '확인하지 못했어요. 다시 시도해 주세요.';
   v.dead = !!(r.data.expired || r.data.restart);
   v.restart = !!r.data.restart;
@@ -4952,9 +4964,9 @@ const actions = {
   'shop-cat': (el) => { state.shopCat = el.dataset.id; render(); },
   'shop-item': (el) => shopBuySheet(el.dataset.id),
   'shop-coupon': (el) => couponSheet(loadOrders().find((o) => String(o.id) === el.dataset.id)),
-  'open-route': () => { if (tourOn()) tourSet(1); go('home'); },
+  'open-route': () => { if (tourOn() === 1) tourGo(2); go('home'); }, // 튜토리얼 1단계 → 길찾기 화면에서 바로 2단계
   'tour-nudge': () => { // 어두운 곳을 누르면 빠른 길찾기 버튼이 살짝 흔들려요
-    const b = document.querySelector('.m-quick.tour-hl'); if (!b) return;
+    const b = document.querySelector('.m-quick.tour-hl, .float-top.tour2 .trip-box'); if (!b) return;
     b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); setTimeout(() => b.classList.remove('nudge'), 520);
   },
   soon: () => toast('준비 중인 기능이에요'),
@@ -5176,8 +5188,8 @@ const actions = {
   },
   result: () => go('result'),
   'back-search': () => goBack(),
-  'open-search-from': () => openSearch('from'),
-  'open-search-to': () => openSearch('to'),
+  'open-search-from': () => { if (tourOn() === 2) tourGo('done'); openSearch('from'); }, // 튜토리얼 2단계 끝
+  'open-search-to': () => { if (tourOn() === 2) tourGo('done'); openSearch('to'); },
   pick: (el) => pickPlace(state.search.results[Number(el.dataset.i)]),
   'pick-recent': (el) => { const p = loadRecent()[Number(el.dataset.i)]; if (p) pickPlace({ name: p.name, address: p.address, lat: p.lat, lng: p.lng }); },
   mine: () => useMyLocation(),
@@ -5283,6 +5295,7 @@ appEl.addEventListener('input', (e) => {
 });
 
 appEl.addEventListener('change', (e) => {
+  if (e.target.id === 'tour-never') { tourPut('localStorage', TOUR_KEY, e.target.checked ? 'off' : null); return; }
   if (e.target.id === 'avatar-input') {
     readAvatar(e.target.files[0])
       .then((url) => {
@@ -5402,7 +5415,6 @@ appEl.addEventListener('touchcancel', endSwipe);
     let remember = true;
     try { remember = sessionStorage.getItem('pureun-remember') !== '0'; sessionStorage.removeItem('pureun-remember'); } catch (e) { /* 무시 */ }
     saveUser(state.user, remember);
-    if (data.isNew) tourMarkNew();
     state.screen = 'main';
   }
 })();
