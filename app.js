@@ -5420,10 +5420,10 @@ appEl.addEventListener('touchcancel', endSwipe);
 })();
 
 // ── 시작 화면 (index.html 의 #splash) ──
-//  앱을 새로 열면 연파랑 화면 가운데 아이콘 + "탄소 절약 내비게이션 앱"을 4초 보여 주고,
+//  앱을 새로 열면 연파랑 화면 가운데 아이콘 + "탄소 절약 내비게이션 앱"을 3초 보여 주고,
 //  시작 화면이 사르르 사라지는 동안 로그인 · 메인 화면이 사르르 나타나요.
 //  같은 창에서 새로고침하거나 카카오 로그인에서 돌아올 때는 기다리지 않고 바로 넘어가요.
-const SPLASH_MS = 4000;
+const SPLASH_MS = 3000;
 (function splash() {
   const el = document.getElementById('splash');
   if (!el) return;
@@ -5434,7 +5434,7 @@ const SPLASH_MS = 4000;
     el.classList.add('out');
     document.body.classList.remove('splashing');
     setTimeout(() => el.remove(), 800);
-  }, seen ? 0 : Math.max(0, SPLASH_MS - performance.now())); // 페이지를 연 순간부터 4초
+  }, seen ? 0 : Math.max(0, SPLASH_MS - performance.now())); // 페이지를 연 순간부터 3초
 })();
 
 installTierDefs();
