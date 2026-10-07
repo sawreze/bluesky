@@ -168,6 +168,23 @@ function impact(g) {
   else n = String(Math.max(0.01, Math.round(t * 100) / 100));
   return { icon: '🌳', short: `나무 ${n}그루 심은 효과`, long: `나무 ${n}그루를 심은 것과 같아요` };
 }
+// 경로 카드용 생활 비유: 나무 반 그루 이상이면 나무(반 그루 단위), 그보다 적으면 휴대폰 완충 횟수
+//  나무 1그루 = 소나무 1그루가 1년에 흡수하는 9.8kg, 완충 1번 = 8g (전력배출계수 0.4173kg/kWh)
+//  → "CO₂ 1kg은 얼마나 될까요?"(나무 1/10 · 스마트폰 125번)와 같은 기준이에요
+function saveSense(g) {
+  g = Math.max(0, g || 0);
+  const t = g / TREE_YEAR_G;
+  if (t >= 0.5) {
+    const h = t >= 10 ? Math.floor(t) : Math.floor(t * 2) / 2; // 부풀리지 않게 반 그루 단위로 내림
+    const whole = Math.floor(h);
+    const n = whole === 0 ? '반 그루' : `${whole.toLocaleString()}그루${h - whole >= 0.5 ? ' 반' : ''}`;
+    return { kind: 'tree', icon: '🌳', text: `나무 ${n} 심은 효과`, html: `나무 <b>${n}</b> 심은 효과` };
+  }
+  const c = Math.round(g / EQUIV.phoneG);
+  if (c < 1) return { kind: 'none', icon: '🚗', text: '자동차와 거의 같아요', html: '자동차와 거의 같아요' };
+  const n = `${c.toLocaleString()}번`;
+  return { kind: 'phone', icon: '📱', text: `휴대폰 ${n} 완충만큼 아껴요`, html: `휴대폰 <b>${n}</b> 완충만큼 아껴요` };
+}
 // 여러 생활 단위 (도착 화면·설명용)
 function senseList(g) {
   const n = (x) => (x >= 10 ? Math.round(x).toLocaleString() : x.toFixed(1).replace(/\.0$/, ''));
@@ -4117,28 +4134,66 @@ function legsHTML(route) {
   const last = route.legs.length ? route.legs[route.legs.length - 1].end : '';
   return `<ol class="legs">${items}${last ? `<li class="off-row"><span class="leg-chip off">하차</span><span class="leg-st">${esc(last)}</span></li>` : ''}</ol>`;
 }
-// 탄소 게이지: 막대 전체 = 혼자 자동차로 갈 때 배출량.
-// 회색(연기) = 이 경로가 실제로 내는 양, 파랑(하늘) = 아낀 양. "파란 부분이 클수록 좋다"만 알면 돼요.
-function ecoHTML(r, baseEm, selected) {
+// 아낀 탄소: 생활 비유(나무 · 휴대폰 완충)를 크게 먼저, 그 아래 CO₂ 양.
+//  고른 카드는 오른쪽 위 빈 곳에 그림이 움직여요 (ecoArtHTML · routeCardHTML)
+function ecoHTML(r) {
   const tier = r.tier || TIERS[0];
-  const pct = baseEm > 0 ? Math.min(100, (r.emission / baseEm) * 100) : 0;
-  const savePct = 100 - pct;
-  return `<div class="eco eco-${tier.id}">
-    <div class="eco-head">
-      <span class="eco-sky" aria-hidden="true">${tier.sky}</span>
-      <span class="eco-main"><b class="num">${formatG(r.saving)}</b> 덜 배출</span>
-      <span class="eco-tree">${impact(r.saving).icon} ${impact(r.saving).short}</span>
-    </div>
-    ${selected ? `<div class="eco-gauge" role="img" aria-label="혼자 자동차 ${formatG(baseEm)} 중 이 경로는 ${formatG(r.emission)} 배출, ${Math.round(r.savingPct)}% 절약">
-      <span class="g-emit" style="flex-basis:${Math.max(pct, 1.2)}%"></span>
-      <span class="g-save">${savePct > 30 ? `아낀 만큼 ${Math.round(r.savingPct)}%` : ''}</span>
-    </div>
-` : ''}
+  const k = saveSense(r.saving);
+  return `<div class="eco eco-${tier.id} eco-k-${k.kind}">
+    <p class="eco-lead"><span class="eco-ic" aria-hidden="true">${k.icon}</span><span>${k.html}</span></p>
+    <p class="eco-co2"><span class="eco-sky" aria-hidden="true">${tier.sky}</span>CO₂ <b class="num">${formatG(r.saving)}</b> 덜 배출</p>
   </div>`;
+}
+// 오른쪽 위 그림. play: 이 카드를 막 골랐을 때만 나무가 자라고 · 배터리가 차오르는 등장 효과 (다시 그려질 땐 바로 완성된 모습)
+//  나뭇잎이 흩날리고 · 번개가 반짝이는 건 계속
+const ECO_LEAF = 'M0 0C2.6-3.2 6.8-3.3 9.2 0 6.8 3.3 2.6 3.2 0 0Z';
+function ecoArtHTML(kind, play) {
+  const cls = `eco-art ${kind}${play ? ' play' : ''}`;
+  if (kind === 'tree') return `<div class="${cls}" aria-hidden="true"><svg viewBox="0 0 80 80">
+    <defs><radialGradient id="eco-leaf-g" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#9BF5BE"/><stop offset=".5" stop-color="#38C878"/><stop offset="1" stop-color="#138A47"/></radialGradient></defs>
+    <ellipse class="t-shadow" cx="40" cy="73" rx="21" ry="3.6" fill="rgba(18,110,60,.2)"/>
+    <path class="t-grass" d="M22 73q2-6 4 0M53 73q2.5-7 5 0M57 73q1.5-4 3 0" fill="none" stroke="#3DBE74" stroke-width="2" stroke-linecap="round"/>
+    <path class="t-trunk" d="M36.6 73V52.5c0-2.4 1.5-4 3.4-4s3.4 1.6 3.4 4V73Z" fill="#9C6A43"/>
+    <g class="t-crown">
+      <circle class="t-c t-c1" cx="28.5" cy="42" r="13.5" fill="url(#eco-leaf-g)"/>
+      <circle class="t-c t-c2" cx="51.5" cy="42" r="13.5" fill="url(#eco-leaf-g)"/>
+      <circle class="t-c t-c3" cx="40" cy="29" r="17" fill="url(#eco-leaf-g)"/>
+      <circle class="t-c t-c4" cx="34" cy="23" r="4.5" fill="#fff" opacity=".35"/>
+    </g>
+    <g transform="translate(24 40)"><path class="lf lf1" d="${ECO_LEAF}" fill="#41CF7E"/></g>
+    <g transform="translate(52 38)"><path class="lf lf2" d="${ECO_LEAF}" fill="#2BB366"/></g>
+    <g transform="translate(43 22)"><path class="lf lf3" d="${ECO_LEAF}" fill="#6BE09C"/></g>
+    <g transform="translate(31 48)"><path class="lf lf4" d="${ECO_LEAF}" fill="#34C26F"/></g>
+    <path class="spk spk1" d="M66 12l1.6 3.9 3.9 1.6-3.9 1.6L66 23l-1.6-3.9-3.9-1.6 3.9-1.6Z" fill="#FFD84D"/>
+    <path class="spk spk2" d="M13 22l1 2.4 2.4 1-2.4 1-1 2.4-1-2.4-2.4-1 2.4-1Z" fill="#8FE3B0"/>
+  </svg></div>`;
+  if (kind === 'phone') return `<div class="${cls}" aria-hidden="true"><svg viewBox="0 0 80 80">
+    <defs><linearGradient id="eco-bat-g" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#16A34A"/><stop offset="1" stop-color="#6EE7A0"/></linearGradient></defs>
+    <ellipse cx="40" cy="74" rx="17" ry="3" fill="rgba(20,60,120,.16)"/>
+    <g class="p-body">
+      <rect x="23" y="7" width="34" height="64" rx="8" fill="#1E2A44"/>
+      <rect x="26" y="12" width="28" height="54" rx="4.5" fill="#0E1729"/>
+      <rect x="35" y="9" width="10" height="1.8" rx=".9" fill="#3A4A6B"/>
+      <rect x="31.5" y="22" width="17" height="34" rx="3.5" fill="none" stroke="#8FA3C2" stroke-width="2"/>
+      <rect x="36.5" y="18.6" width="7" height="3" rx="1.2" fill="#8FA3C2"/>
+      <rect class="p-fill" x="34" y="24.5" width="12" height="29" rx="2" fill="url(#eco-bat-g)"/>
+      <path class="p-bolt" d="M41.4 28.5 35.6 40h4.3l-1.5 9.2L45 37.2h-4.4Z" fill="#FFE066" stroke="#D49A06" stroke-width=".7" stroke-linejoin="round"/>
+    </g>
+    <circle class="pp pp1" cx="16" cy="54" r="2.4" fill="#4ADE80"/>
+    <circle class="pp pp2" cx="64" cy="46" r="2" fill="#22C55E"/>
+    <path class="pp pp3" d="M65 60h5M67.5 57.5v5" stroke="#4ADE80" stroke-width="1.8" stroke-linecap="round"/>
+    <path class="pp pp4" d="M11 38h4M13 36v4" stroke="#86EFAC" stroke-width="1.6" stroke-linecap="round"/>
+  </svg></div>`;
+  return '';
 }
 function routeCardHTML(r, selected, baseEm) {
   const open = state.openDetail === r.id;
-  return `<article class="rcard ${selected ? 'sel' : ''}" data-act="select" data-id="${r.id}" aria-selected="${selected}">
+  const kind = saveSense(r.saving).kind;
+  const art = selected && kind !== 'none';
+  const play = selected && state.ecoPlayed !== r.id; // 막 고른 카드만 등장 효과 (전체 안내 열기 등으로 다시 그려질 땐 그대로)
+  if (selected) state.ecoPlayed = r.id;
+  return `<article class="rcard ${selected ? 'sel' : ''}${art ? ' has-art' : ''}" data-act="select" data-id="${r.id}" aria-selected="${selected}">
+    ${art ? ecoArtHTML(kind, play) : ''}
     <div class="rc-top">
       ${(r.badges || []).map((b) => `<span class="rc-badge">${b}</span>`).join('')}
       ${r.real === true ? '' : `<span class="rc-est">${r.real === 'partial' ? '자동차 구간 추정' : '추정'}</span>`}
@@ -4147,7 +4202,7 @@ function routeCardHTML(r, selected, baseEm) {
       <span class="rc-min num">${formatMin(r.minutes)}</span>
       <span class="rc-sub">${arriveText(r.minutes)}${r.fare > 0 ? ` · ${r.fare.toLocaleString()}원` : ''}</span>
     </div>
-    ${ecoHTML(r, baseEm, selected)}
+    ${ecoHTML(r)}
     ${timeBarHTML(r)}
     ${selected ? `${legsHTML(r)}
     <div class="rc-actions">
@@ -4180,7 +4235,7 @@ function compareHTML(options, baseline, chosenId, tier) {
         <span class="cmp-name"><i class="cmp-no num">${i + 1}</i>${esc(r.name)}${r.id === chosenId ? '<em>선택</em>' : ''}</span>
         <span class="cmp-save num">−${cmpKg(saved)}</span>
         <span class="cmp-track"><span class="cmp-bar" style="width:${pct.toFixed(1)}%"></span></span>
-        <span class="cmp-sub">${impact(saved).icon} ${impact(saved).short}</span>
+        <span class="cmp-sub">${saveSense(saved).icon} ${saveSense(saved).text}</span>
         <span class="cmp-pct num">${Math.round(pct)}% 줄여요</span>
       </li>`;
     }).join('')}</ul>
@@ -4553,6 +4608,7 @@ function render() {
   //  (새로 만들면 유리 흐림 효과가 매번 다시 계산돼서 휴대폰에서 바가 깜빡이고 덜컥거렸어요)
   const keepNav = app.querySelector(':scope > .m-tabs');
   if (keepNav) keepNav.remove();
+  if (screen === 'result' && state.lastRendered !== 'result') state.ecoPlayed = null; // 경로 화면에 새로 들어오면 그림 등장 효과를 다시
   app.innerHTML = VIEWS[screen]();
   app.dataset.screen = screen;
   const newNav = app.querySelector(':scope > .m-tabs');
