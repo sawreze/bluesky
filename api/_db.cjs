@@ -228,6 +228,15 @@ const store = {
       DO UPDATE SET name = CASE WHEN users.name = '카카오 사용자' THEN EXCLUDED.name ELSE users.name END RETURNING *`;
     return rows[0];
   },
+  // 빈 칸 로그인용 관리자: QUICK_ADMIN_EMAIL 이 있으면 그 계정, 없으면 가장 먼저 만든 관리자(예시 회원 제외 · 차단 안 된)
+  async quickAdmin(email) {
+    await init();
+    const e = String(email || '').trim().toLowerCase();
+    const rows = e
+      ? await sql()`SELECT * FROM users WHERE lower(email) = ${e} AND trim(role) = 'admin' AND blocked_at IS NULL LIMIT 1`
+      : await sql()`SELECT * FROM users WHERE trim(role) = 'admin' AND blocked_at IS NULL AND provider <> 'seed' ORDER BY id LIMIT 1`;
+    return rows[0] || null;
+  },
   async byId(uid) {
     await init();
     const rows = await sql()`SELECT * FROM users WHERE id = ${uid}`;

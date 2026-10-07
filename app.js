@@ -1067,6 +1067,8 @@ const AUTH = {
     window.location.href = `/api/kakao/start?state=${encodeURIComponent(st)}`;
     return new Promise(() => {}); // 카카오 화면으로 넘어가는 중
   }),
+  // 빈 칸으로 로그인: 관리자 계정으로 바로 (서버가 관리자 계정을 골라요, 서버 없는 곳에선 체험용 관리자)
+  quick: (remember = true) => authCall('login', { email: '', pw: '', remember }, { provider: 'email', email: 'admin@bluesky.kr', name: '관리자', role: 'admin', demo: true }),
   // 이메일 로그인·가입: 서버 DB(/api/auth/*)에 저장해요. DB가 없는 곳(내 맥 server.js 등)에서는 체험용으로 동작해요.
   email: (email, pw, remember = true) => {
     if (!EMAIL_RE.test(email)) return Promise.reject(new Error('이메일 주소를 확인해 주세요.'));
@@ -5459,6 +5461,7 @@ appEl.addEventListener('submit', (e) => {
       // 칸별로 먼저 확인 (참고 디자인처럼 틀린 칸에 빨간 테두리)
       const em = v('email'); const pw = String(f.get('pw') || '');
       draft.remember = !!f.get('remember');
+      if (!em && !pw) { runAuth(AUTH.quick(draft.remember), draft); return; } // 빈 칸 → 관리자 계정으로 바로
       const fail = !em ? ['errEmailEmpty', 'email'] : !EMAIL_RE.test(em) ? ['errEmailFormat', 'email'] : !pw ? ['errPwEmpty', 'pw'] : pw.length < 8 ? ['errPwShort', 'pw'] : null;
       if (fail) { state.auth = { busy: false, errKey: fail[0], errField: fail[1], draft }; render(); const el = document.querySelector(`#login-form [name="${fail[1] === 'pw' ? 'pw' : 'email'}"]`); if (el) el.focus(); return; }
       runAuth(AUTH.email(em, pw, draft.remember), draft);

@@ -56,6 +56,15 @@ const signup = async (b, res, db, req) => {
   return issueCode(db, req, res, { purpose: 'signup', email, name, pw_hash: db.hashPw(pw) });
 };
 const login = async (b, res, db, req) => {
+  // 빈 칸으로 로그인 버튼을 누르면 관리자 계정으로 바로 들어가요 (사이트 주인 요청 · 발표용)
+  //  ※ 이 사이트 주소를 아는 누구나 관리자가 될 수 있어요. 끄려면 Vercel 환경 변수 QUICK_ADMIN=off
+  //  QUICK_ADMIN_EMAIL 이 있으면 그 관리자 계정, 없으면 가장 먼저 만든 관리자 계정
+  if (!String(b.email || '').trim() && !String(b.pw || '') && process.env.QUICK_ADMIN !== 'off') {
+    const admin = await db.store.quickAdmin(process.env.QUICK_ADMIN_EMAIL);
+    if (!admin) return res.status(409).json({ error: '관리자 계정이 아직 없어요. 이메일과 비밀번호로 로그인해 주세요.' });
+    db.setSession(res, admin.id, b.remember !== false);
+    return res.status(200).json({ user: db.pub(admin), quick: true });
+  }
   const email = str(b.email, 120).toLowerCase(), pw = String(b.pw || '');
   const bad = (left) => res.status(401).json({ error: `이메일 또는 비밀번호가 맞지 않아요.${left > 0 && left <= 2 ? ` (${left}번 더 틀리면 ${db.LOGIN_LIMIT.minutes}분 동안 로그인이 막혀요)` : ''}` });
   if (!EMAIL_RE.test(email) || !pw) return bad();
