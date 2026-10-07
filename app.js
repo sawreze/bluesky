@@ -3597,7 +3597,7 @@ function helpHTML() {
       <section class="m-card faq" aria-label="자주 묻는 질문">${FAQ.map(faqItemHTML).join('')}</section>
       <section class="m-card fb-card">
         <div class="fb-head"><h2>관리자에게 의견 보내기</h2><p>오류나 고쳤으면 하는 점을 남겨 주시면 관리자가 확인해요.</p></div>
-        <form id="fb-form" novalidate>
+        <form id="fb-form" novalidate data-kb-anchor>
           <div class="fb-kinds" role="radiogroup" aria-label="의견 종류">${FB_KINDS.map((k) => `<button type="button" role="radio" class="fb-kind ${f.kind === k.id ? 'on' : ''}" aria-checked="${f.kind === k.id}" data-act="fb-kind" data-id="${k.id}">${k.icon} ${k.label}</button>`).join('')}</div>
           <textarea id="fb-text" class="input fb-text" rows="5" maxlength="${FB_MAX}" aria-label="의견 내용" placeholder="${esc(fbKind(f.kind).hint)}">${esc(f.text)}</textarea>
           <div class="fb-foot"><span class="fb-count" id="fb-count">${f.text.length}/${FB_MAX}</span>
@@ -5488,20 +5488,30 @@ appEl.addEventListener('touchcancel', endSwipe);
 // ── 키보드가 입력 칸을 가리지 않게 ──
 //  인스타그램 · 카카오톡 안 브라우저 같은 일부 안드로이드 웹뷰는 키보드가 화면 아래를 덮기만 하고
 //  입력 칸이 보이게 스크롤해 주지 않아요. 그래서 칸을 누르면 아래에 여유 공간을 잠깐 만들고,
-//  칸이 화면 위쪽(제목 바 바로 아래)에 오도록 직접 올려요. 키보드가 열리고 닫히는 시간을 고려해 두 번 맞춰요.
+//  칸의 아래 끝이 키보드 바로 위에 오도록 직접 올려요 (data-kb-anchor 가 있으면 그 묶음째, 예: 의견 칸 + 보내기 버튼).
+//  키보드 높이: 브라우저가 화면을 줄여 주면(아이폰 · 크롬) 그만큼, 덮기만 하는 웹뷰면 화면의 48%로 어림해요.
 const KB_FIELDS = 'textarea, input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=hidden])';
+const KB_GUESS = 0.48; // 덮기만 하는 웹뷰에서 키보드가 차지하는 비율 (안드로이드 세로 화면 실측 약 47%)
+const KB_GAP = 10; // 키보드와 칸 사이 간격(px)
+let kbBaseH = window.innerHeight; // 키보드가 없을 때 화면 높이
+window.addEventListener('resize', () => { if (!document.body.classList.contains('kb-open')) kbBaseH = window.innerHeight; });
 function liftField(el) {
   if (document.activeElement !== el || !el.isConnected) return;
   const vv = window.visualViewport;
   const viewTop = vv ? vv.offsetTop : 0;
-  const viewH = vv ? vv.height : window.innerHeight;
+  const viewBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+  const shrunk = kbBaseH - (viewBottom - viewTop) > 120; // 화면이 줄었으면 키보드가 그만큼
+  const kbTop = shrunk ? viewBottom : viewBottom - kbBaseH * KB_GUESS;
   const bar = document.querySelector('#app .appbar');
-  const barH = bar ? bar.getBoundingClientRect().height : 0;
+  const barBottom = viewTop + (bar ? bar.getBoundingClientRect().height : 0);
+  const anchor = el.closest('[data-kb-anchor]') || el;
+  const box = anchor.getBoundingClientRect();
   const r = el.getBoundingClientRect();
-  const top = r.top - viewTop;
-  // 키보드가 얼마나 덮는지 알려 주지 않는 웹뷰도 있어서, 칸이 보이는 화면의 위쪽 40% 안에 들어오게 해요
-  if (top >= barH && top <= viewH * 0.4 && r.bottom - viewTop <= viewH) return;
-  window.scrollBy({ top: top - barH - 14, behavior: 'smooth' });
+  if (box.bottom <= kbTop - KB_GAP && r.top >= barBottom) return; // 이미 키보드 위에 다 보이면 그대로
+  let dy = box.bottom - (kbTop - KB_GAP); // 아래 끝을 키보드 바로 위로
+  if (r.top - dy < barBottom + 8) dy = r.top - (barBottom + 8); // 묶음이 너무 크면 칸 윗부분이 제목 바에 안 가리게
+  if (Math.abs(dy) < 3) return;
+  window.scrollBy({ top: dy, behavior: 'smooth' });
 }
 appEl.addEventListener('focusin', (e) => {
   const el = e.target.closest ? e.target.closest(KB_FIELDS) : null;
