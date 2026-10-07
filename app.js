@@ -168,22 +168,53 @@ function impact(g) {
   else n = String(Math.max(0.01, Math.round(t * 100) / 100));
   return { icon: '🌳', short: `나무 ${n}그루 심은 효과`, long: `나무 ${n}그루를 심은 것과 같아요` };
 }
-// 경로 카드용 생활 비유: 나무 반 그루 이상이면 나무(반 그루 단위), 그보다 적으면 CO₂ 를 담은 풍선 개수
-//  나무 1그루 = 소나무 1그루가 1년에 흡수하는 9.8kg, 풍선 1개 = 지름 30cm(약 14L)를 채우는 CO₂ 약 25g
-//  → "CO₂ 1kg은 얼마나 될까요?"(나무 1/10 · 풍선 40개)와 같은 기준이에요. hint: 기준을 한 줄로
+// 경로 카드용 생활 비유: 나무 반 그루 이상이면 나무(반 그루 단위), 그보다 적으면 휴대폰 충전 횟수
+//  나무 1그루 = 소나무 1그루가 1년에 흡수하는 9.8kg, 휴대폰 충전 1번 = 약 8g (전력배출계수 0.4173kg/kWh)
+//  → "CO₂ 1kg은 얼마나 될까요?"(나무 1/10 · 스마트폰 125번)와 같은 기준이에요. hint: 기준을 한 줄로
 function saveSense(g) {
   g = Math.max(0, g || 0);
   const t = g / TREE_YEAR_G;
   if (t >= 0.5) {
     const h = t >= 10 ? Math.floor(t) : Math.floor(t * 2) / 2; // 부풀리지 않게 반 그루 단위로 내림
-    const whole = Math.floor(h);
-    const n = whole === 0 ? '반 그루' : `${whole.toLocaleString()}그루${h - whole >= 0.5 ? ' 반' : ''}`;
-    return { kind: 'tree', icon: '🌳', text: `나무 ${n} 심은 효과`, html: `나무 <b>${n}</b> 심은 효과`, hint: '나무 1그루 = 1년 동안 CO₂ 9.8kg 흡수' };
+    const n = COUNT_FMT.tree(h);
+    return { kind: 'tree', icon: '🌳', num: h, fmt: 'tree', pre: '나무 ', post: ' 심은 효과', text: `나무 ${n} 심은 효과`, html: `나무 <b>${n}</b> 심은 효과`, hint: '나무 1그루 = 1년 동안 CO₂ 9.8kg 흡수' };
   }
-  const c = Math.round(g / EQUIV.balloonG);
+  const c = Math.round(g / EQUIV.phoneG);
   if (c < 1) return { kind: 'none', icon: '🚗', text: '자동차와 거의 같아요', html: '자동차와 거의 같아요', hint: '' };
-  const n = `${c.toLocaleString()}개`;
-  return { kind: 'balloon', icon: '🎈', text: `풍선 ${n} 분량의 CO₂를 줄여요`, html: `풍선 <b>${n}</b> 분량의 CO₂를 줄여요`, hint: '풍선 1개(지름 30cm) = CO₂ 약 25g' };
+  const n = COUNT_FMT.times(c);
+  return { kind: 'phone', icon: '📱', num: c, fmt: 'times', pre: '휴대폰 ', post: ' 충전할 때 나오는 양', text: `휴대폰 ${n} 충전할 때 나오는 양`, html: `휴대폰 <b>${n}</b> 충전할 때 나오는 양`, hint: '휴대폰 1번 충전 = CO₂ 약 8g' };
+}
+// ── 숫자 카운터: 0부터 목표 숫자까지 올라가요 (경로 카드를 막 골랐을 때) ──
+//  숫자가 클수록 조금 더 오래(0.7초 ~ 1.6초), 끝으로 갈수록 천천히 멈춰요. 움직임 줄이기면 바로 최종 숫자.
+const COUNT_FMT = {
+  tree: (v) => { const h = Math.max(0.5, Math.floor(v * 2) / 2); const w = Math.floor(h); return w === 0 ? '반 그루' : `${w.toLocaleString()}그루${h - w >= 0.5 ? ' 반' : ''}`; },
+  times: (v) => `${Math.round(v).toLocaleString()}번`,
+  g: (v) => formatG(Math.round(v)),
+};
+const countAttr = (to, fmt) => `data-count="${to}" data-fmt="${fmt}"`;
+function runCounters(root = document) {
+  const els = [...root.querySelectorAll('[data-count]')];
+  if (!els.length) return;
+  const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  els.forEach((el) => {
+    const to = Number(el.dataset.count) || 0;
+    const fmt = COUNT_FMT[el.dataset.fmt] || COUNT_FMT.g;
+    el.removeAttribute('data-count');
+    if (still || to <= 0) { el.textContent = fmt(to); return; }
+    const size = el.dataset.fmt === 'tree' ? to * 20 : el.dataset.fmt === 'g' ? to / 25 : to; // 단위마다 "얼마나 큰 숫자인지"를 비슷하게
+    const dur = Math.min(1600, Math.max(700, 600 + Math.log10(size + 1) * 330));
+    const t0 = performance.now();
+    const tick = (now) => {
+      if (!el.isConnected) return;
+      const p = Math.min(1, (now - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3); // 처음엔 빠르게, 끝에서 천천히
+      el.textContent = fmt(p >= 1 ? to : to * e);
+      if (p < 1) requestAnimationFrame(tick);
+      else { el.classList.remove('counting'); el.classList.add('counted'); }
+    };
+    el.classList.add('counting');
+    requestAnimationFrame(tick);
+  });
 }
 // 여러 생활 단위 (도착 화면·설명용)
 function senseList(g) {
@@ -4136,17 +4167,21 @@ function legsHTML(route) {
 }
 // 아낀 탄소: 생활 비유(나무 · 휴대폰 완충)를 크게 먼저, 그 아래 CO₂ 양.
 //  고른 카드는 오른쪽 위 빈 곳에 그림이 움직여요 (ecoArtHTML · routeCardHTML)
-function ecoHTML(r) {
+// play: 막 고른 카드면 숫자가 0부터 올라가요 (runCounters)
+function ecoHTML(r, play) {
   const tier = r.tier || TIERS[0];
   const k = saveSense(r.saving);
-  return `<div class="eco eco-${tier.id} eco-k-${k.kind}">
-    <p class="eco-lead"><span class="eco-ic" aria-hidden="true">${k.icon}</span><span>${k.html}</span></p>
-    <p class="eco-co2"><span class="eco-sky" aria-hidden="true">${tier.sky}</span>자동차보다 CO₂ <b class="num">${formatG(r.saving)}</b> 덜 배출</p>
+  const g = Math.max(0, Math.round(r.saving || 0));
+  const lead = play && k.num ? `${k.pre}<b ${countAttr(k.num, k.fmt)}>${COUNT_FMT[k.fmt](0)}</b>${k.post}` : k.html;
+  const co2 = play && g > 0 ? `<b class="num" ${countAttr(g, 'g')}>${formatG(0)}</b>` : `<b class="num">${formatG(r.saving)}</b>`;
+  return `<div class="eco eco-${tier.id} eco-k-${k.kind}" aria-label="${esc(k.text)}, 자동차보다 CO₂ ${formatG(r.saving)} 덜 배출">
+    <p class="eco-lead" aria-hidden="true"><span class="eco-ic">${k.icon}</span><span>${lead}</span></p>
+    <p class="eco-co2" aria-hidden="true"><span class="eco-sky">${tier.sky}</span>자동차보다 CO₂ ${co2} 덜 배출</p>
     ${k.hint ? `<p class="eco-hint"><span aria-hidden="true">ⓘ</span>${k.hint}</p>` : ''}
   </div>`;
 }
-// 오른쪽 위 그림. play: 이 카드를 막 골랐을 때만 나무가 자라고 · 풍선이 떠오르는 등장 효과 (다시 그려질 땐 바로 완성된 모습)
-//  나뭇잎이 흩날리고 · 풍선이 둥실거리고 작은 풍선이 하늘로 날아가는 건 계속
+// 오른쪽 위 그림. play: 이 카드를 막 골랐을 때만 나무가 자라고 · 배터리가 차오르는 등장 효과 (다시 그려질 땐 바로 완성된 모습)
+//  나뭇잎이 흩날리고 · 번개가 반짝이는 건 계속
 const ECO_LEAF = 'M0 0C2.6-3.2 6.8-3.3 9.2 0 6.8 3.3 2.6 3.2 0 0Z';
 function ecoArtHTML(kind, play) {
   const cls = `eco-art ${kind}${play ? ' play' : ''}`;
@@ -4168,33 +4203,22 @@ function ecoArtHTML(kind, play) {
     <path class="spk spk1" d="M66 12l1.6 3.9 3.9 1.6-3.9 1.6L66 23l-1.6-3.9-3.9-1.6 3.9-1.6Z" fill="#FFD84D"/>
     <path class="spk spk2" d="M13 22l1 2.4 2.4 1-2.4 1-1 2.4-1-2.4-2.4-1 2.4-1Z" fill="#8FE3B0"/>
   </svg></div>`;
-  if (kind === 'balloon') return `<div class="${cls}" aria-hidden="true"><svg viewBox="0 0 80 80">
-    <defs><radialGradient id="bg-b1" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#BFE0FF"/><stop offset=".55" stop-color="#4C9BFF"/><stop offset="1" stop-color="#2563EB"/></radialGradient><radialGradient id="bg-b2" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#C9F7DB"/><stop offset=".55" stop-color="#3CCB7F"/><stop offset="1" stop-color="#15803D"/></radialGradient><radialGradient id="bg-b3" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#FFF1BF"/><stop offset=".55" stop-color="#FFC94D"/><stop offset="1" stop-color="#E59A0B"/></radialGradient><radialGradient id="bg-b4" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#D8F3FF"/><stop offset=".55" stop-color="#7DD3FC"/><stop offset="1" stop-color="#0EA5E9"/></radialGradient></defs>
-    <g class="bl b4">
-      <path class="bl-str" d="M64 23.5q-2 5 1 10" fill="none" stroke="#9AA9BF" stroke-width="1.1" stroke-linecap="round"/>
-      <path d="M61.8 23.200000000000003h4.4l-2.2-3.4Z" fill="#0EA5E9"/>
-      <ellipse cx="64" cy="14" rx="5.5" ry="6.6" fill="url(#bg-b4)"/>
-      <ellipse cx="61.91" cy="11.228" rx="1.21" ry="1.9799999999999998" fill="#fff" opacity=".55" transform="rotate(-25 61.91 11.228)"/>
+  if (kind === 'phone') return `<div class="${cls}" aria-hidden="true"><svg viewBox="0 0 80 80">
+    <defs><linearGradient id="eco-bat-g" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#16A34A"/><stop offset="1" stop-color="#6EE7A0"/></linearGradient></defs>
+    <ellipse cx="40" cy="74" rx="17" ry="3" fill="rgba(20,60,120,.16)"/>
+    <g class="p-body">
+      <rect x="23" y="7" width="34" height="64" rx="8" fill="#1E2A44"/>
+      <rect x="26" y="12" width="28" height="54" rx="4.5" fill="#0E1729"/>
+      <rect x="35" y="9" width="10" height="1.8" rx=".9" fill="#3A4A6B"/>
+      <rect x="31.5" y="22" width="17" height="34" rx="3.5" fill="none" stroke="#8FA3C2" stroke-width="2"/>
+      <rect x="36.5" y="18.6" width="7" height="3" rx="1.2" fill="#8FA3C2"/>
+      <rect class="p-fill" x="34" y="24.5" width="12" height="29" rx="2" fill="url(#eco-bat-g)"/>
+      <path class="p-bolt" d="M41.4 28.5 35.6 40h4.3l-1.5 9.2L45 37.2h-4.4Z" fill="#FFE066" stroke="#D49A06" stroke-width=".7" stroke-linejoin="round"/>
     </g>
-    <g class="bl b2">
-      <path class="bl-str" d="M22 45.6q-3 8 3 14t-1 14" fill="none" stroke="#9AA9BF" stroke-width="1.1" stroke-linecap="round"/>
-      <path d="M19.8 45.6h4.4l-2.2-3.4Z" fill="#15803D"/>
-      <ellipse cx="22" cy="30" rx="11" ry="13" fill="url(#bg-b2)"/>
-      <ellipse cx="17.82" cy="24.54" rx="2.42" ry="3.9" fill="#fff" opacity=".55" transform="rotate(-25 17.82 24.54)"/>
-    </g>
-    <g class="bl b3">
-      <path class="bl-str" d="M57 47.6q3 7-2 13t2 13" fill="none" stroke="#9AA9BF" stroke-width="1.1" stroke-linecap="round"/>
-      <path d="M54.8 47.6h4.4l-2.2-3.4Z" fill="#E59A0B"/>
-      <ellipse cx="57" cy="33" rx="10" ry="12" fill="url(#bg-b3)"/>
-      <ellipse cx="53.2" cy="27.96" rx="2.2" ry="3.5999999999999996" fill="#fff" opacity=".55" transform="rotate(-25 53.2 27.96)"/>
-    </g>
-    <g class="bl b1">
-      <path class="bl-str" d="M39 42.6q-3 9 2 16t-2 15" fill="none" stroke="#9AA9BF" stroke-width="1.1" stroke-linecap="round"/>
-      <path d="M36.8 42.6h4.4l-2.2-3.4Z" fill="#2563EB"/>
-      <ellipse cx="39" cy="24" rx="13.5" ry="16" fill="url(#bg-b1)"/>
-      <ellipse cx="33.87" cy="17.28" rx="2.97" ry="4.8" fill="#fff" opacity=".55" transform="rotate(-25 33.87 17.28)"/>
-      <text class="bl-co2" x="39" y="27" text-anchor="middle" font-size="8.5" font-weight="800" fill="#fff">CO₂</text>
-    </g>
+    <circle class="pp pp1" cx="16" cy="54" r="2.4" fill="#4ADE80"/>
+    <circle class="pp pp2" cx="64" cy="46" r="2" fill="#22C55E"/>
+    <path class="pp pp3" d="M65 60h5M67.5 57.5v5" stroke="#4ADE80" stroke-width="1.8" stroke-linecap="round"/>
+    <path class="pp pp4" d="M11 38h4M13 36v4" stroke="#86EFAC" stroke-width="1.6" stroke-linecap="round"/>
   </svg></div>`;
   return '';
 }
@@ -4204,6 +4228,7 @@ function routeCardHTML(r, selected, baseEm) {
   const art = selected && kind !== 'none';
   const play = selected && state.ecoPlayed !== r.id; // 막 고른 카드만 등장 효과 (전체 안내 열기 등으로 다시 그려질 땐 그대로)
   if (selected) state.ecoPlayed = r.id;
+  if (play) setTimeout(() => runCounters(), 0); // 화면에 붙은 다음 숫자를 올려요
   return `<article class="rcard ${selected ? 'sel' : ''}${art ? ' has-art' : ''}" data-act="select" data-id="${r.id}" aria-selected="${selected}">
     ${art ? ecoArtHTML(kind, play) : ''}
     <div class="rc-top">
@@ -4214,7 +4239,7 @@ function routeCardHTML(r, selected, baseEm) {
       <span class="rc-min num">${formatMin(r.minutes)}</span>
       <span class="rc-sub">${arriveText(r.minutes)}${r.fare > 0 ? ` · ${r.fare.toLocaleString()}원` : ''}</span>
     </div>
-    ${ecoHTML(r)}
+    ${ecoHTML(r, play)}
     ${timeBarHTML(r)}
     ${selected ? `${legsHTML(r)}
     <div class="rc-actions">

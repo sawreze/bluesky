@@ -2329,7 +2329,7 @@ body.splashing #app { opacity: 0; transition: none; }
 .rcard.sel.has-art .rc-top, .rcard.sel.has-art .rc-main { padding-right: 92px; }
 .eco-art { position: absolute; top: 6px; right: 12px; width: 92px; height: 92px; pointer-events: none; }
 .eco-art::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: radial-gradient(circle, rgba(74, 222, 128, .38) 0%, rgba(74, 222, 128, 0) 70%); animation: ecoGlow 2.8s ease-in-out infinite; }
-.eco-art.balloon::before { background: radial-gradient(circle, rgba(125, 185, 255, .42) 0%, rgba(125, 185, 255, 0) 70%); }
+.eco-art.phone::before { background: radial-gradient(circle, rgba(253, 224, 71, .4) 0%, rgba(74, 222, 128, .16) 45%, rgba(74, 222, 128, 0) 72%); }
 .eco-art svg { position: relative; display: block; width: 100%; height: 100%; overflow: visible; }
 .eco-art svg * { transform-box: fill-box; }
 @keyframes ecoGlow { 0%, 100% { transform: scale(.9); opacity: .7; } 50% { transform: scale(1.08); opacity: 1; } }
@@ -2354,22 +2354,15 @@ body.splashing #app { opacity: 0; transition: none; }
 .spk { transform-origin: 50% 50%; animation: ecoTwinkle 2.2s ease-in-out infinite; }
 .spk2 { animation-delay: 1.1s; }
 @keyframes ecoTwinkle { 0%, 100% { transform: scale(.5) rotate(0); opacity: .25; } 50% { transform: scale(1.1) rotate(45deg); opacity: 1; } }
-/* 풍선: 막 고르면 아래에서 하나씩 떠올라요 → 둥실둥실 · 줄이 살랑 · 작은 풍선은 계속 하늘로 날아가요 */
-.bl { transform-origin: 50% 100%; }
-.eco-art.play .bl { animation: blRise .9s cubic-bezier(.2, .9, .3, 1.25) both; }
-.eco-art.play .b2 { animation-delay: .12s; } .eco-art.play .b1 { animation-delay: .24s; } .eco-art.play .b3 { animation-delay: .36s; }
-@keyframes blRise { 0% { opacity: 0; transform: translateY(34px) scale(.7); } 70% { opacity: 1; transform: translateY(-3px) scale(1.03); } 100% { opacity: 1; transform: none; } }
-.bl > :not(.bl-str) { animation: blBob 3s ease-in-out infinite; }
-.b2 > :not(.bl-str) { animation-duration: 3.4s; animation-delay: -1.2s; }
-.b3 > :not(.bl-str) { animation-duration: 2.8s; animation-delay: -.6s; }
-.bl-str { transform-origin: 50% 0; animation: blStr 3s ease-in-out infinite; }
-@keyframes blBob { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-3.5px) rotate(2deg); } }
-@keyframes blStr { 0%, 100% { transform: skewX(-6deg); } 50% { transform: skewX(6deg); } }
-.eco-art .b4, .eco-art.play .b4 { animation: blAway 4.2s ease-in 1.2s infinite; opacity: 0; }
-.eco-art .b4 > * { animation: none; }
-@keyframes blAway { 0% { opacity: 0; transform: translate(-6px, 30px) scale(.8); } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -20px) scale(1); } }
-.bl-co2 { pointer-events: none; letter-spacing: -.02em; }
-/* 기준 한 줄 (풍선 1개 = CO₂ 약 25g 등) */
+/* 휴대폰: 막 고르면 휴대폰이 톡 나오고 배터리가 아래부터 차올라요. 그다음엔 번개가 반짝 + 초록 알갱이가 올라가요 */
+.eco-art.play .p-body { transform-origin: 50% 100%; animation: ecoPop .5s cubic-bezier(.2, .9, .3, 1.35) both; }
+.eco-art.play .p-fill { transform-origin: 50% 100%; animation: ecoGrowY 1.4s cubic-bezier(.3, .7, .3, 1) .35s both; }
+.p-bolt { transform-origin: 50% 50%; animation: ecoBolt 1.6s ease-in-out infinite; }
+@keyframes ecoBolt { 0%, 100% { transform: scale(1); filter: none; } 50% { transform: scale(1.16); filter: drop-shadow(0 0 3px rgba(255, 224, 102, .95)); } }
+.pp { transform-origin: 50% 50%; opacity: 0; animation: ecoUp 2.6s ease-out infinite; }
+.pp2 { animation-delay: .7s; } .pp3 { animation-delay: 1.3s; } .pp4 { animation-delay: 1.9s; }
+@keyframes ecoUp { 0% { opacity: 0; transform: translateY(6px) scale(.6); } 25% { opacity: 1; } 100% { opacity: 0; transform: translateY(-16px) scale(1); } }
+/* 기준 한 줄 (휴대폰 1번 충전 = CO₂ 약 8g 등) */
 .eco-hint { margin: 5px 0 0; display: flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; color: #5B6B80; }
 .eco-hint span { font-size: 12px; color: #10A04F; }
 .rcard:not(.sel) .eco-hint { display: none; }
@@ -2385,3 +2378,9 @@ body.splashing #app { opacity: 0; transition: none; }
 
 /* 입력 중(키보드가 열린 동안)에는 아래에 여유 공간을 둬서, 맨 아래 칸도 키보드 위로 올릴 수 있게 */
 body.kb-open .content { padding-bottom: max(60vh, 340px); }
+
+/* 숫자 카운터: 올라가는 동안 자리 폭이 흔들리지 않게 · 다 올라가면 살짝 톡 */
+[data-fmt], .counting, .counted { font-variant-numeric: tabular-nums; }
+.eco-lead b.counted, .eco-co2 b.counted { display: inline-block; animation: cntPop .38s cubic-bezier(.2, .9, .3, 1.5); }
+@keyframes cntPop { 0% { transform: scale(1); } 45% { transform: scale(1.14); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .eco-lead b.counted, .eco-co2 b.counted { animation: none; } }
