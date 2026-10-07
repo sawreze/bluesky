@@ -2382,3 +2382,6 @@ body.splashing #app { opacity: 0; transition: none; }
 :root[data-theme='dark'] .eco-co2 { color: #A9B8CC; }
 :root[data-theme='dark'] .eco-co2 b { color: #7DB3FF; }
 @media (prefers-reduced-motion: reduce) { .eco-art::before, .eco-art *, .eco-art.play * { animation: none !important; } .lf, .pp { opacity: 0; } }
+
+/* 입력 중(키보드가 열린 동안)에는 아래에 여유 공간을 둬서, 맨 아래 칸도 키보드 위로 올릴 수 있게 */
+body.kb-open .content { padding-bottom: max(60vh, 340px); }

@@ -5460,6 +5460,48 @@ function endSwipe() {
 appEl.addEventListener('touchend', endSwipe);
 appEl.addEventListener('touchcancel', endSwipe);
 
+// ── 키보드가 입력 칸을 가리지 않게 ──
+//  인스타그램 · 카카오톡 안 브라우저 같은 일부 안드로이드 웹뷰는 키보드가 화면 아래를 덮기만 하고
+//  입력 칸이 보이게 스크롤해 주지 않아요. 그래서 칸을 누르면 아래에 여유 공간을 잠깐 만들고,
+//  칸이 화면 위쪽(제목 바 바로 아래)에 오도록 직접 올려요. 키보드가 열리고 닫히는 시간을 고려해 두 번 맞춰요.
+const KB_FIELDS = 'textarea, input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=hidden])';
+function liftField(el) {
+  if (document.activeElement !== el || !el.isConnected) return;
+  const vv = window.visualViewport;
+  const viewTop = vv ? vv.offsetTop : 0;
+  const viewH = vv ? vv.height : window.innerHeight;
+  const bar = document.querySelector('#app .appbar');
+  const barH = bar ? bar.getBoundingClientRect().height : 0;
+  const r = el.getBoundingClientRect();
+  const top = r.top - viewTop;
+  // 키보드가 얼마나 덮는지 알려 주지 않는 웹뷰도 있어서, 칸이 보이는 화면의 위쪽 40% 안에 들어오게 해요
+  if (top >= barH && top <= viewH * 0.4 && r.bottom - viewTop <= viewH) return;
+  window.scrollBy({ top: top - barH - 14, behavior: 'smooth' });
+}
+appEl.addEventListener('focusin', (e) => {
+  const el = e.target.closest ? e.target.closest(KB_FIELDS) : null;
+  if (!el || MAP_SCREENS.includes(state.screen)) return;
+  document.body.classList.add('kb-open');
+  clearTimeout(liftField.t1); clearTimeout(liftField.t2);
+  liftField.t1 = setTimeout(() => liftField(el), 300);
+  liftField.t2 = setTimeout(() => liftField(el), 700);
+});
+appEl.addEventListener('focusout', () => {
+  setTimeout(() => {
+    const a = document.activeElement;
+    if (!(a && a.closest && a.closest(KB_FIELDS) && appEl.contains(a))) document.body.classList.remove('kb-open');
+  }, 150);
+});
+// 키보드 높이를 알려 주는 브라우저면, 높이가 바뀔 때마다 다시 맞춰요
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => {
+    const a = document.activeElement;
+    if (a && a.closest && a.closest(KB_FIELDS) && appEl.contains(a) && !MAP_SCREENS.includes(state.screen)) {
+      clearTimeout(liftField.t3); liftField.t3 = setTimeout(() => liftField(a), 120);
+    }
+  });
+}
+
 // ---------------------------------------------------------------------
 // 시작
 // ---------------------------------------------------------------------
