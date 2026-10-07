@@ -21,6 +21,7 @@ const handler = require('../_respond.cjs').makeHandler('/auth/kakao', async (loc
     if (u.blocked_at) return `/#kakao=${encodeURIComponent(JSON.stringify({ ok: false, error: '관리자가 이용을 제한한 계정이에요.', state: data.state }))}`;
     db.setSession(res, u.id, !String(data.state || '').endsWith('.r0')); // 앱이 "로그인 유지 안 함"이면 state 끝에 .r0
     Object.assign(data, db.pub(u));
+    if (u.inserted) data.isNew = true; // 처음 가입 → 앱이 튜토리얼을 보여 줘요
   } catch (e) {
     console.log('[카카오 회원 기록 오류]', e && e.message);
     return `/#kakao=${encodeURIComponent(JSON.stringify({ ok: false, error: '회원 정보를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.', state: data.state }))}`;

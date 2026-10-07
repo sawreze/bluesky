@@ -225,7 +225,7 @@ const store = {
     await init();
     const rows = await sql()`INSERT INTO users (provider, provider_id, name) VALUES (${provider}, ${providerId}, ${name})
       ON CONFLICT (provider, provider_id) WHERE provider_id IS NOT NULL
-      DO UPDATE SET name = CASE WHEN users.name = '카카오 사용자' THEN EXCLUDED.name ELSE users.name END RETURNING *`;
+      DO UPDATE SET name = CASE WHEN users.name = '카카오 사용자' THEN EXCLUDED.name ELSE users.name END RETURNING *, (xmax = 0) AS inserted`; // inserted: 이번에 처음 만든 계정
     return rows[0];
   },
   async byId(uid) {

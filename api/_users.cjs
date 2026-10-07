@@ -119,7 +119,7 @@ const code = async (b, res, db, req) => {
   const remember = b.remember !== false;
   db.setSession(res, u.id, remember);
   if (remember) db.setDevice(res, u.id); // 로그인 유지: 이 기기는 다음부터 코드 없이
-  return res.status(200).json({ user: db.pub(u) });
+  return res.status(200).json({ user: db.pub(u), ...(row.purpose === 'signup' ? { isNew: true } : {}) }); // isNew: 방금 가입 → 튜토리얼
 };
 
 module.exports = { wrap, signup, login, code };

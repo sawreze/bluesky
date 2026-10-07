@@ -1029,7 +1029,7 @@ const AUTH = {
     if (!EMAIL_RE.test(email)) return Promise.reject(new Error('이메일 주소를 확인해 주세요.'));
     if (pw.length < 8) return Promise.reject(new Error('비밀번호는 8자 이상으로 만들어 주세요.'));
     if (pw !== pw2) return Promise.reject(new Error('비밀번호가 서로 달라요.'));
-    return authCall('signup', { name, email, pw, remember }, { provider: 'email', email, name });
+    return authCall('signup', { name, email, pw, remember }, { provider: 'email', email, name, isNew: true });
   },
 };
 
@@ -1728,12 +1728,14 @@ function weekChartHTML(series, big) {
 
 // ── 첫 로그인 튜토리얼 ──
 //  처음 들어온 사용자에게 메인 화면에서 한 단계씩 짚어 줘요. 1단계: 빠른 길찾기 버튼만 밝게, 나머지는 흐리게.
+//  방금 가입한 계정에만 떠요 (서버가 isNew 로 알려 줘요). 원래 있던 회원은 기록이 아직 안 받아졌어도 안 떠요.
 //  빠른 길찾기 버튼을 직접 눌러야만 닫혀요 (건너뛰기 없음, 어두운 곳을 누르면 버튼이 흔들려요).
-//  끝낸 단계는 계정별로 이 기기에 저장해요 (1 = 1단계 끝). 이동 기록이 이미 있는 사용자는 안 보여요.
+//  계정별로 이 기기에 저장해요: 0 = 가입해서 볼 차례, 1 = 1단계 끝. 값이 없으면(원래 회원) 안 떠요.
 const TOUR_KEY = 'pureun-tour';
-function tourStep() {
-  try { return Number((JSON.parse(localStorage.getItem(TOUR_KEY) || '{}'))[userKey(state.user)]) || 0; } catch (e) { return 0; }
+function tourStep() { // null = 이 계정은 튜토리얼 대상 아님
+  try { const v = (JSON.parse(localStorage.getItem(TOUR_KEY) || '{}'))[userKey(state.user)]; return v === undefined ? null : Number(v) || 0; } catch (e) { return null; }
 }
+const tourMarkNew = () => { if (state.user && tourStep() === null) tourSet(0); }; // 방금 가입 → 튜토리얼 시작
 function tourSet(n) {
   try {
     const m = JSON.parse(localStorage.getItem(TOUR_KEY) || '{}');
@@ -1741,7 +1743,7 @@ function tourSet(n) {
     localStorage.setItem(TOUR_KEY, JSON.stringify(m));
   } catch (e) { /* 무시 */ }
 }
-const tourOn = () => !!state.user && state.screen === 'main' && tourStep() < 1 && loadLog().trips === 0;
+const tourOn = () => !!state.user && state.screen === 'main' && tourStep() === 0 && loadLog().trips === 0;
 // 어두운 막: 처음 한 번만 천천히 나타나고, 화면이 다시 그려져도 깜빡이지 않아요
 function tourDimHTML() {
   if (!tourOn()) return '';
@@ -4779,12 +4781,14 @@ function runAuth(promise, draft) {
   promise
     .then((user) => {
       if (user && user.needCode) { openVerify(user, draft); return; }
-      loggedIn(user, !draft || draft.remember !== false);
+      const { isNew, ...u } = user || {};
+      loggedIn(user ? u : user, !draft || draft.remember !== false, isNew);
     })
     .catch((err) => { state.auth = { busy: false, message: err.message || '로그인하지 못했어요. 다시 시도해 주세요.', draft: draft || {} }; render(); });
 }
-function loggedIn(user, remember) {
+function loggedIn(user, remember, isNew) {
   state.user = user; saveUser(user, remember); state.auth = { busy: false, message: '' }; state.verify = null;
+  if (isNew) tourMarkNew();
   go('main');
   syncFromServer().finally(() => setTimeout(showCampNotices, 300)); // 서버 DB가 있으면 내 기록을 받아 와요
 }
@@ -4814,7 +4818,7 @@ async function submitVerify() {
   v.busy = true; renderVerifyMsg();
   const r = await postCode({ a: 'verify', ticket: v.ticket, code, remember: v.remember });
   v.busy = false;
-  if (r.status === 200 && r.data.user) return loggedIn(r.data.user, v.remember);
+  if (r.status === 200 && r.data.user) return loggedIn(r.data.user, v.remember, !!r.data.isNew);
   v.message = r.data.error || '확인하지 못했어요. 다시 시도해 주세요.';
   v.dead = !!(r.data.expired || r.data.restart);
   v.restart = !!r.data.restart;
@@ -5398,6 +5402,7 @@ appEl.addEventListener('touchcancel', endSwipe);
     let remember = true;
     try { remember = sessionStorage.getItem('pureun-remember') !== '0'; sessionStorage.removeItem('pureun-remember'); } catch (e) { /* 무시 */ }
     saveUser(state.user, remember);
+    if (data.isNew) tourMarkNew();
     state.screen = 'main';
   }
 })();
