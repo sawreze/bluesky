@@ -2600,3 +2600,6 @@ body.kb-open .content { padding-bottom: max(60vh, 340px); }
 .rcard.sel .eco-k-phone .eco-lead { font-size: 16.5px; letter-spacing: -.035em; }
 .rcard.sel .eco-k-phone .eco-lead b { font-size: 21px; }
 .eco-lead .nw { white-space: nowrap; }
+
+/* 푸름이 말풍선: 말이 길면 두 줄까지 */
+.mascot-say { white-space: normal; width: max-content; max-width: 210px; text-align: left; word-break: keep-all; }

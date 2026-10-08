@@ -5569,7 +5569,7 @@ const actions = {
     // 누르면 말풍선으로 인사하고 잠시 뒤 사라져요
     const say = document.getElementById('mascot-say');
     if (!say) return;
-    say.textContent = '안녕, 난 푸름이야!';
+    say.textContent = mascotLine();
     say.classList.remove('show'); void say.offsetWidth; say.classList.add('show');
     clearTimeout(say._t); say._t = setTimeout(() => say.classList.remove('show'), 2600);
   },
@@ -5906,6 +5906,37 @@ const actions = {
     state.to = null; state.raw = null; go('home');
   },
 };
+
+// 푸름이 말: 처음엔 인사, 그다음부터는 섞어서 (방금 한 말은 바로 다시 안 해요)
+const MASCOT_LINES = [
+  '오늘은 어디로 가?', '걸어가면 탄소가 0g이야!', '지하철은 자동차보다 훨씬 깨끗해', '버스 타면 하늘이 더 파래져',
+  '가까운 길은 걸어가 볼까?', '같이 하늘을 맑게 만들자!', '나무 한 그루는 1년에 CO₂ 9.8kg을 마셔', '캠페인에서 친구들이 기다려!',
+  '모은 포인트로 나무를 심을 수 있어', '자전거 타면 바람이 시원해!', '간지러워~', '나는 맑은 날이 제일 좋아',
+  '랭킹 1등 해 볼까?', '천천히 가도 괜찮아, 하늘엔 좋으니까',
+];
+function mascotLine() {
+  const m = state.mascot || (state.mascot = { n: 0, last: '', at: 0 });
+  const now = Date.now();
+  m.quick = now - m.at < 700 ? (m.quick || 0) + 1 : 0; m.at = now;
+  m.n += 1;
+  if (m.n === 1) return '안녕, 난 푸름이야!';
+  if (m.quick >= 4) { m.quick = 0; return '어지러워~ 살살 눌러 줘'; }
+  if (m.bag && m.bag.length) { m.last = m.bag.shift(); return m.last; }
+  const pool = [...MASCOT_LINES];
+  const h = new Date().getHours();
+  pool.push(h >= 5 && h < 11 ? '좋은 아침이야!' : h < 14 ? '점심은 맛있게 먹었어?' : h < 18 ? '오후도 힘내자!' : h < 23 ? '오늘 하루도 수고했어' : '늦었어, 푹 자!');
+  const name = state.user && state.user.name;
+  if (name) pool.push(`${name}님, 오늘도 반가워!`);
+  const g = Math.max(0, (loadLog() || {}).g || 0);
+  if (g > 0) pool.push(`지금까지 CO₂ ${formatG(g)} 아꼈어!`, '덕분에 하늘이 맑아지고 있어');
+  // 주머니에서 하나씩 꺼내듯: 다 한 번씩 말하기 전엔 같은 말을 안 해요
+  if (!m.bag || !m.bag.length) {
+    m.bag = pool.sort(() => Math.random() - 0.5);
+    if (m.bag[0] === m.last) m.bag.push(m.bag.shift());
+  }
+  m.last = m.bag.shift();
+  return m.last;
+}
 
 const appEl = document.getElementById('app');
 
