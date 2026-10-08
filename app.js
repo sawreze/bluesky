@@ -2108,8 +2108,19 @@ function tourPaint() {
     ${cfg.hint ? '' : `<div class="tour-opt"><label class="tour-never"><input type="checkbox" id="tour-never" ${tourOff() ? 'checked' : ''}><span class="tour-box" aria-hidden="true"></span>다음부터 보지 않기</label></div>`}`;
   root.appendChild(layer);
   if (first) layer.querySelectorAll('.tour-tip [data-count]').forEach((el) => setTimeout(() => runCounters({ querySelectorAll: () => [el] }), Number(el.dataset.delay) || 0)); // 줄이 나타날 때 숫자가 올라가요
+  tourPlace(cfg, target, layer, first);
+  if (first) [250, 700, 1400].forEach((ms) => setTimeout(() => { if (layer.isConnected) tourPlace(cfg, target, layer, true); }, ms)); // 화면이 늦게 바뀌어도 다시 맞춰요
+}
+// 안내 문구 자리 잡기 (화면이 바뀌면 다시 불러요). fit: 문구가 잘리면 화면을 밀어도 되는지
+function tourPlace(cfg, target, layer, fit) {
+  const vh = window.innerHeight;
+  const vw = window.innerWidth;
   // 안내 문구 자리: 밝힌 곳의 위나 아래 중 넓은 쪽 (화면 가운데 줄 480px 안)
+  const root = document.getElementById('app');
   const tip = layer.querySelector('.tour-tip');
+  if (!tip) return;
+  tip.classList.remove('up', 'down', 'right', 'mid'); tip.style.top = ''; tip.style.bottom = '';
+  layer.querySelector('.tour-opt')?.classList.remove('top');
   const side = Math.max(0, (vw - 480) / 2) + 16;
   tip.style.left = `${side}px`;
   tip.style.right = `${side}px`;
@@ -2127,8 +2138,47 @@ function tourPaint() {
     const bar = root.querySelector('.rk-me'); // 랭킹 화면: 아래 '내 순위' 줄 위로 올려서 안 겹치게
     if (bar && tip.classList.contains('down')) { tip.style.bottom = `${vh - bar.getBoundingClientRect().top + 10}px`; tip.querySelector('.tour-arrow')?.remove(); }
   }
-  const tr = tip.getBoundingClientRect();
-  if (tr.bottom > vh - 170 || (r2 && r2.bottom > vh - 170)) layer.querySelector('.tour-opt')?.classList.add('top'); // 아래가 붐비면 위로 (힌트엔 체크박스가 없어요)
+  // 휴대폰처럼 화면이 낮으면 안내 문구가 위·아래로 잘릴 수 있어요 → 화면을 밀어서 문구가 다 보이게
+  //  (밝힌 곳이 너무 커서 둘 다 못 넣으면 문구를 먼저 보여 주고, 밝힌 곳은 일부만 보여요)
+  const TOP = 12; const BOT = 12;
+  let tr = tip.getBoundingClientRect();
+  if (fit && target && r2 && !cfg.fixed && !cfg.hint && (tr.top < TOP || tr.bottom > vh - BOT)) {
+    let need = tr.top < TOP ? tr.top - TOP : tr.bottom - (vh - BOT); // +면 아래로(내용이 위로), -면 위로
+    // 밝힌 곳이 화면 밖으로 다 나가지는 않게 (최소 60px은 보이게)
+    need = need > 0 ? Math.min(need, Math.max(0, r2.bottom - 60)) : Math.max(need, -Math.max(0, vh - r2.top - 60));
+    const y0 = window.scrollY;
+    window.scrollTo({ top: Math.max(0, y0 + need), behavior: 'instant' });
+    const moved = window.scrollY - y0; // 페이지 끝이라 덜 움직였을 수 있어요
+    if (tip.classList.contains('up')) tip.style.top = `${parseFloat(tip.style.top) - moved}px`;
+    else tip.style.bottom = `${parseFloat(tip.style.bottom) + moved}px`;
+    tr = tip.getBoundingClientRect();
+  }
+  // 반대로 너무 밀려서 밝힌 곳 위쪽이 잘렸는데 아래에 자리가 남으면 다시 내려요
+  if (fit && target && !cfg.fixed && !cfg.hint && tip.classList.contains('up')) {
+    const rt = target.getBoundingClientRect();
+    const back = Math.min(TOP - rt.top, vh - BOT - tr.bottom); // 밝힌 곳 위가 잘린 만큼, 단 문구가 넘치지 않을 만큼만
+    if (rt.top < TOP && back > 1) {
+      const y0 = window.scrollY;
+      window.scrollTo({ top: Math.max(0, y0 - back), behavior: 'instant' });
+      tip.style.top = `${parseFloat(tip.style.top) + (y0 - window.scrollY)}px`;
+      tr = tip.getBoundingClientRect();
+    }
+  }
+  if (tr.height <= vh - TOP - BOT) { // 그래도 넘치면 화면 안으로 붙여요
+    if (tr.top < TOP) { tip.style.bottom = 'auto'; tip.style.top = `${TOP}px`; }
+    else if (tr.bottom > vh - BOT) { tip.style.top = `${vh - BOT - tr.height}px`; tip.style.bottom = 'auto'; }
+    tr = tip.getBoundingClientRect();
+  }
+  // "다음부터 보지 않기"는 문구와 안 겹치는 쪽에 (기본 아래, 아래가 붐비면 위)
+  const opt = layer.querySelector('.tour-opt'); // 힌트엔 체크박스가 없어요
+  if (opt) { // 아래 · 위 중 문구와도, 밝힌 곳과도 안 겹치는 자리 (둘 다 겹치면 문구만이라도 피해요)
+    const rt = target ? target.getBoundingClientRect() : null;
+    const hit = (y0, y1, r) => r && r.top < y1 && r.bottom > y0;
+    const ob = opt.getBoundingClientRect();
+    const low = [ob.top, ob.bottom]; const high = [10, 10 + ob.height];
+    const score = ([y0, y1]) => (hit(y0, y1, tr) ? 2 : 0) + (hit(y0, y1, rt) ? 1 : 0);
+    if (score(high) < score(low)) opt.classList.add('top');
+  }
 }
 // 튜토리얼 막이 떠 있는 동안엔 화면 스크롤을 막아요 (휠 · 손가락) — 밝힌 곳과 안내 문구가 어긋나지 않게
 function tourBlockScroll(e) {
