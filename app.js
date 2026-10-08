@@ -1778,14 +1778,25 @@ function weekChartHTML(series, big) {
 }
 
 // ── 튜토리얼 ──
-//  모든 사용자에게 앱을 새로 열 때마다 한 단계씩 짚어 줘요. "다음부터 보지 않기"를 체크하면 그 계정은 이 기기에서 그만.
-//  1단계(메인): 빠른 길찾기 버튼만 밝게 → 누르면 길찾기 화면으로 넘어가면서 바로 2단계
-//  2단계(길찾기): 출발지 · 도착지 칸만 밝게 → 둘 중 하나를 누르면 검색 화면으로 넘어가며 3단계
-//  3단계(길찾기, 출발지 · 도착지를 다 넣고 경로를 찾은 뒤): 아래 길찾기 버튼만 밝게 → 누르면 끝
-//  밝은 곳을 직접 눌러야만 넘어가요 (건너뛰기 없음, 어두운 곳을 누르면 그 칸이 흔들려요).
-//  저장: "보지 않기"는 계정별로 이 기기(localStorage), 이번에 어디까지 봤는지는 이 창(sessionStorage).
+//  모든 사용자에게 앱을 새로 열 때마다 처음부터 짚어 줘요. "다음부터 보지 않기"를 체크하면 그 계정은 이 기기에서 그만.
+//  단계표(TOUR_STEPS): 화면 · 밝힐 곳(target) · 안내 문구 · 넘어가는 방법
+//   1   메인    빠른 길찾기 버튼 → 누르면
+//   2-1 길찾기  출발지 · 도착지 칸 (시연이라 안양역 → 강남역 자동 입력) → 화면을 누르면
+//   2-2 길찾기  길찾기 버튼 → 누르면
+//   3-1 경로    절약 강도 → 강도를 누르면
+//   3-2 경로    경로 목록 (계산 방식 · 놀라운 사실) → 경로를 누르면
+//   3-3 경로    고른 경로 카드 → 안내 시작을 누르면
+//   4-1 안내    시연 이동 안내 → 화면을 누르면 내 위치가 도착지까지 움직여요(4-go)
+//   4-2 안내    도착 버튼 → 누르면 (시연 이동은 기록 · 포인트에 안 들어가요)
+//   5-1 도착    이번 이동 절약 계산식 → 화면을 누르면
+//   5-2 도착    나의 숲(지금까지 절약량) → 화면을 누르면
+//   6   도착    홈으로 돌아가기 → 누르면 끝
+//  밝은 곳(버튼)은 직접 눌러야 넘어가고, 설명만 있는 단계는 화면 아무 곳이나 누르면 다음으로 넘어가요.
+//  화면이 다시 그려질 때마다(tourPaint) 다시 칠해요. 진행 상황은 이 창(sessionStorage)에만 저장해요.
 const TOUR_KEY = 'pureun-tour'; // { 계정: 'off' }
-const TOUR_NOW = 'pureun-tour-now'; // { 계정: 1 | 2 | 3 | 'done' }
+const TOUR_NOW = 'pureun-tour-now'; // { 계정: '1' … '6' | 'done' }
+const TOUR_FROM = { name: '안양역', lat: 37.40157, lng: 126.92272 };
+const TOUR_TO = { name: '강남역', lat: 37.49795, lng: 127.02762 };
 function tourMap(where, key) { try { return JSON.parse(window[where].getItem(key) || '{}'); } catch (e) { return {}; } }
 function tourPut(where, key, v) {
   try {
@@ -1796,31 +1807,205 @@ function tourPut(where, key, v) {
 }
 const tourOff = () => tourMap('localStorage', TOUR_KEY)[userKey(state.user)] === 'off';
 const tourGo = (n) => tourPut('sessionStorage', TOUR_NOW, n);
-// 지금 화면에 보여 줄 단계 (0 = 없음). 보는 도중에 "보지 않기"를 체크해도 지금 튜토리얼은 끝까지 그대로예요.
-function tourOn() {
-  if (!state.user || (tourOff() && !state.tourActive)) return 0;
-  const st = tourMap('sessionStorage', TOUR_NOW)[userKey(state.user)] || 1;
-  if (st === 1 && state.screen === 'main') return 1;
-  if (st === 2 && state.screen === 'home' && state.ready && !campTripCamp()) return 2;
-  if (st === 3 && state.screen === 'home' && !state.loading && currentPlan().chosen && (!state.ready || (state.from && state.to)) && !campTripCamp()) return 3;
-  return 0;
+// 지금 단계 ('' = 없음). 보는 도중에 "보지 않기"를 체크해도 지금 튜토리얼은 끝까지 그대로예요.
+function tourStage() {
+  if (!state.user || (tourOff() && !state.tourActive)) return '';
+  const raw = tourMap('sessionStorage', TOUR_NOW)[userKey(state.user)];
+  if (raw === 'done') return '';
+  let v = String(raw || '1');
+  // 앱을 새로 열었는데(새로고침 등) 중간 단계였다면 처음부터
+  if (!state.tourBoot) { state.tourBoot = true; if (v !== '1') { v = '1'; tourGo('1'); } }
+  return TOUR_STEPS[v] ? v : '1';
 }
-// 어두운 막 + 오른쪽 아래 "다음부터 보지 않기". 단계마다 처음 한 번만 천천히 나타나요 (다시 그려져도 안 깜빡이게)
-function tourDimHTML(step) {
-  if (tourOn() !== step) return '';
-  const first = state.tourAnim !== step; state.tourAnim = step; state.tourActive = true;
-  const fade = first ? ' tour-in' : '';
-  return `<div class="tour-dim${fade}" data-act="tour-nudge" aria-hidden="true"></div>
-  <div class="tour-opt s${step}${fade}"><label class="tour-never"><input type="checkbox" id="tour-never" ${tourOff() ? 'checked' : ''}><span class="tour-box" aria-hidden="true"></span>다음부터 보지 않기</label></div>`;
+const TOUR_MODE = { walk: '걷기', bike: '자전거', bus: '버스', subway: '지하철', car: '자동차' };
+const tKm = (km) => `${(Math.round(km * 10) / 10).toLocaleString()}km`;
+const tG = (g) => formatG(Math.max(0, Math.round(g)));
+// 계산식에 쓰는 숫자 (앱이 실제로 계산하는 식 그대로: 구간 거리 × 1인 1km 배출계수, 함께 타면 ÷ 사람 수)
+function tourCalc() {
+  const { ranked, chosen } = currentPlan();
+  if (!ranked || !chosen) return null;
+  const baseKm = ranked.baseline.segments.reduce((a, s) => a + s.km, 0);
+  const by = {};
+  chosen.segments.forEach((s) => { by[s.mode] = (by[s.mode] || 0) + s.km; });
+  const parts = Object.entries(by).filter(([, km]) => km >= 0.05).map(([m, km]) => `${TOUR_MODE[m] || m} ${tKm(km)} × ${FACTORS[m]}g`);
+  return { baseKm, car: ranked.baseline.emission, em: chosen.emission, saving: chosen.saving, parts, people: chosen.people || 1 };
 }
-const TOUR_TEXT = { 1: '<b>1.</b> 여기를 눌러<br>길찾기를 시작해 보세요', 2: '<b>2.</b> 출발지와 도착지를 눌러<br>어디로 갈지 정해 보세요', 3: '<b>3.</b> 길찾기를 눌러 탄소를<br>아끼는 경로를 확인해 보세요' };
-// 안내 문구: 1단계는 HTML 순서상 막보다 먼저 그려지고, 2단계는 막보다 먼저 그려져요 → 둘 다 막의 tourAnim 으로 처음인지 봐요
-function tourTipHTML(step) {
-  if (tourOn() !== step) return '';
-  return `<div class="tour-tip s${step}${state.tourAnim === step ? '' : ' tour-in'}" role="status">
-    <svg class="tour-arrow" viewBox="0 0 40 46" aria-hidden="true"><path d="M9 42 C 8 26 18 16 30 7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1 6"/><path d="M23 5 L31 5.5 L30 14" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div class="tour-txt"><p>${TOUR_TEXT[step]}</p></div>
-  </div>`;
+const TOUR_NEXT = (t = '화면을 누르면 다음으로 ›') => `<span class="tour-next">${t}</span>`;
+const TOUR_STEPS = {
+  1: { screen: 'main', target: '.m-quick', text: () => '<b class="no">1.</b> 여기를 눌러<br>길찾기를 시작해 보세요' },
+  '2-1': {
+    screen: 'home', target: '.float-top .trip-box', lift: '.float-top', tap: true, when: () => state.ready,
+    prep: () => { if (state.ready && state.from && state.to && !state.raw && !state.loading && (state.tourRouteTry || 0) < 2) { state.tourRouteTry = (state.tourRouteTry || 0) + 1; findRoutes(); } },
+    text: () => `<b class="no">2-1.</b> 출발지 · 도착지는 이 칸을 눌러<br>장소를 검색해서 넣을 수 있어요<span class="tour-sub">지금은 시연이라 <b>${esc(TOUR_FROM.name)} → ${esc(TOUR_TO.name)}</b>으로 넣어 뒀어요</span>${TOUR_NEXT()}`,
+  },
+  '2-2': {
+    screen: 'home', target: '#go-result', lift: '.cta', fixed: true, when: () => state.ready && !state.loading && !!currentPlan().chosen,
+    text: () => '<b class="no">2-2.</b> 길찾기를 눌러<br>탄소를 아끼는 경로를 찾아볼까요?',
+  },
+  '3-1': {
+    screen: 'result', target: '.stabs-wrap', box: true, when: () => !state.loading && !!currentPlan().ranked,
+    text: () => '<b class="no">3-1.</b> 절약 강도는 혼자 자동차로 갈 때보다<br>탄소를 얼마나 줄이는지로 경로를 나눠요<span class="tour-f">☁️ 조금 1% 이상 · ⛅ 중간 70% 이상 · ☀️ 많이 97% 이상<br>많이 줄일수록 하늘이 맑아져요</span><span class="tour-act">원하는 강도를 눌러 보세요</span>',
+  },
+  '3-2': {
+    screen: 'result', target: '.rlist', box: true, at: 0.5, when: () => !state.loading && !!currentPlan().chosen,
+    text: () => {
+      const c = tourCalc();
+      const yr = c ? (c.saving * 500) / TREE_YEAR_G : 0; // 1년 출퇴근 = 250일 × 왕복 2번
+      const trees = yr >= 10 ? Math.round(yr).toLocaleString() : (Math.round(yr * 10) / 10).toString();
+      return `<b class="no">3-2.</b> 경로마다 탄소는 이렇게 계산해요<span class="tour-f">구간 거리 × 1인 1km 배출계수를 모두 더해요<br>자동차 210g · 버스 27.7g · 지하철 1.53g · 걷기 · 자전거 0g<br>아낀 양 = 혼자 자동차 배출 − 이 경로 배출</span><span class="tour-wow">💡 지하철은 1km에 1.53g으로 자동차의 약 1/137이에요. 지금 고른 경로로 1년 동안 출퇴근(250일 왕복)하면 <b>나무 ${trees}그루</b>를 심은 효과예요</span><span class="tour-act">경로를 하나 눌러 보세요</span>`;
+    },
+  },
+  '3-3': {
+    screen: 'result', target: '.rcard.sel', place: 'above', when: () => !state.loading && !!currentPlan().chosen,
+    text: () => '<b class="no">3-3.</b> 고른 경로가 아끼는 탄소를<br>나무 · 휴대폰 충전으로 바꿔 보여 줘요<span class="tour-act"><b>안내 시작</b>을 눌러 출발해 볼까요?</span>',
+  },
+  '4-1': {
+    screen: 'nav', tap: true,
+    text: () => `<b class="no">4-1.</b> 실제로 이동하면 GPS로 내 위치를 따라가며<br>다음에 할 일을 알려 줘요<span class="tour-sub">지금은 시연이라 화면 속에서 <b>${esc((state.from || TOUR_FROM).name)} → ${esc((state.to || TOUR_TO).name)}</b>까지 이동해 볼게요</span>${TOUR_NEXT('화면을 누르면 출발 ›')}`,
+  },
+  '4-go': { screen: 'nav', chip: true },
+  '4-2': {
+    screen: 'nav', target: '.navx-arrive', lift: '.navx-bottom', fixed: true,
+    text: () => '<b class="no">4-2.</b> 도착했어요! 도착지 30m 안에 오면<br>도착 버튼이 생겨요<span class="tour-act"><b>도착</b>을 눌러 아낀 탄소를 확인해 보세요</span>',
+  },
+  '5-1': {
+    screen: 'done', target: '.done', box: true, tap: true, place: 'below',
+    text: () => {
+      const c = tourCalc();
+      if (!c) return `<b class="no">5-1.</b> 이번 이동에서 아낀 탄소예요${TOUR_NEXT()}`;
+      return `<b class="no">5-1.</b> 이번 이동에서 아낀 탄소는<br>이렇게 계산했어요<span class="tour-f">🚗 혼자 자동차 ${tKm(c.baseKm)} × 210g = ${tG(c.car)}<br>🚌 이 경로 ${c.parts.join(' + ') || '0g'}${c.people > 1 ? ` ÷ ${c.people}명` : ''} = ${tG(c.em)}<br>🌱 아낀 양 ${tG(c.car)} − ${tG(c.em)} = <b>${tG(c.saving)}</b></span><span class="tour-sub">= ${esc(saveSense(c.saving).text)}</span>${TOUR_NEXT()}`;
+    },
+  },
+  '5-2': {
+    screen: 'done', target: '.mf', tap: true, place: 'above',
+    text: () => {
+      const g = Math.max(0, loadLog().g || 0);
+      return `<b class="no">5-2.</b> 나의 숲에는 지금까지 아낀 탄소가<br>모두 모여 있어요<span class="tour-f">🌳 소나무 1그루가 1년 동안 흡수하는 CO₂ 9.8kg이 모일 때마다 나무가 한 그루씩 늘어요<br>지금까지 ${mfKg(g)} → 나무 <b>${Math.floor(g / TREE_YEAR_G).toLocaleString()}그루</b></span><span class="tour-sub">시연으로 한 이동은 기록에 더하지 않았어요</span>${TOUR_NEXT()}`;
+    },
+  },
+  6: {
+    screen: 'done', target: '#cta .btn', lift: '.cta', fixed: true, label: '홈으로 돌아가기',
+    text: () => '<b class="no">6.</b> 튜토리얼 끝! 🎉<br>홈으로 돌아가 직접 길을 찾아보세요',
+  },
+};
+const TOUR_ARROW = '<svg class="tour-arrow" viewBox="0 0 40 46" aria-hidden="true"><path d="M9 42 C 8 26 18 16 30 7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1 6"/><path d="M23 5 L31 5.5 L30 14" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// 지금 단계를 화면에 칠해요: 어두운 막 + 밝힐 곳(빛나는 테두리) + 안내 문구 + "다음부터 보지 않기"
+function tourPaint() {
+  const root = document.getElementById('app');
+  if (!root) return;
+  root.querySelectorAll('.tour-hl, .tour-lift').forEach((el) => el.classList.remove('tour-hl', 'tour-lift', 'tour-pad', 'tour-look', 'nudge'));
+  let layer = root.querySelector(':scope > .tour-layer');
+  const st = tourStage();
+  const cfg = st ? TOUR_STEPS[st] : null;
+  if (cfg && cfg.prep && cfg.screen === state.screen) cfg.prep();
+  if (!cfg || cfg.screen !== state.screen || (cfg.when && !cfg.when())) { if (layer) layer.remove(); return; }
+  state.tourActive = true;
+  // 4-go: 이동 시연 중에는 막 없이 작은 알림만
+  if (cfg.chip) {
+    if (!layer || layer.dataset.st !== st) {
+      if (layer) layer.remove();
+      layer = document.createElement('div');
+      layer.className = 'tour-layer';
+      layer.dataset.st = st;
+      layer.innerHTML = `<div class="tour-chip" role="status"><span>🚶 시연 중 · ${esc((state.to || TOUR_TO).name)}까지 이동하고 있어요</span><i></i></div>`;
+      root.appendChild(layer);
+    }
+    layer.querySelector('.tour-chip').style.setProperty('--p', `${Math.round((state.tourSimP || 0) * 100)}%`);
+    return;
+  }
+  const target = cfg.target ? root.querySelector(cfg.target) : null;
+  if (cfg.target && !target) { if (layer) layer.remove(); return; }
+  const first = state.tourAnim !== st;
+  state.tourAnim = st;
+  const vh = window.innerHeight;
+  const vw = window.innerWidth;
+  // 처음 칠할 때 밝힐 곳이 안내 문구와 함께 보이게 스크롤
+  if (target && first && !cfg.fixed) {
+    const r = target.getBoundingClientRect();
+    let want;
+    if (cfg.at) want = vh * cfg.at;
+    else if (cfg.place === 'above') want = Math.min(vh * 0.46, Math.max(vh * 0.3, vh - r.height - 20));
+    else if (cfg.place === 'below') want = r.height > vh * 0.5 ? vh * 0.5 - r.height : vh * 0.16;
+    else want = vh * 0.18;
+    window.scrollTo(0, Math.max(0, window.scrollY + r.top - want));
+  }
+  if (target) {
+    target.classList.add('tour-hl');
+    if (cfg.box) target.classList.add('tour-pad');
+    if (cfg.tap) target.classList.add('tour-look');
+    if (cfg.label) target.textContent = cfg.label;
+  }
+  if (cfg.lift) { const l = root.querySelector(cfg.lift); if (l) l.classList.add('tour-lift'); }
+  if (layer) layer.remove();
+  layer = document.createElement('div');
+  layer.className = `tour-layer${first ? ' tour-in' : ''}`;
+  layer.dataset.st = st;
+  layer.innerHTML = `<div class="tour-dim" data-act="${cfg.tap ? 'tour-next' : 'tour-nudge'}" aria-hidden="true"></div>
+    <div class="tour-tip tt" role="status">${target ? TOUR_ARROW : ''}<div class="tour-txt"><p>${cfg.text()}</p></div></div>
+    <div class="tour-opt"><label class="tour-never"><input type="checkbox" id="tour-never" ${tourOff() ? 'checked' : ''}><span class="tour-box" aria-hidden="true"></span>다음부터 보지 않기</label></div>`;
+  root.appendChild(layer);
+  // 안내 문구 자리: 밝힌 곳의 위나 아래 중 넓은 쪽 (화면 가운데 줄 480px 안)
+  const tip = layer.querySelector('.tour-tip');
+  const side = Math.max(0, (vw - 480) / 2) + 16;
+  tip.style.left = `${side}px`;
+  tip.style.right = `${side}px`;
+  let r2 = null;
+  if (!target) tip.classList.add('mid');
+  else {
+    r2 = target.getBoundingClientRect();
+    const below = cfg.place === 'below' || (cfg.place !== 'above' && vh - r2.bottom >= r2.top);
+    if (below) { tip.style.top = `${r2.bottom + 10}px`; tip.classList.add('up'); } else { tip.style.top = 'auto'; tip.style.bottom = `${vh - r2.top + 10}px`; tip.classList.add('down'); }
+    if (r2.left + r2.width / 2 > vw * 0.62) tip.classList.add('right'); // 오른쪽 버튼(도착 등)은 화살표도 오른쪽
+  }
+  const tr = tip.getBoundingClientRect();
+  if (tr.bottom > vh - 170 || (r2 && r2.bottom > vh - 170)) layer.querySelector('.tour-opt').classList.add('top'); // 아래가 붐비면 위로
+}
+// 4-go: 고른 경로의 선을 따라 내 위치가 출발지 → 도착지로 9초 동안 움직여요 (진짜 GPS 대신)
+function tourSimStart() {
+  const { chosen } = currentPlan();
+  if (!chosen || !state.from || !state.to) return;
+  const pts = [];
+  (chosen.lines || []).forEach((ln) => (ln.path || []).forEach((p) => { if (p && Number.isFinite(+p.lat) && Number.isFinite(+p.lng)) pts.push({ lat: +p.lat, lng: +p.lng }); }));
+  if (pts.length > 1 && distM(pts[0], state.from) > distM(pts[pts.length - 1], state.from)) pts.reverse();
+  pts.unshift({ lat: state.from.lat, lng: state.from.lng });
+  pts.push({ lat: state.to.lat, lng: state.to.lng });
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + distM(pts[i - 1], pts[i]));
+  const total = cum[cum.length - 1] || 1;
+  const at = (d) => {
+    let i = 1;
+    while (i < cum.length - 1 && cum[i] < d) i++;
+    const t = Math.min(1, Math.max(0, (d - cum[i - 1]) / (cum[i] - cum[i - 1] || 1)));
+    return { lat: pts[i - 1].lat + (pts[i].lat - pts[i - 1].lat) * t, lng: pts[i - 1].lng + (pts[i].lng - pts[i - 1].lng) * t };
+  };
+  const dur = 9000;
+  const t0 = performance.now();
+  clearInterval(tourSimStart.t);
+  tourSimStart.t = setInterval(() => {
+    if (state.screen !== 'nav' || tourStage() !== '4-go') {
+      clearInterval(tourSimStart.t);
+      if (tourStage() === '4-go') { tourGo('3-3'); tourPaint(); } // 중간에 안내를 끝내면 경로 고르기부터 다시
+      return;
+    }
+    const p = Math.min(1, (performance.now() - t0) / dur);
+    const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; // 천천히 출발 → 빠르게 → 천천히 도착
+    state.tourSimP = p;
+    state.me = p >= 1 ? { lat: state.to.lat, lng: state.to.lng } : at(e * total);
+    state.step = Math.min(chosen.steps.length - 1, Math.floor(e * chosen.steps.length));
+    if (mapCtl) mapCtl.setMe(state.me, true);
+    if (p >= 1) { clearInterval(tourSimStart.t); state.step = chosen.steps.length - 1; tourGo('4-2'); }
+    updateNav();
+  }, 100);
+}
+// 4-2 → 도착: 시연 이동은 내 기록 · 포인트 · 캠페인에 더하지 않고 도착 화면만 보여 줘요
+function tourDemoFinish() {
+  clearInterval(tourSimStart.t);
+  state.lastLog = loadLog();
+  state.newTitle = null;
+  state.lastEarn = null;
+  state.campResult = null;
+  state.recorded = true;
+  go('done');
 }
 function mainHTML() {
   const log = loadLog();
@@ -1846,7 +2031,7 @@ function mainHTML() {
     <h1 class="m-title">오늘은<br>어디로 가세요?</h1>
 
     <div class="m-quick-wrap">
-    <button type="button" class="m-quick${tourOn() === 1 ? ' tour-hl' : ''}" data-act="open-route">
+    <button type="button" class="m-quick" data-act="open-route">
       <span class="m-quick-ic">${ICON.route}</span>
       <span class="m-quick-txt">
         <small>빠른 길찾기</small>
@@ -1856,7 +2041,6 @@ function mainHTML() {
     </button>
     ${mascotSVG()}
     <p class="mascot-say" id="mascot-say" role="status" aria-live="polite"></p>
-    ${tourTipHTML(1)}
     </div>
 
     <section class="m-card m-wk-card" id="wk-card" data-act="open-week" role="button" tabindex="0" aria-label="최근 7일 탄소 절약 자세히 보기">
@@ -1901,7 +2085,6 @@ function mainHTML() {
       </div>
     </section>
   </main>
-  ${tourDimHTML(1)}
   ${tabBarHTML('route')}`;
 }
 // "CO₂ 1kg은 얼마나 될까요?" — kg을 생활 속 크기로 (1kg 기준 ↔ 내가 아낀 양)
@@ -4033,9 +4216,9 @@ function homeHTML() {
   if (state.ready) {
     body = `
       <div class="map full" id="map-home"></div>
-      <div class="float-top${tourOn() === 2 ? ' tour2' : ''}">
+      <div class="float-top">
         <div class="float-head"><button type="button" class="m-round back" data-act="back" aria-label="뒤로">←</button><div class="brand-line"><span class="brand-mark" aria-hidden="true"></span>푸른하늘 <small>탄소 절약 길찾기</small></div></div>
-        ${tripBox(false)}${tourTipHTML(2)}
+        ${tripBox(false)}
         ${state.loading ? '<p class="float-note"><span class="spinner" aria-hidden="true"></span>경로를 찾는 중이에요…</p>' : ''}
       </div>`;
   } else {
@@ -4058,8 +4241,7 @@ function homeHTML() {
   const ct = campTripCamp();
   if (ct) body = body.replace(/(<div class="float-head">[\s\S]*?<\/div><\/div>)/, `$1${campTripBanner(ct)}`);
   return `<main class="home ${ct ? 'camp-mode' : ''}">${body}${ecoFabHTML()}</main>
-    ${cta(`<button type="button" class="btn primary" id="go-result" data-act="to-result" ${can ? '' : 'disabled'}>길찾기</button>`).replace('class="cta"', tourOn() === 3 ? 'class="cta tour3"' : 'class="cta"')}
-    ${tourDimHTML(2)}${tourTipHTML(3)}${tourDimHTML(3)}`;
+    ${cta(`<button type="button" class="btn primary" id="go-result" data-act="to-result" ${can ? '' : 'disabled'}>길찾기</button>`)}`;
 }
 
 // ── 지도 화면 오른쪽 아래 앱 아이콘: 누르면 "이 길로 가면 얼마나 아끼는지" 카드가 아래에서 올라와요 ──
@@ -4516,6 +4698,7 @@ function updateNav() {
         ${canArrive ? `<button type="button" class="navx-arrive ${state.campTrip ? 'camp' : ''}" data-act="arrive">${state.campTrip ? '참여 완료' : '도착'}</button>` : ''}
       </div>`;
   }
+  tourPaint();
 }
 
 // ── 도착 ──
@@ -4799,6 +4982,7 @@ function render() {
     if (mapCtl) { mapCtl.draw(state.from, state.to, chosen.lines, chosen.marks); mapCtl.setMe(state.me, state.follow); }
   }
   if (screen === 'nav') updateNav();
+  tourPaint();
 }
 
 // 다른 화면으로 이동
@@ -4833,6 +5017,7 @@ function goBack(dir) {
 function refreshResult() {
   renderResultSheet();
   drawChosen();
+  tourPaint();
 }
 
 // ---------------------------------------------------------------------
@@ -5168,9 +5353,23 @@ const actions = {
   'shop-cat': (el) => { state.shopCat = el.dataset.id; render(); },
   'shop-item': (el) => shopBuySheet(el.dataset.id),
   'shop-coupon': (el) => couponSheet(loadOrders().find((o) => String(o.id) === el.dataset.id)),
-  'open-route': () => { if (tourOn() === 1) tourGo(2); go('home'); }, // 튜토리얼 1단계 → 길찾기 화면에서 바로 2단계
-  'tour-nudge': () => { // 어두운 곳을 누르면 빠른 길찾기 버튼이 살짝 흔들려요
-    const b = document.querySelector('.m-quick.tour-hl, .float-top.tour2 .trip-box, .cta.tour3 #go-result'); if (!b) return;
+  'open-route': () => {
+    const t = tourStage() === '1';
+    if (t) { // 튜토리얼 1 → 2-1: 시연이라 출발지 · 도착지를 안양역 → 강남역으로 넣어 둬요
+      state.from = { ...TOUR_FROM }; state.to = { ...TOUR_TO }; state.raw = null; state.chosenId = null; state.tourRouteTry = 0; state.campTrip = null;
+      tourGo('2-1');
+    }
+    go('home');
+    if (t && state.ready && !state.loading) { state.tourRouteTry = 1; findRoutes(); }
+  },
+  'tour-next': () => { // 설명만 있는 단계: 화면을 누르면 다음으로
+    const st = tourStage();
+    if (st === '4-1') { tourGo('4-go'); tourPaint(); tourSimStart(); return; }
+    const next = { '2-1': '2-2', '5-1': '5-2', '5-2': '6' }[st];
+    if (next) { tourGo(next); tourPaint(); }
+  },
+  'tour-nudge': () => { // 어두운 곳을 누르면 눌러야 할 곳이 살짝 흔들려요
+    const b = document.querySelector('#app .tour-hl'); if (!b) return;
     b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); setTimeout(() => b.classList.remove('nudge'), 520);
   },
   soon: () => toast('준비 중인 기능이에요'),
@@ -5392,24 +5591,36 @@ const actions = {
   },
   result: () => go('result'),
   'back-search': () => goBack(),
-  'open-search-from': () => { if (tourOn() === 2) tourGo(3); openSearch('from'); }, // 튜토리얼 2단계 끝 → 출발 · 도착을 다 고르고 길찾기 화면에 돌아오면 3단계
-  'open-search-to': () => { if (tourOn() === 2) tourGo(3); openSearch('to'); },
+  'open-search-from': () => openSearch('from'),
+  'open-search-to': () => openSearch('to'),
   pick: (el) => pickPlace(state.search.results[Number(el.dataset.i)]),
   'pick-recent': (el) => { const p = loadRecent()[Number(el.dataset.i)]; if (p) pickPlace({ name: p.name, address: p.address, lat: p.lat, lng: p.lng }); },
   mine: () => useMyLocation(),
   swap: () => { [state.from, state.to] = [state.to, state.from]; findRoutes(); render(); },
-  'to-result': () => { if (tourOn() === 3) tourGo('done'); go('result'); }, // 튜토리얼 3단계 끝
+  'to-result': () => { if (tourStage() === '2-2') tourGo('3-1'); go('result'); }, // 튜토리얼 2-2 → 경로 화면 3-1
   'eco-peek': () => openEcoPeek(),
   'peek-close': () => closeEcoPeek(),
   'peek-go': () => { closeEcoPeek(true); go('result'); },
-  tab: (el) => { if (el.dataset.id === state.level) return; state.levelFrom = state.level; state.level = el.dataset.id; state.chosenId = null; state.openDetail = null; refreshResult(); },
-  select: (el) => { if (state.chosenId === el.dataset.id) return; state.chosenId = el.dataset.id; refreshResult(); },
+  tab: (el) => {
+    if (tourStage() === '3-1') { // 튜토리얼 3-1 → 3-2 (경로가 있는 강도를 골라야 넘어가요)
+      const { ranked } = currentPlan();
+      if (ranked && ranked.byTier[el.dataset.id] && ranked.byTier[el.dataset.id].length) tourGo('3-2');
+      else { toast('이 강도에는 경로가 없어요. 다른 강도를 눌러 보세요'); return; }
+      if (el.dataset.id === state.level) { tourPaint(); return; }
+    }
+    if (el.dataset.id === state.level) return; state.levelFrom = state.level; state.level = el.dataset.id; state.chosenId = null; state.openDetail = null; refreshResult(); },
+  select: (el) => {
+    if (tourStage() === '3-2') { tourGo('3-3'); state.chosenId = el.dataset.id; refreshResult(); return; } // 튜토리얼 3-2 → 3-3
+    if (state.chosenId === el.dataset.id) return; state.chosenId = el.dataset.id; refreshResult();
+  },
   detail: (el) => { state.chosenId = el.dataset.id; state.openDetail = state.openDetail === el.dataset.id ? null : el.dataset.id; refreshResult(); },
   fit: () => { if (mapCtl) mapCtl.fit(); },
   'start-nav': (el) => {
     if (el.dataset.id) state.chosenId = el.dataset.id;
     state.step = 0; state.me = null; state.follow = true; state.recorded = false;
-    go('nav'); startTracking(); updateNav();
+    const demo = tourStage() === '3-3' && state.from; // 튜토리얼: 진짜 GPS 대신 출발지에서 시연 이동
+    if (demo) { tourGo('4-1'); state.me = { lat: state.from.lat, lng: state.from.lng }; state.tourSimP = 0; }
+    go('nav'); if (!demo) startTracking(); updateNav();
     loadShapeFor(currentPlan().chosen); // 고른 경로의 실제 노선 모양 (하루 호출 수 절약)
   },
   'nav-end': () => go('result', 'back'),
@@ -5418,9 +5629,18 @@ const actions = {
     const { chosen } = currentPlan();
     if (state.step < chosen.steps.length - 1) { state.step += 1; updateNav(); }
   },
-  arrive: () => { if (nearDest()) finishTrip(); }, // 도착 버튼 (도착지 30m 안에서만): 아낀 탄소를 저장하고 결과(나무 N그루) 화면으로
+  arrive: () => {
+    if (tourStage() === '4-2') { tourGo('5-1'); tourDemoFinish(); return; } // 튜토리얼: 기록에 안 남기고 도착 화면만
+    if (nearDest()) finishTrip();
+  }, // 도착 버튼 (도착지 30m 안에서만): 아낀 탄소를 저장하고 결과(나무 N그루) 화면으로
   follow: () => { state.follow = !state.follow; if (mapCtl) mapCtl.setMe(state.me, state.follow); updateNav(); },
-  restart: () => { state.to = null; state.raw = null; go('home'); },
+  restart: () => {
+    if (tourStage() === '6') { // 튜토리얼 끝: 시연 출발지 · 도착지를 비우고 홈으로
+      tourGo('done'); state.from = null; state.to = null; state.raw = null; state.chosenId = null; state.tourActive = false;
+      go('main'); toast('튜토리얼을 마쳤어요 🎉 이제 직접 길을 찾아보세요'); return;
+    }
+    state.to = null; state.raw = null; go('home');
+  },
 };
 
 const appEl = document.getElementById('app');
