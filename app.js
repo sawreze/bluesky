@@ -1247,10 +1247,10 @@ function tripBox(compact) {
 // ── 로그인 ──
 // 로그인 화면 문구 (KO / EN)
 const LOGIN_I18N = {
-  ko: { eyebrow: '푸른하늘', title: '탄소 줄이는 길찾기', chip: '이메일로 로그인', email: '이메일', password: '비밀번호', showPw: '비밀번호 보기', hidePw: '비밀번호 숨기기', login: '로그인', remember: '로그인 유지', forgot: '비밀번호 찾기', or: '또는', kakao: '카카오 로그인', noAccount: '아직 푸른하늘 회원이 아니신가요?', signup: '회원가입',
+  ko: { eyebrow: '푸른하늘', title: '탄소 줄이는 길찾기', chip: '이메일로 로그인', demoLogin: '시연용 로그인', email: '이메일', password: '비밀번호', showPw: '비밀번호 보기', hidePw: '비밀번호 숨기기', login: '로그인', remember: '로그인 유지', forgot: '비밀번호 찾기', or: '또는', kakao: '카카오 로그인', noAccount: '아직 푸른하늘 회원이 아니신가요?', signup: '회원가입',
     errEmailEmpty: '이메일을 입력해 주세요.', errEmailFormat: '올바른 이메일 형식이 아닙니다.', errPwEmpty: '비밀번호를 입력해 주세요.', errPwShort: '비밀번호는 8자 이상이에요.', errKakao: '카카오 로그인에 실패했어요. 다시 시도해 주세요.',
     demoLive: '지금은 체험용 로그인이에요', demoKey: '지금은 체험용 로그인이에요', demoEmail: '지금은 체험용 로그인이에요', soon: '준비 중인 기능이에요' },
-  en: { eyebrow: 'Welcome', title: 'Make the sky bluer', chip: 'Log in with email', email: 'Email', password: 'Password', showPw: 'Show password', hidePw: 'Hide password', login: 'Log in', remember: 'Keep me logged in', forgot: 'Forgot password?', or: 'or', kakao: 'Login with Kakao', noAccount: 'New to Blue Sky?', signup: 'Sign up',
+  en: { eyebrow: 'Welcome', title: 'Make the sky bluer', chip: 'Log in with email', demoLogin: 'Demo login', email: 'Email', password: 'Password', showPw: 'Show password', hidePw: 'Hide password', login: 'Log in', remember: 'Keep me logged in', forgot: 'Forgot password?', or: 'or', kakao: 'Login with Kakao', noAccount: 'New to Blue Sky?', signup: 'Sign up',
     errEmailEmpty: 'Please enter your email.', errEmailFormat: 'Please enter a valid email address.', errPwEmpty: 'Please enter your password.', errPwShort: 'Password must be at least 8 characters.', errKakao: 'Kakao login failed. Please try again.',
     demoLive: 'Opened with Live Server, so Kakao login is a demo', demoKey: 'Kakao key not set yet, so login is a demo', demoEmail: 'No member DB yet, so email login is a demo', soon: 'Coming soon' },
 };
@@ -1306,6 +1306,7 @@ function loginHTML() {
           </label>
           <p class="lg-err" role="alert">${esc(err)}</p>
           <button type="submit" class="lg-btn lg-primary" ${a.busy ? 'disabled' : ''}>${a.busy ? '<span class="lg-spin"></span>' : LI('login')}</button>
+          <button type="button" class="lg-btn lg-demo-btn" data-act="login-demo" ${a.busy ? 'disabled' : ''}>${LI('demoLogin')}</button>
           <div class="lg-opts">
             <label><input type="checkbox" name="remember" ${remember ? 'checked' : ''}> <span>${LI('remember')}</span></label>
             <button type="button" class="lg-link" data-act="soon-login">${LI('forgot')}</button>
@@ -5442,6 +5443,11 @@ const actions = {
     say.classList.remove('show'); void say.offsetWidth; say.classList.add('show');
     clearTimeout(say._t); say._t = setTimeout(() => say.classList.remove('show'), 2600);
   },
+  'login-demo': () => { // 시연용 로그인: 칸에 뭐가 있든 관리자 계정으로 바로
+    const box = document.querySelector('#login-form [name="remember"]');
+    const draft = { email: '', remember: box ? box.checked : true };
+    runAuth(AUTH.quick(draft.remember), draft);
+  },
   'login-kakao': () => {
     const box = document.querySelector('#login-form [name="remember"]');
     const remember = box ? box.checked : true;
@@ -5807,7 +5813,6 @@ appEl.addEventListener('submit', (e) => {
       // 칸별로 먼저 확인 (참고 디자인처럼 틀린 칸에 빨간 테두리)
       const em = v('email'); const pw = String(f.get('pw') || '');
       draft.remember = !!f.get('remember');
-      if (!em && !pw) { runAuth(AUTH.quick(draft.remember), draft); return; } // 빈 칸 → 관리자 계정으로 바로
       const fail = !em ? ['errEmailEmpty', 'email'] : !EMAIL_RE.test(em) ? ['errEmailFormat', 'email'] : !pw ? ['errPwEmpty', 'pw'] : pw.length < 8 ? ['errPwShort', 'pw'] : null;
       if (fail) { state.auth = { busy: false, errKey: fail[0], errField: fail[1], draft }; render(); const el = document.querySelector(`#login-form [name="${fail[1] === 'pw' ? 'pw' : 'email'}"]`); if (el) el.focus(); return; }
       runAuth(AUTH.email(em, pw, draft.remember), draft);

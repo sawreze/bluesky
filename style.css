@@ -2584,3 +2584,7 @@ body.kb-open .content { padding-bottom: max(60vh, 340px); }
 .tour-layer.tour-hint .tour-arrow path { stroke: #2b3a5c; }
 .tour-layer.tour-hint .tour-tip.tt { transform: translateX(-50%); width: max-content; max-width: 300px; align-items: center; text-align: center; }
 .tour-layer.tour-hint .tour-tip.tt .tour-arrow { margin: 0 0 -4px 0; }
+
+/* 시연용 로그인: 원래 로그인 버튼 아래, 한 단계 가벼운 버튼 */
+.lg-demo-btn { margin-top: 10px; background: #fff; color: var(--lg-navy, #111827); box-shadow: inset 0 0 0 1.5px rgba(17, 24, 39, .18); }
+.lg-demo-btn:hover { background: #F3F4F6; }
