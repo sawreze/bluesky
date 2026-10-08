@@ -2033,7 +2033,7 @@ function tourPaint() {
   if (cfg.lift) { const l = root.querySelector(cfg.lift); if (l) l.classList.add('tour-lift'); }
   if (layer) layer.remove();
   layer = document.createElement('div');
-  layer.className = `tour-layer${first ? ' tour-in' : ''}`;
+  layer.className = `tour-layer${first ? ' tour-in' : ''}${cfg.hint ? ' tour-hint' : ''}`;
   layer.dataset.st = st;
   layer.innerHTML = `${cfg.hint ? '' : `<div class="tour-dim" data-act="${cfg.tap ? 'tour-next' : 'tour-nudge'}" aria-hidden="true"></div>`}
     <div class="tour-tip tt" role="status">${target ? TOUR_ARROW : ''}<div class="tour-txt"><p>${cfg.text(first)}</p></div></div>
@@ -2053,8 +2053,12 @@ function tourPaint() {
     if (below) { tip.style.top = `${r2.bottom + 10}px`; tip.classList.add('up'); } else { tip.style.top = 'auto'; tip.style.bottom = `${vh - r2.top + 10}px`; tip.classList.add('down'); }
     if (r2.left + r2.width / 2 > vw * 0.57) tip.classList.add('right'); // 오른쪽 버튼(도착 등)은 화살표도 오른쪽
   }
+  if (cfg.hint && r2) { // 힌트 말풍선은 밝힌 탭 바로 위 가운데에
+    const cx = Math.min(vw - 16 - 150, Math.max(16 + 150, r2.left + r2.width / 2));
+    tip.style.left = `${cx}px`; tip.style.right = 'auto'; tip.classList.remove('right');
+  }
   const tr = tip.getBoundingClientRect();
-  if (tr.bottom > vh - 170 || (r2 && r2.bottom > vh - 170)) layer.querySelector('.tour-opt').classList.add('top'); // 아래가 붐비면 위로
+  if (tr.bottom > vh - 170 || (r2 && r2.bottom > vh - 170)) layer.querySelector('.tour-opt')?.classList.add('top'); // 아래가 붐비면 위로 (힌트엔 체크박스가 없어요)
 }
 // 튜토리얼 막이 떠 있는 동안엔 화면 스크롤을 막아요 (휠 · 손가락) — 밝힌 곳과 안내 문구가 어긋나지 않게
 function tourBlockScroll(e) {

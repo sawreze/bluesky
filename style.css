@@ -2576,3 +2576,11 @@ body.kb-open .content { padding-bottom: max(60vh, 340px); }
 .tc-save .ti { color: #6FE3A2; }
 .tc-goal { width: 18px; height: 18px; color: #fff; right: -20px; transform: translateY(-55%); }
 .tc-goal svg { width: 100%; height: 100%; }
+
+/* 길찾기 튜토리얼 끝 → 캠페인 힌트: 어두운 막이 없으니 말풍선으로 읽히게 */
+.tour-layer.tour-hint .tour-tip.tt { text-shadow: none; }
+.tour-layer.tour-hint .tour-txt { background: rgba(22, 30, 52, .92); color: #fff; padding: 12px 16px; border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 25, 50, .28); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.tour-layer.tour-hint .tour-txt p { margin: 0; }
+.tour-layer.tour-hint .tour-arrow path { stroke: #2b3a5c; }
+.tour-layer.tour-hint .tour-tip.tt { transform: translateX(-50%); width: max-content; max-width: 300px; align-items: center; text-align: center; }
+.tour-layer.tour-hint .tour-tip.tt .tour-arrow { margin: 0 0 -4px 0; }
