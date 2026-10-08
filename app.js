@@ -1960,6 +1960,15 @@ function tourPaint() {
   const tr = tip.getBoundingClientRect();
   if (tr.bottom > vh - 170 || (r2 && r2.bottom > vh - 170)) layer.querySelector('.tour-opt').classList.add('top'); // 아래가 붐비면 위로
 }
+// 튜토리얼 막이 떠 있는 동안엔 화면 스크롤을 막아요 (휠 · 손가락) — 밝힌 곳과 안내 문구가 어긋나지 않게
+function tourBlockScroll(e) {
+  if (!document.querySelector('#app > .tour-layer .tour-dim')) return;
+  if (e.target && e.target.closest && e.target.closest('.sheet-card')) return;
+  if (e.type === 'keydown' && !['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(e.key)) return;
+  if (e.type === 'keydown' && e.target && e.target.closest && e.target.closest('input, textarea')) return;
+  e.preventDefault();
+}
+['wheel', 'touchmove', 'keydown'].forEach((t) => document.addEventListener(t, tourBlockScroll, { passive: false }));
 // 4-go: 고른 경로의 선을 따라 내 위치가 출발지 → 도착지로 9초 동안 움직여요 (진짜 GPS 대신)
 function tourSimStart() {
   const { chosen } = currentPlan();
@@ -5618,7 +5627,7 @@ const actions = {
   'start-nav': (el) => {
     if (el.dataset.id) state.chosenId = el.dataset.id;
     state.step = 0; state.me = null; state.follow = true; state.recorded = false;
-    const demo = tourStage() === '3-3' && state.from; // 튜토리얼: 진짜 GPS 대신 출발지에서 시연 이동
+    const demo = ['3-2', '3-3'].includes(tourStage()) && state.from; // 튜토리얼(3-2에서 바로 눌러도): 진짜 GPS 대신 출발지에서 시연 이동
     if (demo) { tourGo('4-1'); state.me = { lat: state.from.lat, lng: state.from.lng }; state.tourSimP = 0; }
     go('nav'); if (!demo) startTracking(); updateNav();
     loadShapeFor(currentPlan().chosen); // 고른 경로의 실제 노선 모양 (하루 호출 수 절약)
