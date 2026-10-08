@@ -2595,3 +2595,8 @@ body.kb-open .content { padding-bottom: max(60vh, 340px); }
 .ss-tour .no { color: #8FC6FF; margin-right: 4px; }
 .ss-tour small { display: block; margin-top: 2px; color: rgba(255, 255, 255, .7); font-size: 12.5px; }
 .btn.tour-glow { position: relative; box-shadow: 0 0 0 2px #fff, 0 0 16px 5px rgba(110, 180, 255, .8), 0 0 40px 12px rgba(60, 130, 255, .45); animation: tourGlow 1.9s ease-in-out infinite; }
+
+/* 경로 카드 휴대폰 비유: 한 줄에 들어가게 조금 작게, 넘치면 '나오는 양 절약'이 한 덩어리로 내려가요 */
+.rcard.sel .eco-k-phone .eco-lead { font-size: 16.5px; letter-spacing: -.035em; }
+.rcard.sel .eco-k-phone .eco-lead b { font-size: 21px; }
+.eco-lead .nw { white-space: nowrap; }

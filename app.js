@@ -182,7 +182,7 @@ function saveSense(g) {
   const c = Math.round(g / EQUIV.phoneG);
   if (c < 1) return { kind: 'none', icon: '🚗', text: '자동차와 거의 같아요', html: '자동차와 거의 같아요', hint: '' };
   const n = COUNT_FMT.times(c);
-  return { kind: 'phone', icon: '📱', num: c, fmt: 'times', pre: '휴대폰 ', post: ' 충전할 때 나오는 양', text: `휴대폰 ${n} 충전할 때 나오는 양`, html: `휴대폰 <b>${n}</b> 충전할 때 나오는 양`, hint: '휴대폰 1번 충전 = CO₂ 약 8g' };
+  return { kind: 'phone', icon: '📱', num: c, fmt: 'times', pre: '휴대폰 ', post: ' 충전할 때 <span class="nw">나오는 양 절약</span>', text: `휴대폰 ${n} 충전할 때 나오는 양 절약`, html: `휴대폰 <b>${n}</b> 충전할 때 <span class="nw">나오는 양 절약</span>`, hint: '휴대폰 1번 충전 = CO₂ 약 8g' };
 }
 // ── 숫자 카운터: 0부터 목표 숫자까지 올라가요 (경로 카드를 막 골랐을 때) ──
 //  숫자가 클수록 조금 더 오래(0.7초 ~ 1.6초), 끝으로 갈수록 천천히 멈춰요. 움직임 줄이기면 바로 최종 숫자.
