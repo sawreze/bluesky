@@ -1798,6 +1798,9 @@ function weekChartHTML(series, big) {
 const TOUR_KEY = 'pureun-tour'; // { 계정: 'off' }
 const TOUR_NOW = 'pureun-tour-now'; // { 계정: '1' … '6' | 'done' }
 const TOUR_FROM = { name: '안양역', lat: 37.40157, lng: 126.92272 };
+// 캠페인 튜토리얼 시연 글 (만들기 화면에 미리 채워요, 실제로 올라가지 않아요)
+const TOUR_CAMP = { tag: 'transit', mode: 'subway', goalKg: 300, cover: '', title: '출근은 지하철로 함께해요', sub: '자동차 대신 지하철로 하루 한 번',
+  body: '매일 아침 자동차 대신 지하철로 출근해요.\n\n지하철은 1km에 1.53g으로 자동차의 약 1/137만 배출해요. 하루 왕복 20km만 바꿔도 하루 4kg 넘게 줄일 수 있어요. 함께 300kg을 목표로 해요!' };
 const TOUR_TO = { name: '강남역', lat: 37.49795, lng: 127.02762 };
 function tourMap(where, key) { try { return JSON.parse(window[where].getItem(key) || '{}'); } catch (e) { return {}; } }
 function tourPut(where, key, v) {
@@ -1901,6 +1904,61 @@ const TOUR_STEPS = {
       return `<b class="no">5-2.</b> 나의 숲에는 지금까지 아낀 탄소가<br>모두 모여 있어요<span class="tour-sum"><span class="ts-row cas ts-note" style="--d:.35s"><span class="ts-op"></span><span class="ts-l">${TI(ICON.leaf)} CO₂ 9.8kg이 모일 때마다 나무 한 그루</span></span><span class="ts-line cas" style="--d:.53s"></span><span class="ts-row cas" style="--d:.71s"><span class="ts-op"></span><span class="ts-l">지금까지 아낀 탄소</span>${num(Math.round(g), 'mfkg', 0.71)}</span><span class="ts-row cas ts-total" style="--d:.89s"><span class="ts-op"></span><span class="ts-l">심은 나무 :</span>${num(trees, 'trees', 0.89)}</span></span><span class="tour-sub">시연으로 한 이동은 기록에 더하지 않았어요</span>${TOUR_NEXT()}`;
     },
   },
+  // ── 캠페인 튜토리얼: 길찾기 튜토리얼(6)을 마치면 이어서 ──
+  //  c0 메인 캠페인 탭 → c1 만들기 → c2-1~4 만들기 화면(시연 글 미리 채움, 올려도 실제로 안 올라가요)
+  //  → c3 검토 설명 → c4 다른 캠페인 → c5-1~3 상세(진행 · 보상 · 참여하기) → c6 참여 중 표시 → c7 끝
+  c0: {
+    screen: 'main', target: '.m-tabs [data-act="open-camps"]', lift: '.m-tabs', fixed: true,
+    text: () => '<b class="no">7.</b> 이번엔 캠페인을 알아볼까요?<span class="tour-act">아래 <b>캠페인</b>을 눌러 보세요</span>',
+  },
+  c1: {
+    screen: 'campaigns', target: '.camps .m-new', place: 'below',
+    text: () => '<b class="no">8-1.</b> 캠페인은 같은 이동 수단으로<br>여럿이 함께 탄소를 줄이는 모임이에요<span class="tour-act"><b>만들기</b>를 눌러 직접 만들어 볼까요?</span>',
+  },
+  'c2-1': {
+    screen: 'campaign-new', target: '.field:has(.cn-modes)', box: true, tap: true,
+    text: () => `<b class="no">8-2.</b> 분류와 이동 수단을 골라요<span class="tour-sub">참여자는 여기서 고른 수단으로 가는 길만 찾을 수 있어요. 시연이라 <b>지하철</b>로 골라 뒀어요</span>${TOUR_NEXT()}`,
+  },
+  'c2-2': {
+    screen: 'campaign-new', target: 'label.field:has(textarea[name="body"])', box: true, tap: true,
+    text: () => `<b class="no">8-3.</b> 제목 · 한 줄 소개 · 캠페인 글로<br>어떤 실천을 함께할지 알려요<span class="tour-sub">지금은 시연이라 미리 적어 뒀어요</span>${TOUR_NEXT()}`,
+  },
+  'c2-3': {
+    screen: 'campaign-new', target: '.field:has(.cn-goal)', box: true, tap: true,
+    text: () => `<b class="no">8-4.</b> 목표 탄소 절약량을 정해요<span class="tour-f">목표 ${POPULAR_MIN_KG}kg 이상을 100% 달성하면 인기 캠페인이 돼요<br>달성하고 ${CAMP_END_DAYS}일 뒤 최종 달성률로 보상해요<br>만든 사람: 목표 1kg당 ${REWARD_TIERS[0].maker}~${REWARD_TIERS[REWARD_TIERS.length - 1].maker}P · 참여자: 아낀 1kg당 ${REWARD_TIERS[0].member}~${REWARD_TIERS[REWARD_TIERS.length - 1].member}P</span>${TOUR_NEXT()}`,
+  },
+  'c2-4': {
+    screen: 'campaign-new', target: '#camp-form [type="submit"]', place: 'above',
+    text: () => '<b class="no">8-5.</b> 다 적었으면 <b>올리기</b>를 눌러요<span class="tour-sub">시연이라 실제로 올라가지는 않아요</span>',
+  },
+  c3: {
+    screen: 'campaigns', tap: true,
+    text: () => `<b class="no">8-6.</b> 올린 캠페인은 관리자가 먼저 검토해요<span class="tour-sub">승인되면 캠페인 목록에 올라가고 알림으로 알려 드려요<br>검토 상태는 계정정보 › 내 캠페인에서 볼 수 있어요</span>${TOUR_NEXT()}`,
+  },
+  c4: {
+    screen: 'campaigns', target: '.c-list .c-card', place: 'above',
+    text: () => '<b class="no">9-1.</b> 이번엔 다른 사람이 만든<br>캠페인에 참여해 볼까요?<span class="tour-act">캠페인을 눌러 보세요</span>',
+  },
+  'c5-1': {
+    screen: 'campaign', target: '.cd-goal', tap: true, place: 'below',
+    text: () => `<b class="no">9-2.</b> 참여자들이 함께 아낀 탄소와<br>목표까지 남은 양이에요<span class="tour-sub">참여해서 도착할 때마다 내가 아낀 탄소가 여기에 더해져요</span>${TOUR_NEXT()}`,
+  },
+  'c5-2': {
+    screen: 'campaign', target: '.cd-reward', box: true, tap: true,
+    text: () => `<b class="no">9-3.</b> 목표를 달성하면 최종 달성률에 따라<br>참여자 모두 탄소 포인트를 받아요<span class="tour-sub">많이 기여할수록 기여 랭킹에서 위로 올라가요</span>${TOUR_NEXT()}`,
+  },
+  'c5-3': {
+    screen: 'campaign', target: '.cd-bar .cd-join', lift: '.cd-bar', fixed: true,
+    text: () => '<b class="no">9-4.</b> <b>캠페인 참여하기</b>를 누르면<br>이 캠페인의 수단으로 가는 길만 찾아 드려요<span class="tour-act">눌러 보세요</span>',
+  },
+  c6: {
+    screen: 'home', target: '.float-top .camp-trip', lift: '.float-top', tap: true, place: 'below', when: () => !!state.campTrip,
+    text: () => `<b class="no">9-5.</b> 캠페인에 참여하는 동안은<br>위에 이렇게 표시돼요<span class="tour-f">출발지 · 도착지를 정해 길찾기 → 안내 → 도착<br>도착하면 자동차 대신 아낀 탄소가 캠페인에 더해지고<br>기여 랭킹에 올라가요</span>${TOUR_NEXT()}`,
+  },
+  c7: {
+    screen: 'home', tap: true, when: () => !!state.campTrip,
+    text: () => `<b class="no">10.</b> 튜토리얼 끝!<br>이제 직접 길을 찾고 캠페인에도 참여해 보세요${TOUR_NEXT('화면을 누르면 홈으로 ›')}`,
+  },
   6: {
     screen: 'done', target: '#cta .btn', lift: '.cta', fixed: true, label: '홈으로 돌아가기',
     text: () => '<b class="no">6.</b> 튜토리얼 끝!<br>홈으로 돌아가 직접 길을 찾아보세요',
@@ -1962,7 +2020,7 @@ function tourPaint() {
     else if (cfg.place === 'above') want = Math.min(vh * 0.46, Math.max(vh * 0.3, vh - r.height - 20));
     else if (cfg.place === 'below') want = r.height > vh * 0.5 ? vh * 0.5 - r.height : vh * 0.16;
     else want = vh * 0.18;
-    window.scrollTo(0, Math.max(0, window.scrollY + r.top - want));
+    window.scrollTo({ top: Math.max(0, window.scrollY + r.top - want), behavior: 'instant' }); // 부드러운 스크롤이면 위치를 잘못 재서 즉시
   }
   if (target) {
     target.classList.add('tour-hl');
@@ -1991,7 +2049,7 @@ function tourPaint() {
     r2 = target.getBoundingClientRect();
     const below = cfg.place === 'below' || (cfg.place !== 'above' && vh - r2.bottom >= r2.top);
     if (below) { tip.style.top = `${r2.bottom + 10}px`; tip.classList.add('up'); } else { tip.style.top = 'auto'; tip.style.bottom = `${vh - r2.top + 10}px`; tip.classList.add('down'); }
-    if (r2.left + r2.width / 2 > vw * 0.62) tip.classList.add('right'); // 오른쪽 버튼(도착 등)은 화살표도 오른쪽
+    if (r2.left + r2.width / 2 > vw * 0.57) tip.classList.add('right'); // 오른쪽 버튼(도착 등)은 화살표도 오른쪽
   }
   const tr = tip.getBoundingClientRect();
   if (tr.bottom > vh - 170 || (r2 && r2.bottom > vh - 170)) layer.querySelector('.tour-opt').classList.add('top'); // 아래가 붐비면 위로
@@ -5044,8 +5102,8 @@ function go(screen, dir) {
   state.navDir = dir === undefined ? (screen === state.screen ? null : 'fwd') : dir;
   state.prevScreen = state.screen;
   state.screen = screen;
+  window.scrollTo(0, 0); // 그리기 전에 맨 위로 (그린 뒤에 올리면 튜토리얼이 맞춰 둔 스크롤이 풀려요)
   render();
-  window.scrollTo(0, 0);
   if (screen === 'search') {
     const input = document.getElementById('search-input');
     if (input) input.focus();
@@ -5416,7 +5474,8 @@ const actions = {
   'tour-next': () => { // 설명만 있는 단계: 화면을 누르면 다음으로
     const st = tourStage();
     if (st === '4-1') { tourGo('4-go'); tourPaint(); tourSimStart(); return; }
-    const next = { '2-1': '2-2', '5-1': '5-2', '5-2': '6' }[st];
+    if (st === 'c7') { tourGo('done'); state.campTrip = null; state.tourActive = false; go('main'); toast('튜토리얼을 모두 마쳤어요. 이제 직접 해 보세요'); return; }
+    const next = { '2-1': '2-2', '5-1': '5-2', '5-2': '6', 'c2-1': 'c2-2', 'c2-2': 'c2-3', 'c2-3': 'c2-4', c3: 'c4', 'c5-1': 'c5-2', 'c5-2': 'c5-3', c6: 'c7' }[st];
     if (next) { tourGo(next); tourPaint(); }
   },
   'tour-nudge': () => { // 어두운 곳을 누르면 눌러야 할 곳이 살짝 흔들려요
@@ -5431,9 +5490,9 @@ const actions = {
   'open-account': () => goTab('account'),
   logout: () => askLogout(),
   'avatar-reset': () => { if (dbMode()) { dbWrite('profile', { avatar: '' }, '기본 이미지로 바꿨어요'); return; } saveAvatar(''); render(); toast('기본 이미지로 바꿨어요'); },
-  'open-camps': () => goTab('campaigns'),
+  'open-camps': () => { if (tourStage() === 'c0') tourGo('c1'); goTab('campaigns'); },
   'open-my-camps': () => { state.campReturn = 'my-camps'; go('my-camps'); },
-  'open-camp': (el) => { state.campId = el.dataset.id; state.campReturn = ['main', 'account', 'admin', 'my-camps'].includes(state.screen) ? state.screen : 'campaigns'; go('campaign'); },
+  'open-camp': (el) => { if (tourStage() === 'c4') tourGo('c5-1'); state.campId = el.dataset.id; state.campReturn = ['main', 'account', 'admin', 'my-camps'].includes(state.screen) ? state.screen : 'campaigns'; go('campaign'); },
   'open-titles': () => { state.titlesReturn = ['account', 'done'].includes(state.screen) ? state.screen : 'main'; go('titles'); },
   'open-admin': () => { state.adminTab = 'pending'; go('admin'); },
   'admin-tab': (el) => { state.adminTab = el.dataset.id; render(); },
@@ -5541,7 +5600,7 @@ const actions = {
     });
   },
   'camp-sort': (el) => { state.campSort = el.dataset.id; render(); },
-  'camp-new': () => { state.campErr = ''; state.campEditId = null; if (state.campDraft && state.campDraft.rejectReason !== undefined) state.campDraft = null; state.campNewReturn = state.screen === 'account' ? 'account' : 'campaigns'; go('campaign-new'); },
+  'camp-new': () => { state.campErr = ''; state.campEditId = null; if (state.campDraft && state.campDraft.rejectReason !== undefined) state.campDraft = null; state.campNewReturn = state.screen === 'account' ? 'account' : 'campaigns'; if (tourStage() === 'c1') { tourGo('c2-1'); state.campDraft = { ...TOUR_CAMP }; } go('campaign-new'); },
   'camp-like': (el) => {
     const list = campStore.load(); const c = list.find((x) => x.id === el.dataset.id); if (!c) return;
     c.liked = !c.liked; c.likes += c.liked ? 1 : -1; campStore.save(list);
@@ -5563,6 +5622,10 @@ const actions = {
   // 캠페인 참여하기 → 그 캠페인 이동 수단으로만 길찾기
   'camp-join': (el) => {
     const c = campStore.load().find((x) => x.id === el.dataset.id); if (!c) return;
+    if (tourStage() === 'c5-3') { // 튜토리얼: 실제로 참여 등록은 안 하고 참여 중 화면만 보여 줘요
+      tourGo('c6'); state.campTrip = { campId: c.id, mode: campMode(c).id }; state.campResult = null;
+      state.to = null; state.raw = null; state.chosenId = null; state.openDetail = null; go('home'); return;
+    }
     if (campEnded(c)) { toast('종료된 캠페인이에요'); return; }
     // 누르는 순간 참여자로 등록해요 → "내가 참여한 캠페인"에 바로 보여요
     if (!c.joined) {
@@ -5686,9 +5749,9 @@ const actions = {
   }, // 도착 버튼 (도착지 30m 안에서만): 아낀 탄소를 저장하고 결과(나무 N그루) 화면으로
   follow: () => { state.follow = !state.follow; if (mapCtl) mapCtl.setMe(state.me, state.follow); updateNav(); },
   restart: () => {
-    if (tourStage() === '6') { // 튜토리얼 끝: 시연 출발지 · 도착지를 비우고 홈으로
-      tourGo('done'); state.from = null; state.to = null; state.raw = null; state.chosenId = null; state.tourActive = false;
-      go('main'); toast('튜토리얼을 마쳤어요. 이제 직접 길을 찾아보세요'); return;
+    if (tourStage() === '6') { // 길찾기 튜토리얼 끝: 시연 출발지 · 도착지를 비우고 홈으로 → 캠페인 튜토리얼(7) 이어서
+      tourGo('c0'); state.from = null; state.to = null; state.raw = null; state.chosenId = null;
+      go('main'); return; // 알림은 7단계 안내와 겹쳐서 안 띄워요
     }
     state.to = null; state.raw = null; go('home');
   },
@@ -5710,7 +5773,11 @@ appEl.addEventListener('toggle', (e) => {
 
 appEl.addEventListener('submit', (e) => {
   if (e.target.id === 'search-form') { e.preventDefault(); runSearch(); }
-  if (e.target.id === 'camp-form') { e.preventDefault(); submitCampaign(); }
+  if (e.target.id === 'camp-form') {
+    e.preventDefault();
+    if (tourStage() === 'c2-4') { tourGo('c3'); state.campDraft = null; state.campErr = ''; go('campaigns', 'back'); return; } // 튜토리얼: 시연이라 실제로 안 올려요
+    submitCampaign();
+  }
   if (e.target.id === 'fb-form') { e.preventDefault(); sendFeedback(); return; }
   if (e.target.id === 'au-form') { e.preventDefault(); loadAdminUsers(String(document.getElementById('au-q').value || '').trim()); }
   if (e.target.id === 'name-form') {
