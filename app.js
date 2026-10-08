@@ -1909,56 +1909,57 @@ const TOUR_STEPS = {
   //  c0 메인 캠페인 탭 → c1 만들기 → c2-1~4 만들기 화면(시연 글 미리 채움, 올려도 실제로 안 올라가요)
   //  → c3 검토 설명 → c4 다른 캠페인 → c5-1~3 상세(진행 · 보상 · 참여하기) → c6 참여 중 표시 → c7 끝
   c0: {
-    screen: 'main', target: '.m-tabs [data-act="open-camps"]', lift: '.m-tabs', fixed: true,
-    text: () => '<b class="no">1.</b> 이번엔 캠페인을 알아볼까요?<span class="tour-act">아래 <b>캠페인</b>을 눌러 보세요</span>',
+    screen: 'main', target: '.m-tabs [data-act="open-camps"]', fixed: true,
+    hint: true, // 막 없이 캠페인 탭만 빛나요 — 직접 눌러야 캠페인 튜토리얼이 시작돼요
+    text: () => '캠페인도 알아볼까요?<span class="tour-act">아래 <b>캠페인</b>을 눌러 보세요</span>',
   },
   c1: {
     screen: 'campaigns', target: '.camps .m-new', place: 'below',
-    text: () => '<b class="no">2-1.</b> 캠페인은 같은 이동 수단으로<br>여럿이 함께 탄소를 줄이는 모임이에요<span class="tour-act"><b>만들기</b>를 눌러 직접 만들어 볼까요?</span>',
+    text: () => '<b class="no">1-1.</b> 캠페인은 같은 이동 수단으로<br>여럿이 함께 탄소를 줄이는 모임이에요<span class="tour-act"><b>만들기</b>를 눌러 직접 만들어 볼까요?</span>',
   },
   'c2-1': {
     screen: 'campaign-new', target: '.field:has(.cn-modes)', box: true, tap: true,
-    text: () => `<b class="no">2-2.</b> 분류와 이동 수단을 골라요<span class="tour-sub">참여자는 여기서 고른 수단으로 가는 길만 찾을 수 있어요. 시연이라 <b>지하철</b>로 골라 뒀어요</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">1-2.</b> 분류와 이동 수단을 골라요<span class="tour-sub">참여자는 여기서 고른 수단으로 가는 길만 찾을 수 있어요. 시연이라 <b>지하철</b>로 골라 뒀어요</span>${TOUR_NEXT()}`,
   },
   'c2-2': {
     screen: 'campaign-new', target: 'label.field:has(textarea[name="body"])', box: true, tap: true,
-    text: () => `<b class="no">2-3.</b> 제목 · 한 줄 소개 · 캠페인 글로<br>어떤 실천을 함께할지 알려요<span class="tour-sub">지금은 시연이라 미리 적어 뒀어요</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">1-3.</b> 제목 · 한 줄 소개 · 캠페인 글로<br>어떤 실천을 함께할지 알려요<span class="tour-sub">지금은 시연이라 미리 적어 뒀어요</span>${TOUR_NEXT()}`,
   },
   'c2-3': {
     screen: 'campaign-new', target: '.field:has(.cn-goal)', box: true, tap: true,
-    text: () => `<b class="no">2-4.</b> 목표 탄소 절약량을 정해요<span class="tour-f">목표 ${POPULAR_MIN_KG}kg 이상을 100% 달성하면 인기 캠페인이 돼요<br>달성하고 ${CAMP_END_DAYS}일 뒤 최종 달성률로 보상해요<br>만든 사람: 목표 1kg당 ${REWARD_TIERS[0].maker}~${REWARD_TIERS[REWARD_TIERS.length - 1].maker}P · 참여자: 아낀 1kg당 ${REWARD_TIERS[0].member}~${REWARD_TIERS[REWARD_TIERS.length - 1].member}P</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">1-4.</b> 목표 탄소 절약량을 정해요<span class="tour-f">목표 ${POPULAR_MIN_KG}kg 이상을 100% 달성하면 인기 캠페인이 돼요<br>달성하고 ${CAMP_END_DAYS}일 뒤 최종 달성률로 보상해요<br>만든 사람: 목표 1kg당 ${REWARD_TIERS[0].maker}~${REWARD_TIERS[REWARD_TIERS.length - 1].maker}P · 참여자: 아낀 1kg당 ${REWARD_TIERS[0].member}~${REWARD_TIERS[REWARD_TIERS.length - 1].member}P</span>${TOUR_NEXT()}`,
   },
   'c2-4': {
     screen: 'campaign-new', target: '#camp-form [type="submit"]', place: 'above',
-    text: () => '<b class="no">2-5.</b> 다 적었으면 <b>올리기</b>를 눌러요<span class="tour-sub">시연이라 실제로 올라가지는 않아요</span>',
+    text: () => '<b class="no">1-5.</b> 다 적었으면 <b>올리기</b>를 눌러요<span class="tour-sub">시연이라 실제로 올라가지는 않아요</span>',
   },
   c3: {
     screen: 'campaigns', tap: true,
-    text: () => `<b class="no">2-6.</b> 올린 캠페인은 관리자가 먼저 검토해요<span class="tour-sub">승인되면 캠페인 목록에 올라가고 알림으로 알려 드려요<br>검토 상태는 계정정보 › 내 캠페인에서 볼 수 있어요</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">1-6.</b> 올린 캠페인은 관리자가 먼저 검토해요<span class="tour-sub">승인되면 캠페인 목록에 올라가고 알림으로 알려 드려요<br>검토 상태는 계정정보 › 내 캠페인에서 볼 수 있어요</span>${TOUR_NEXT()}`,
   },
   c4: {
     screen: 'campaigns', target: '.c-list .c-card', place: 'above',
-    text: () => '<b class="no">3-1.</b> 이번엔 다른 사람이 만든<br>캠페인에 참여해 볼까요?<span class="tour-act">캠페인을 눌러 보세요</span>',
+    text: () => '<b class="no">2-1.</b> 이번엔 다른 사람이 만든<br>캠페인에 참여해 볼까요?<span class="tour-act">캠페인을 눌러 보세요</span>',
   },
   'c5-1': {
     screen: 'campaign', target: '.cd-goal', tap: true, place: 'below',
-    text: () => `<b class="no">3-2.</b> 참여자들이 함께 아낀 탄소와<br>목표까지 남은 양이에요<span class="tour-sub">참여해서 도착할 때마다 내가 아낀 탄소가 여기에 더해져요</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2-2.</b> 참여자들이 함께 아낀 탄소와<br>목표까지 남은 양이에요<span class="tour-sub">참여해서 도착할 때마다 내가 아낀 탄소가 여기에 더해져요</span>${TOUR_NEXT()}`,
   },
   'c5-2': {
     screen: 'campaign', target: '.cd-reward', box: true, tap: true,
-    text: () => `<b class="no">3-3.</b> 목표를 달성하면 최종 달성률에 따라<br>참여자 모두 탄소 포인트를 받아요<span class="tour-sub">많이 기여할수록 기여 랭킹에서 위로 올라가요</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2-3.</b> 목표를 달성하면 최종 달성률에 따라<br>참여자 모두 탄소 포인트를 받아요<span class="tour-sub">많이 기여할수록 기여 랭킹에서 위로 올라가요</span>${TOUR_NEXT()}`,
   },
   'c5-3': {
     screen: 'campaign', target: '.cd-bar .cd-join', lift: '.cd-bar', fixed: true,
-    text: () => '<b class="no">3-4.</b> <b>캠페인 참여하기</b>를 누르면<br>이 캠페인의 수단으로 가는 길만 찾아 드려요<span class="tour-act">눌러 보세요</span>',
+    text: () => '<b class="no">2-4.</b> <b>캠페인 참여하기</b>를 누르면<br>이 캠페인의 수단으로 가는 길만 찾아 드려요<span class="tour-act">눌러 보세요</span>',
   },
   c6: {
     screen: 'home', target: '.float-top .camp-trip', lift: '.float-top', tap: true, place: 'below', when: () => !!state.campTrip,
-    text: () => `<b class="no">3-5.</b> 캠페인에 참여하는 동안은<br>위에 이렇게 표시돼요<span class="tour-f">출발지 · 도착지를 정해 길찾기 → 안내 → 도착<br>도착하면 자동차 대신 아낀 탄소가 캠페인에 더해지고<br>기여 랭킹에 올라가요</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2-5.</b> 캠페인에 참여하는 동안은<br>위에 이렇게 표시돼요<span class="tour-f">출발지 · 도착지를 정해 길찾기 → 안내 → 도착<br>도착하면 자동차 대신 아낀 탄소가 캠페인에 더해지고<br>기여 랭킹에 올라가요</span>${TOUR_NEXT()}`,
   },
   c7: {
     screen: 'home', tap: true, when: () => !!state.campTrip,
-    text: () => `<b class="no">4.</b> 튜토리얼 끝!<br>이제 직접 길을 찾고 캠페인에도 참여해 보세요${TOUR_NEXT('화면을 누르면 홈으로 ›')}`,
+    text: () => `<b class="no">3.</b> 튜토리얼 끝!<br>이제 직접 길을 찾고 캠페인에도 참여해 보세요${TOUR_NEXT('화면을 누르면 홈으로 ›')}`,
   },
   6: {
     screen: 'done', target: '#cta .btn', lift: '.cta', fixed: true, label: '홈으로 돌아가기',
@@ -2034,9 +2035,9 @@ function tourPaint() {
   layer = document.createElement('div');
   layer.className = `tour-layer${first ? ' tour-in' : ''}`;
   layer.dataset.st = st;
-  layer.innerHTML = `<div class="tour-dim" data-act="${cfg.tap ? 'tour-next' : 'tour-nudge'}" aria-hidden="true"></div>
+  layer.innerHTML = `${cfg.hint ? '' : `<div class="tour-dim" data-act="${cfg.tap ? 'tour-next' : 'tour-nudge'}" aria-hidden="true"></div>`}
     <div class="tour-tip tt" role="status">${target ? TOUR_ARROW : ''}<div class="tour-txt"><p>${cfg.text(first)}</p></div></div>
-    <div class="tour-opt"><label class="tour-never"><input type="checkbox" id="tour-never" ${tourOff() ? 'checked' : ''}><span class="tour-box" aria-hidden="true"></span>다음부터 보지 않기</label></div>`;
+    ${cfg.hint ? '' : `<div class="tour-opt"><label class="tour-never"><input type="checkbox" id="tour-never" ${tourOff() ? 'checked' : ''}><span class="tour-box" aria-hidden="true"></span>다음부터 보지 않기</label></div>`}`;
   root.appendChild(layer);
   if (first) layer.querySelectorAll('.tour-tip [data-count]').forEach((el) => setTimeout(() => runCounters({ querySelectorAll: () => [el] }), Number(el.dataset.delay) || 0)); // 줄이 나타날 때 숫자가 올라가요
   // 안내 문구 자리: 밝힌 곳의 위나 아래 중 넓은 쪽 (화면 가운데 줄 480px 안)
