@@ -2588,3 +2588,10 @@ body.kb-open .content { padding-bottom: max(60vh, 340px); }
 /* 시연용 로그인: 원래 로그인 버튼 아래, 한 단계 가벼운 버튼 */
 .lg-demo-btn { margin-top: 10px; background: #fff; color: var(--lg-navy, #111827); box-shadow: inset 0 0 0 1.5px rgba(17, 24, 39, .18); }
 .lg-demo-btn:hover { background: #F3F4F6; }
+
+/* 랭킹 · 포인트 상점 튜토리얼 */
+.rk-me.tour-hl { position: fixed; }
+.ss-tour { margin: 4px 0 12px; padding: 12px 14px; border-radius: 14px; background: rgba(22, 30, 52, .94); color: #fff; font-size: 14.5px; line-height: 1.5; text-align: left; }
+.ss-tour .no { color: #8FC6FF; margin-right: 4px; }
+.ss-tour small { display: block; margin-top: 2px; color: rgba(255, 255, 255, .7); font-size: 12.5px; }
+.btn.tour-glow { position: relative; box-shadow: 0 0 0 2px #fff, 0 0 16px 5px rgba(110, 180, 255, .8), 0 0 40px 12px rgba(60, 130, 255, .45); animation: tourGlow 1.9s ease-in-out infinite; }

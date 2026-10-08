@@ -1813,9 +1813,20 @@ function tourPut(where, key, v) {
 }
 const tourOff = () => tourMap('localStorage', TOUR_KEY)[userKey(state.user)] === 'off';
 const tourGo = (n) => tourPut('sessionStorage', TOUR_NOW, n);
+// 랭킹 · 포인트 상점 튜토리얼: 그 화면을 이번에(앱을 열 때마다) 처음 누르면 시작해요
+const TOUR_SIDE = 'pureun-tour-side'; // { 계정: { rank: 1, shop: 1 } }
+function tourSide(kind, first) {
+  if (!state.user || tourOff() || state.sideTour) return;
+  const seen = tourMap('sessionStorage', TOUR_SIDE)[userKey(state.user)] || {};
+  if (seen[kind]) return;
+  tourPut('sessionStorage', TOUR_SIDE, { ...seen, [kind]: 1 });
+  state.sideTour = first;
+}
+function tourSideEnd() { state.sideTour = null; state.tourActive = false; tourPaint(); }
 // 지금 단계 ('' = 없음). 보는 도중에 "보지 않기"를 체크해도 지금 튜토리얼은 끝까지 그대로예요.
 function tourStage() {
   if (!state.user || (tourOff() && !state.tourActive)) return '';
+  if (state.sideTour) return TOUR_STEPS[state.sideTour] ? state.sideTour : '';
   const raw = tourMap('sessionStorage', TOUR_NOW)[userKey(state.user)];
   if (raw === 'done') return '';
   let v = String(raw || '1');
@@ -1961,6 +1972,41 @@ const TOUR_STEPS = {
   c7: {
     screen: 'home', tap: true, when: () => !!state.campTrip,
     text: () => `<b class="no">3.</b> 튜토리얼 끝!<br>이제 직접 길을 찾고 캠페인에도 참여해 보세요${TOUR_NEXT('화면을 누르면 홈으로 ›')}`,
+  },
+  // ── 랭킹 · 포인트 상점 튜토리얼: 그 화면을 이번에 처음 열 때 (tourSide) ──
+  rk1: {
+    screen: 'rank', target: '.podium', tap: true, place: 'below',
+    text: () => `<b class="no">1.</b> 이달의 절약왕 1~3위예요<span class="tour-sub">탄소 포인트를 가장 많이 모은 순서예요. 매달 1일에 새로 시작해요</span>${TOUR_NEXT()}`,
+  },
+  rk2: {
+    screen: 'rank', target: '.rk-rule', tap: true, place: 'below',
+    text: () => `<b class="no">2.</b> 탄소 포인트는 이렇게 모여요<span class="tour-f">아낀 탄소 1kg당 ${PT_PER_KG}P<br>+ 버스 · 지하철 · 걷기 · 자전거 1km당 ${PT_PER_KM}P<br>+ 캠페인 보상</span>${TOUR_NEXT()}`,
+  },
+  rk3: {
+    screen: 'rank', target: '.rk-me', fixed: true, tap: true, place: 'above',
+    text: () => `<b class="no">3.</b> 여기서 내 순위를 볼 수 있어요<span class="tour-f">달 마지막 순위 1등 ${MONTH_AWARDS[0].toLocaleString()}P · 2등 ${MONTH_AWARDS[1].toLocaleString()}P · 3등 ${MONTH_AWARDS[2].toLocaleString()}P</span><span class="tour-sub">보너스는 다음 달 1일에 들어와요</span>${TOUR_NEXT()}`,
+  },
+  rk4: {
+    screen: 'rank', tap: true,
+    text: () => `<b class="no">4.</b> 랭킹 튜토리얼 끝!<br>친환경으로 이동하고 1등에 도전해 보세요${TOUR_NEXT('화면을 누르면 닫혀요 ›')}`,
+  },
+  sh1: {
+    screen: 'shop', target: '.shop-hero', tap: true, place: 'below',
+    text: () => `<b class="no">1.</b> 지금 가진 탄소 포인트예요<span class="tour-sub">1P = 1원 가치 · 친환경 이동과 캠페인으로 모여요</span>${TOUR_NEXT()}`,
+  },
+  sh2: {
+    screen: 'shop', target: '.shop-cats [data-id="donate"]', place: 'below',
+    prep: () => { const c = document.querySelector('.shop-cats'); if (c) c.scrollLeft = c.scrollWidth; }, // 맨 끝 '기부'가 보이게
+    text: () => '<b class="no">2.</b> 모은 포인트로 상품을 사거나 기부할 수 있어요<span class="tour-act"><b>기부</b>를 눌러 보세요</span>',
+  },
+  sh3: {
+    screen: 'shop', target: '.shop-item[data-id="tree-donate"]', place: 'below',
+    text: () => '<b class="no">3.</b> 나무 한 그루 심기에 기부해 볼까요?<span class="tour-act">눌러 보세요</span>',
+  },
+  sh4: { screen: 'shop', when: () => false }, // 구매 창 · 감사 화면 안에서 따로 안내해요 (4.)
+  sh5: {
+    screen: 'shop', tap: true,
+    text: () => `<b class="no">5.</b> 포인트 상점 튜토리얼 끝!<span class="tour-sub">시연이라 포인트는 그대로예요. 진짜로 교환하면 <b>교환 내역</b>에서 다시 볼 수 있어요</span>${TOUR_NEXT('화면을 누르면 닫혀요 ›')}`,
   },
   6: {
     screen: 'done', target: '#cta .btn', lift: '.cta', fixed: true, label: '홈으로 돌아가기',
@@ -3463,7 +3509,7 @@ function shopHTML() {
     </main>`;
 }
 // 상품을 누르면: 교환 확인 시트 → 교환 → 교환권
-function shopBuySheet(code) {
+function shopBuySheet(code, demo = false) { // demo: 포인트 상점 튜토리얼 — 포인트를 쓰지 않고 감사 화면만
   const it = shopItems().find((i) => i.code === code);
   if (!it) return;
   const bal = loadPoints();
@@ -3482,16 +3528,23 @@ function shopBuySheet(code) {
       </dl>
       <p class="ss-short" id="ss-short" role="alert" hidden></p>
       <p class="rj-err" id="ss-err" hidden></p>
-      <button type="button" class="btn primary" data-yes>${it.price.toLocaleString()}P로 구매하기</button>
+      ${demo ? '<p class="ss-tour"><b class="no">4.</b> 가격과 보유 포인트를 확인하고 <b>구매하기</b>를 눌러요<small>시연이라 포인트는 빠지지 않아요</small></p>' : ''}
+      <button type="button" class="btn primary${demo ? ' tour-glow' : ''}" data-yes>${it.price.toLocaleString()}P로 구매하기</button>
       <button type="button" class="btn sheet-cancel" data-no>취소</button>
     </section>`;
   document.body.appendChild(sheet);
   requestAnimationFrame(() => sheet.classList.add('open'));
   const close = () => { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); };
   sheet.addEventListener('click', async (e) => {
-    if (e.target.closest('[data-no]')) return close();
+    if (e.target.closest('[data-no]')) { close(); if (demo) { state.sideTour = 'sh3'; tourPaint(); } return; } // 튜토리얼 중 닫으면 다시 3단계로
     const yes = e.target.closest('[data-yes]');
     if (!yes || yes.disabled) return;
+    if (demo) { // 시연: 기록 · 포인트 그대로, 감사 화면만
+      const rb = crypto.getRandomValues(new Uint8Array(12));
+      const order = { id: 'tour-demo', code: it.code, name: it.name, icon: it.icon, voucher: voucherOf(it), price: it.price, at: Date.now(), coupon: Array.from(rb, (x) => String(x % 10)).join(''), demo: true };
+      close(); setTimeout(() => couponSheet(order, true), 240);
+      return;
+    }
     if (loadPoints() < it.price) { // 포인트가 모자라면: 신났던 푸름이가 울고, 창 안에 모자란 만큼 알려 줘요
       const m = sheet.querySelector('.ss-mascot');
       if (m && !m.classList.contains('sad')) { m.classList.add('sad'); m.innerHTML = mascotSadSVG(); }
@@ -3616,7 +3669,11 @@ function donateSheet(o, fresh) {
     </section>`;
   document.body.appendChild(sheet);
   requestAnimationFrame(() => sheet.classList.add('open'));
-  sheet.addEventListener('click', (e) => { if (e.target.closest('[data-no]')) { sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220); } });
+  sheet.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-no]')) return;
+    sheet.classList.remove('open'); setTimeout(() => sheet.remove(), 220);
+    if (o.demo && tourStage() === 'sh4') { state.sideTour = 'sh5'; tourPaint(); } // 포인트 상점 튜토리얼: 끝 안내로
+  });
 }
 // ── 푸름이 굿즈 쿠폰 코드: (가상) 푸름이 굿즈샵에서 입력하면 상품이 무료 (배송비만 따로) ──
 function goodsCodeSheet(o, fresh) {
@@ -5469,10 +5526,13 @@ const actions = {
   'to-login': () => { state.auth = { busy: false, message: '' }; go('login', 'back'); },
   home: () => go('home', 'back'),
   back: () => goBack(),
-  'open-shop': () => { state.shopTab = 'items'; state.shopCat = 'all'; go('shop'); if (dbMode()) syncFromServer(); },
+  'open-shop': () => { tourSide('shop', 'sh1'); state.shopTab = 'items'; state.shopCat = 'all'; go('shop'); if (dbMode()) syncFromServer(); },
   'shop-tab': (el) => { state.shopTab = el.dataset.id; render(); },
-  'shop-cat': (el) => { state.shopCat = el.dataset.id; render(); },
-  'shop-item': (el) => shopBuySheet(el.dataset.id),
+  'shop-cat': (el) => { state.shopCat = el.dataset.id; if (tourStage() === 'sh2' && el.dataset.id === 'donate') state.sideTour = 'sh3'; render(); },
+  'shop-item': (el) => {
+    if (tourStage() === 'sh3' && el.dataset.id === 'tree-donate') { state.sideTour = 'sh4'; tourPaint(); shopBuySheet(el.dataset.id, true); return; } // 튜토리얼: 시연 구매
+    shopBuySheet(el.dataset.id);
+  },
   'shop-coupon': (el) => couponSheet(loadOrders().find((o) => String(o.id) === el.dataset.id)),
   'open-route': () => {
     const t = tourStage() === '1';
@@ -5485,6 +5545,11 @@ const actions = {
   },
   'tour-next': () => { // 설명만 있는 단계: 화면을 누르면 다음으로
     const st = tourStage();
+    if (state.sideTour) { // 랭킹 · 포인트 상점
+      const nx = { rk1: 'rk2', rk2: 'rk3', rk3: 'rk4', sh1: 'sh2' }[st];
+      if (nx) { state.sideTour = nx; tourPaint(); } else if (st === 'rk4' || st === 'sh5') tourSideEnd();
+      return;
+    }
     if (st === '4-1') { tourGo('4-go'); tourPaint(); tourSimStart(); return; }
     if (st === 'c7') { tourGo('done'); state.campTrip = null; state.tourActive = false; go('main'); toast('튜토리얼을 모두 마쳤어요. 이제 직접 해 보세요'); return; }
     const next = { '2-1': '2-2', '5-1': '5-2', '5-2': '6', 'c2-1': 'c2-2', 'c2-2': 'c2-3', 'c2-3': 'c2-4', c3: 'c4', 'c5-1': 'c5-2', 'c5-2': 'c5-3', c6: 'c7' }[st];
@@ -5498,7 +5563,7 @@ const actions = {
   reload: () => window.location.reload(),
   profile: () => openProfile(),
   'open-main': () => goTab('main'),
-  'open-rank': () => goTab('rank'),
+  'open-rank': () => { if (state.screen !== 'rank') tourSide('rank', 'rk1'); goTab('rank'); },
   'open-account': () => goTab('account'),
   logout: () => askLogout(),
   'avatar-reset': () => { if (dbMode()) { dbWrite('profile', { avatar: '' }, '기본 이미지로 바꿨어요'); return; } saveAvatar(''); render(); toast('기본 이미지로 바꿨어요'); },
