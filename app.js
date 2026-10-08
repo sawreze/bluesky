@@ -1844,7 +1844,7 @@ const TOUR_STEPS = {
   },
   '3-1': {
     screen: 'result', target: '.stabs-wrap', box: true, when: () => !state.loading && !!currentPlan().ranked,
-    text: () => '<b class="no">3-1.</b> 절약 강도는 혼자 자동차로 갈 때보다<br>탄소를 얼마나 줄이는지로 경로를 나눠요<span class="tour-f">☁️ 조금 1% 절약 · ⛅ 중간 70% 절약 · ☀️ 많이 97% 절약<br>많이 줄일수록 하늘이 맑아져요</span><span class="tour-act">원하는 강도를 눌러 보세요</span>',
+    text: () => '<b class="no">3-1.</b> 절약 강도는 혼자 자동차로 갈 때보다<br>탄소를 얼마나 줄이는지로 경로를 나눠요<span class="tour-f">☁️ 조금: 1% 절약 · ⛅ 중간: 70% 절약 · ☀️ 많이: 97% 절약<br>많이 줄일수록 하늘이 맑아져요</span><span class="tour-act">원하는 강도를 눌러 보세요</span>',
   },
   '3-2': {
     screen: 'result', target: '.rlist', box: true, at: 0.5, when: () => !state.loading && !!currentPlan().chosen,
