@@ -1861,7 +1861,7 @@ const TOUR_STEPS = {
       const c = tourCalc();
       const yr = c ? (c.saving * 500) / TREE_YEAR_G : 0; // 1년 출퇴근 = 250일 × 왕복 2번
       const trees = yr >= 10 ? Math.round(yr).toLocaleString() : (Math.round(yr * 10) / 10).toString();
-      return `<b class="no">3-2.</b> 경로마다 탄소는 이렇게 계산해요<span class="tour-f">구간 거리 × 1인 1km 배출계수를 모두 더해요<br>자동차 210g · 버스 27.7g · 지하철 1.53g · 걷기 · 자전거 0g<br>아낀 양 = 혼자 자동차 배출 − 이 경로 배출</span><span class="tour-wow">${TI(ICON.spark)} 지하철은 1km에 1.53g으로 자동차의 약 1/137이에요. 지금 고른 경로로 1년 동안 출퇴근(250일 왕복)하면 <b>나무 ${trees}그루</b>를 심은 효과예요</span><span class="tour-act">경로를 하나 눌러 보세요</span>`;
+      return `<b class="no">3-2.</b> 경로마다 탄소는 이렇게 계산해요<span class="tour-f">구간 거리 × 1인 1km 배출계수를 모두 더해요<br>자동차 210g · 버스 27.7g · 지하철 1.53g · 걷기 · 자전거 0g<br>아낀 양 = 자동차 배출 − 이 경로 배출</span><span class="tour-wow">${TI(ICON.spark)} 지하철은 1km에 1.53g으로 자동차의 약 1/137이에요. 지금 고른 경로로 1년 동안 출퇴근(250일 왕복)하면 <b>나무 ${trees}그루</b>를 심은 효과예요</span><span class="tour-act">경로를 하나 눌러 보세요</span>`;
     },
   },
   '3-3': {
