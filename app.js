@@ -1816,13 +1816,19 @@ const tourGo = (n) => tourPut('sessionStorage', TOUR_NOW, n);
 // 랭킹 · 포인트 상점 튜토리얼: 그 화면을 이번에(앱을 열 때마다) 처음 누르면 시작해요
 const TOUR_SIDE = 'pureun-tour-side'; // { 계정: { rank: 1, shop: 1 } }
 function tourSide(kind, first) {
-  if (!state.user || tourOff() || state.sideTour) return;
+  if (!state.user || tourOff() || (state.sideTour && !(TOUR_STEPS[state.sideTour] || {}).hint)) return;
   const seen = tourMap('sessionStorage', TOUR_SIDE)[userKey(state.user)] || {};
   if (seen[kind]) return;
   tourPut('sessionStorage', TOUR_SIDE, { ...seen, [kind]: 1 });
   state.sideTour = first;
 }
-function tourSideEnd() { state.sideTour = null; state.tourActive = false; tourPaint(); }
+// 다음에 빛낼 하단바 탭: 아직 안 본 랭킹 → 포인트 상점(계정정보)
+function tourNextHint() {
+  if (!state.user || tourOff()) return null;
+  const seen = tourMap('sessionStorage', TOUR_SIDE)[userKey(state.user)] || {};
+  return !seen.rank ? 'hr' : !seen.shop ? 'ha' : null;
+}
+function tourSideEnd() { state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; tourPaint(); }
 // 지금 단계 ('' = 없음). 보는 도중에 "보지 않기"를 체크해도 지금 튜토리얼은 끝까지 그대로예요.
 function tourStage() {
   if (!state.user || (tourOff() && !state.tourActive)) return '';
@@ -1852,6 +1858,7 @@ function tourCalc() {
   return { baseKm, car: ranked.baseline.emission, em: chosen.emission, saving: chosen.saving, parts, people: chosen.people || 1, by };
 }
 const TOUR_NEXT = (t = '화면을 누르면 다음으로 ›') => `<span class="tour-next">${t}</span>`;
+const TAB_SCREENS_TOUR = ['main', 'rank', 'campaigns', 'account']; // 하단바가 있는 화면
 const TOUR_STEPS = {
   1: { screen: 'main', target: '.m-quick', text: () => '<b class="no">1.</b> 여기를 눌러<br>길찾기를 시작해 보세요' },
   '2-1': {
@@ -1990,23 +1997,36 @@ const TOUR_STEPS = {
     screen: 'rank', tap: true,
     text: () => `<b class="no">4.</b> 랭킹 튜토리얼 끝!<br>친환경으로 이동하고 1등에 도전해 보세요${TOUR_NEXT('화면을 누르면 닫혀요 ›')}`,
   },
+  // 하단바 힌트 (캠페인 힌트처럼 막 없이 탭만 빛나요): 캠페인 튜토리얼 끝 → 랭킹 → 계정정보(포인트 상점)
+  hr: {
+    screen: TAB_SCREENS_TOUR, target: '.m-tabs [data-act="open-rank"]', fixed: true, hint: true,
+    text: () => '랭킹도 알아볼까요?<span class="tour-act">아래 <b>랭킹</b>을 눌러 보세요</span>',
+  },
+  ha: {
+    screen: TAB_SCREENS_TOUR, target: '.m-tabs [data-act="open-account"]', fixed: true, hint: true,
+    text: () => '포인트 상점도 알아볼까요?<span class="tour-act">아래 <b>계정정보</b>를 눌러 보세요</span>',
+  },
+  sh0: {
+    screen: 'account', target: '.acc-shop', lift: '.acc-list', place: 'below',
+    text: () => '<b class="no">1.</b> 계정정보에서 <b>포인트 상점</b>을 누르세요<span class="tour-sub">모은 탄소 포인트로 상품을 바꾸거나 기부할 수 있어요</span>',
+  },
   sh1: {
     screen: 'shop', target: '.shop-hero', tap: true, place: 'below',
-    text: () => `<b class="no">1.</b> 지금 가진 탄소 포인트예요<span class="tour-sub">1P = 1원 가치 · 친환경 이동과 캠페인으로 모여요</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2.</b> 지금 가진 탄소 포인트예요<span class="tour-sub">1P = 1원 가치 · 친환경 이동과 캠페인으로 모여요</span>${TOUR_NEXT()}`,
   },
   sh2: {
     screen: 'shop', target: '.shop-cats [data-id="donate"]', place: 'below',
     prep: () => { const c = document.querySelector('.shop-cats'); if (c) c.scrollLeft = c.scrollWidth; }, // 맨 끝 '기부'가 보이게
-    text: () => '<b class="no">2.</b> 모은 포인트로 상품을 사거나 기부할 수 있어요<span class="tour-act"><b>기부</b>를 눌러 보세요</span>',
+    text: () => '<b class="no">3.</b> 모은 포인트로 상품을 사거나 기부할 수 있어요<span class="tour-act"><b>기부</b>를 눌러 보세요</span>',
   },
   sh3: {
     screen: 'shop', target: '.shop-item[data-id="tree-donate"]', place: 'below',
-    text: () => '<b class="no">3.</b> 나무 한 그루 심기에 기부해 볼까요?<span class="tour-act">눌러 보세요</span>',
+    text: () => '<b class="no">4.</b> 나무 한 그루 심기에 기부해 볼까요?<span class="tour-act">눌러 보세요</span>',
   },
-  sh4: { screen: 'shop', when: () => false }, // 구매 창 · 감사 화면 안에서 따로 안내해요 (4.)
+  sh4: { screen: 'shop', when: () => false }, // 구매 창 · 감사 화면 안에서 따로 안내해요 (5.)
   sh5: {
     screen: 'shop', tap: true,
-    text: () => `<b class="no">5.</b> 포인트 상점 튜토리얼 끝!<span class="tour-sub">시연이라 포인트는 그대로예요. 진짜로 교환하면 <b>교환 내역</b>에서 다시 볼 수 있어요</span>${TOUR_NEXT('화면을 누르면 닫혀요 ›')}`,
+    text: () => `<b class="no">6.</b> 포인트 상점 튜토리얼 끝!<span class="tour-sub">시연이라 포인트는 그대로예요. 진짜로 교환하면 <b>교환 내역</b>에서 다시 볼 수 있어요</span>${TOUR_NEXT('화면을 누르면 닫혀요 ›')}`,
   },
   6: {
     screen: 'done', target: '#cta .btn', lift: '.cta', fixed: true, label: '홈으로 돌아가기',
@@ -2023,8 +2043,9 @@ function tourPaint() {
   let layer = root.querySelector(':scope > .tour-layer');
   const st = tourStage();
   const cfg = st ? TOUR_STEPS[st] : null;
-  if (cfg && cfg.prep && cfg.screen === state.screen) cfg.prep();
-  if (!cfg || cfg.screen !== state.screen || (cfg.when && !cfg.when())) { if (layer) layer.remove(); return; }
+  const onScreen = cfg && (Array.isArray(cfg.screen) ? cfg.screen.includes(state.screen) : cfg.screen === state.screen);
+  if (onScreen && cfg.prep) cfg.prep();
+  if (!onScreen || (cfg.when && !cfg.when())) { if (layer) layer.remove(); return; }
   state.tourActive = true;
   // 4-go: 이동 시연 중에는 막 없이 작은 알림만
   if (cfg.chip) {
@@ -2103,6 +2124,8 @@ function tourPaint() {
   if (cfg.hint && r2) { // 힌트 말풍선은 밝힌 탭 바로 위 가운데에
     const cx = Math.min(vw - 16 - 150, Math.max(16 + 150, r2.left + r2.width / 2));
     tip.style.left = `${cx}px`; tip.style.right = 'auto'; tip.classList.remove('right');
+    const bar = root.querySelector('.rk-me'); // 랭킹 화면: 아래 '내 순위' 줄 위로 올려서 안 겹치게
+    if (bar && tip.classList.contains('down')) { tip.style.bottom = `${vh - bar.getBoundingClientRect().top + 10}px`; tip.querySelector('.tour-arrow')?.remove(); }
   }
   const tr = tip.getBoundingClientRect();
   if (tr.bottom > vh - 170 || (r2 && r2.bottom > vh - 170)) layer.querySelector('.tour-opt')?.classList.add('top'); // 아래가 붐비면 위로 (힌트엔 체크박스가 없어요)
@@ -3528,7 +3551,7 @@ function shopBuySheet(code, demo = false) { // demo: 포인트 상점 튜토리�
       </dl>
       <p class="ss-short" id="ss-short" role="alert" hidden></p>
       <p class="rj-err" id="ss-err" hidden></p>
-      ${demo ? '<p class="ss-tour"><b class="no">4.</b> 가격과 보유 포인트를 확인하고 <b>구매하기</b>를 눌러요<small>시연이라 포인트는 빠지지 않아요</small></p>' : ''}
+      ${demo ? '<p class="ss-tour"><b class="no">5.</b> 가격과 보유 포인트를 확인하고 <b>구매하기</b>를 눌러요<small>시연이라 포인트는 빠지지 않아요</small></p>' : ''}
       <button type="button" class="btn primary${demo ? ' tour-glow' : ''}" data-yes>${it.price.toLocaleString()}P로 구매하기</button>
       <button type="button" class="btn sheet-cancel" data-no>취소</button>
     </section>`;
@@ -5526,7 +5549,7 @@ const actions = {
   'to-login': () => { state.auth = { busy: false, message: '' }; go('login', 'back'); },
   home: () => go('home', 'back'),
   back: () => goBack(),
-  'open-shop': () => { tourSide('shop', 'sh1'); state.shopTab = 'items'; state.shopCat = 'all'; go('shop'); if (dbMode()) syncFromServer(); },
+  'open-shop': () => { if (tourStage() === 'sh0') state.sideTour = 'sh1'; else tourSide('shop', 'sh1'); state.shopTab = 'items'; state.shopCat = 'all'; go('shop'); if (dbMode()) syncFromServer(); },
   'shop-tab': (el) => { state.shopTab = el.dataset.id; render(); },
   'shop-cat': (el) => { state.shopCat = el.dataset.id; if (tourStage() === 'sh2' && el.dataset.id === 'donate') state.sideTour = 'sh3'; render(); },
   'shop-item': (el) => {
@@ -5551,7 +5574,7 @@ const actions = {
       return;
     }
     if (st === '4-1') { tourGo('4-go'); tourPaint(); tourSimStart(); return; }
-    if (st === 'c7') { tourGo('done'); state.campTrip = null; state.tourActive = false; go('main'); toast('튜토리얼을 모두 마쳤어요. 이제 직접 해 보세요'); return; }
+    if (st === 'c7') { tourGo('done'); state.campTrip = null; state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; go('main'); if (!state.sideTour) toast('튜토리얼을 모두 마쳤어요. 이제 직접 해 보세요'); return; }
     const next = { '2-1': '2-2', '5-1': '5-2', '5-2': '6', 'c2-1': 'c2-2', 'c2-2': 'c2-3', 'c2-3': 'c2-4', c3: 'c4', 'c5-1': 'c5-2', 'c5-2': 'c5-3', c6: 'c7' }[st];
     if (next) { tourGo(next); tourPaint(); }
   },
@@ -5564,7 +5587,7 @@ const actions = {
   profile: () => openProfile(),
   'open-main': () => goTab('main'),
   'open-rank': () => { if (state.screen !== 'rank') tourSide('rank', 'rk1'); goTab('rank'); },
-  'open-account': () => goTab('account'),
+  'open-account': () => { if (state.screen !== 'account') tourSide('shop', 'sh0'); goTab('account'); },
   logout: () => askLogout(),
   'avatar-reset': () => { if (dbMode()) { dbWrite('profile', { avatar: '' }, '기본 이미지로 바꿨어요'); return; } saveAvatar(''); render(); toast('기본 이미지로 바꿨어요'); },
   'open-camps': () => { if (tourStage() === 'c0') tourGo('c1'); goTab('campaigns'); },
