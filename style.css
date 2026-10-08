@@ -2517,3 +2517,32 @@ body.kb-open .content { padding-bottom: max(60vh, 340px); }
 .tour-chip i { display: block; height: 5px; border-radius: 999px; background: rgba(255, 255, 255, .2); overflow: hidden; }
 .tour-chip i::before { content: ''; display: block; height: 100%; width: var(--p, 0%); border-radius: inherit; background: linear-gradient(90deg, #7DB9FF, #4ADE80); transition: width .1s linear; }
 @media (prefers-reduced-motion: reduce) { .tour-hl, .tt .tour-next { animation: none !important; } .tour-layer.tour-in * { animation: none !important; } }
+
+/* ── 4-go 알림: 지금 수단 아이콘이 막대를 따라 달리고 · 아낀 탄소가 올라가요 ── */
+.tour-chip { width: min(340px, calc(100vw - 32px)); min-width: 0; gap: 9px; padding: 12px 16px 11px; border-radius: 20px; text-align: left;
+  background: rgba(14, 24, 44, .9); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, .12); animation: tourFade .4s ease both; }
+.tc-top { display: flex; align-items: center; gap: 9px; font-size: 14.5px; }
+.tc-badge { flex: none; width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; background: var(--mc, #8a97a5); color: #fff; transition: background .3s; }
+.tc-badge svg { width: 18px; height: 18px; }
+.tc-txt { flex: 1; min-width: 0; font-weight: 800; }
+.tc-save { flex: none; font-size: 13px; font-weight: 700; color: rgba(255, 255, 255, .8); }
+.tc-save b { font-size: 15px; color: #6FE3A2; font-variant-numeric: tabular-nums; }
+.tc-track { position: relative; height: 8px; margin: 12px 14px 4px 4px; border-radius: 999px; background: rgba(255, 255, 255, .14); overflow: visible; }
+.tour-chip .tc-fill { height: auto; overflow: visible; position: absolute; left: 0; top: 0; bottom: 0; width: var(--p, 0%); border-radius: inherit; background: linear-gradient(90deg, #7DB9FF, #4ADE80); }
+.tour-chip .tc-track::before { display: none; }
+.tc-rider { position: absolute; top: 50%; left: var(--p, 0%); width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; display: grid; place-items: center;
+  background: #fff; color: var(--mc, #8a97a5); box-shadow: 0 0 0 3px var(--mc, #8a97a5), 0 4px 12px rgba(0, 0, 0, .35); animation: tcBob .55s ease-in-out infinite alternate; }
+.tc-rider svg { width: 18px; height: 18px; }
+.tc-rider.pop { animation: tcPop .45s cubic-bezier(.2, .9, .3, 1.5), tcBob .55s ease-in-out .45s infinite alternate; }
+@keyframes tcBob { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+@keyframes tcPop { 0% { transform: scale(.5); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+.tc-goal { position: absolute; right: -16px; top: 50%; transform: translateY(-58%); font-size: 15px; }
+.tc-sub { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, .65); }
+.tour-chip i::before { display: none; }
+/* 걷는 사람: 팔다리가 번갈아 */
+.walker .wk-l1, .walker .wk-l2, .walker .wk-a1, .walker .wk-a2 { transform-box: view-box; animation: wkSwing .5s ease-in-out infinite alternate; }
+.walker .wk-l1, .walker .wk-l2 { transform-origin: 11.2px 13.4px; }
+.walker .wk-a1, .walker .wk-a2 { transform-origin: 12.3px 8.6px; }
+.walker .wk-l2, .walker .wk-a1 { animation-direction: alternate-reverse; }
+@keyframes wkSwing { from { transform: rotate(-22deg); } to { transform: rotate(22deg); } }
+@media (prefers-reduced-motion: reduce) { .tc-rider, .tc-rider.pop, .walker * { animation: none !important; } }

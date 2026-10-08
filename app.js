@@ -1786,7 +1786,7 @@ function weekChartHTML(series, big) {
 //   3-1 경로    절약 강도 → 강도를 누르면
 //   3-2 경로    경로 목록 (계산 방식 · 놀라운 사실) → 경로를 누르면
 //   3-3 경로    고른 경로 카드 → 안내 시작을 누르면
-//   4-1 안내    시연 이동 안내 → 화면을 누르면 내 위치가 도착지까지 움직여요(4-go)
+//   4-1 안내    시연 이동 안내 → 화면을 누르면 내 위치가 약 11초 동안 도착지까지 움직여요(4-go: 수단 아이콘 · 아낀 탄소 실시간)
 //   4-2 안내    도착 버튼 → 누르면 (시연 이동은 기록 · 포인트에 안 들어가요)
 //   5-1 도착    이번 이동 절약 계산식 → 화면을 누르면
 //   5-2 도착    나의 숲(지금까지 절약량) → 화면을 누르면
@@ -1888,6 +1888,9 @@ const TOUR_STEPS = {
     text: () => '<b class="no">6.</b> 튜토리얼 끝! 🎉<br>홈으로 돌아가 직접 길을 찾아보세요',
   },
 };
+const TOUR_RIDE = { walk: '걷는 중', bike: '자전거 타는 중', bus: '버스 타는 중', subway: '지하철 타는 중', car: '차로 가는 중' };
+// 걷는 사람: 팔다리가 번갈아 흔들려요 (4-go 알림)
+const TOUR_WALKER = '<svg class="walker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="13" cy="4" r="2.2" fill="currentColor" stroke="none"/><path d="M12.6 7.4 11.2 13.4"/><path class="wk-a1" d="M12.3 8.6 9 11.6"/><path class="wk-a2" d="M12.3 8.6 15.2 11.8"/><path class="wk-l1" d="M11.2 13.4 8.6 20.4"/><path class="wk-l2" d="M11.2 13.4 14.6 20.2"/></svg>';
 const TOUR_ARROW = '<svg class="tour-arrow" viewBox="0 0 40 46" aria-hidden="true"><path d="M9 42 C 8 26 18 16 30 7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1 6"/><path d="M23 5 L31 5.5 L30 14" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 // 지금 단계를 화면에 칠해요: 어두운 막 + 밝힐 곳(빛나는 테두리) + 안내 문구 + "다음부터 보지 않기"
 function tourPaint() {
@@ -1907,10 +1910,26 @@ function tourPaint() {
       layer = document.createElement('div');
       layer.className = 'tour-layer';
       layer.dataset.st = st;
-      layer.innerHTML = `<div class="tour-chip" role="status"><span>🚶 시연 중 · ${esc((state.to || TOUR_TO).name)}까지 이동하고 있어요</span><i></i></div>`;
+      layer.innerHTML = `<div class="tour-chip" role="status">
+        <div class="tc-top"><span class="tc-badge"></span><span class="tc-txt"></span><span class="tc-save">🌱 <b class="num">0g</b> 아낌</span></div>
+        <div class="tc-track"><i class="tc-fill"></i><span class="tc-rider"></span><span class="tc-goal" aria-hidden="true">🏁</span></div>
+        <small class="tc-sub">시연 중 · ${esc((state.from || TOUR_FROM).name)} → ${esc((state.to || TOUR_TO).name)}</small>
+      </div>`;
       root.appendChild(layer);
     }
-    layer.querySelector('.tour-chip').style.setProperty('--p', `${Math.round((state.tourSimP || 0) * 100)}%`);
+    const chip = layer.querySelector('.tour-chip');
+    const mode = state.tourSimMode || 'walk';
+    chip.style.setProperty('--p', `${((state.tourSimP || 0) * 100).toFixed(1)}%`);
+    chip.style.setProperty('--mc', (MODES[mode] || MODES.walk).color);
+    if (chip.dataset.mode !== mode) { // 수단이 바뀔 때만 아이콘 · 문구를 바꾸고 톡 튀어요
+      chip.dataset.mode = mode;
+      const ic = mode === 'walk' ? TOUR_WALKER : (MODES[mode] || MODES.walk).icon;
+      chip.querySelector('.tc-badge').innerHTML = ic;
+      chip.querySelector('.tc-rider').innerHTML = ic;
+      chip.querySelector('.tc-txt').textContent = TOUR_RIDE[mode] || '이동하는 중';
+      const r = chip.querySelector('.tc-rider'); r.classList.remove('pop'); void r.offsetWidth; r.classList.add('pop');
+    }
+    chip.querySelector('.tc-save b').textContent = formatG(Math.max(0, Math.round(state.tourSimG || 0)));
     return;
   }
   const target = cfg.target ? root.querySelector(cfg.target) : null;
@@ -1969,15 +1988,16 @@ function tourBlockScroll(e) {
   e.preventDefault();
 }
 ['wheel', 'touchmove', 'keydown'].forEach((t) => document.addEventListener(t, tourBlockScroll, { passive: false }));
-// 4-go: 고른 경로의 선을 따라 내 위치가 출발지 → 도착지로 9초 동안 움직여요 (진짜 GPS 대신)
+// 4-go: 고른 경로의 선을 따라 내 위치가 출발지 → 도착지로 약 11초 동안 움직여요 (진짜 GPS 대신)
 function tourSimStart() {
   const { chosen } = currentPlan();
   if (!chosen || !state.from || !state.to) return;
-  const pts = [];
-  (chosen.lines || []).forEach((ln) => (ln.path || []).forEach((p) => { if (p && Number.isFinite(+p.lat) && Number.isFinite(+p.lng)) pts.push({ lat: +p.lat, lng: +p.lng }); }));
+  let pts = [];
+  (chosen.lines || []).forEach((ln) => (ln.path || []).forEach((p) => { if (p && Number.isFinite(+p.lat) && Number.isFinite(+p.lng)) pts.push({ lat: +p.lat, lng: +p.lng, mode: ln.mode || 'walk' }); }));
   if (pts.length > 1 && distM(pts[0], state.from) > distM(pts[pts.length - 1], state.from)) pts.reverse();
-  pts.unshift({ lat: state.from.lat, lng: state.from.lng });
-  pts.push({ lat: state.to.lat, lng: state.to.lng });
+  const m0 = pts.length ? pts[0].mode : 'walk';
+  const m1 = pts.length ? pts[pts.length - 1].mode : 'walk';
+  pts = [{ lat: state.from.lat, lng: state.from.lng, mode: m0 }, ...pts, { lat: state.to.lat, lng: state.to.lng, mode: m1 }];
   const cum = [0];
   for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + distM(pts[i - 1], pts[i]));
   const total = cum[cum.length - 1] || 1;
@@ -1985,9 +2005,11 @@ function tourSimStart() {
     let i = 1;
     while (i < cum.length - 1 && cum[i] < d) i++;
     const t = Math.min(1, Math.max(0, (d - cum[i - 1]) / (cum[i] - cum[i - 1] || 1)));
-    return { lat: pts[i - 1].lat + (pts[i].lat - pts[i - 1].lat) * t, lng: pts[i - 1].lng + (pts[i].lng - pts[i - 1].lng) * t };
+    return { lat: pts[i - 1].lat + (pts[i].lat - pts[i - 1].lat) * t, lng: pts[i - 1].lng + (pts[i].lng - pts[i - 1].lng) * t, mode: pts[i].mode };
   };
-  const dur = 9000;
+  const dur = 10800; // 출발지 → 도착지 약 11초
+  const saving = Math.max(0, chosen.saving || 0);
+  state.tourSimMode = m0; state.tourSimG = 0;
   const t0 = performance.now();
   clearInterval(tourSimStart.t);
   tourSimStart.t = setInterval(() => {
@@ -1999,7 +2021,10 @@ function tourSimStart() {
     const p = Math.min(1, (performance.now() - t0) / dur);
     const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; // 천천히 출발 → 빠르게 → 천천히 도착
     state.tourSimP = p;
-    state.me = p >= 1 ? { lat: state.to.lat, lng: state.to.lng } : at(e * total);
+    const here = at(e * total);
+    state.tourSimMode = here.mode;
+    state.tourSimG = saving * e; // 간 만큼 아낀 탄소
+    state.me = p >= 1 ? { lat: state.to.lat, lng: state.to.lng } : { lat: here.lat, lng: here.lng };
     state.step = Math.min(chosen.steps.length - 1, Math.floor(e * chosen.steps.length));
     if (mapCtl) mapCtl.setMe(state.me, true);
     if (p >= 1) { clearInterval(tourSimStart.t); state.step = chosen.steps.length - 1; tourGo('4-2'); }
