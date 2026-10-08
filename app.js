@@ -191,6 +191,8 @@ const COUNT_FMT = {
   times: (v) => `${Math.round(v).toLocaleString()}번`,
   g: (v) => formatG(Math.round(v)),
   int: (v) => Math.round(v).toLocaleString(),
+  trees: (v) => `${Math.round(v).toLocaleString()}그루`,
+  mfkg: (v) => mfKg(v),
 };
 const countAttr = (to, fmt) => `data-count="${to}" data-fmt="${fmt}"`;
 function runCounters(root = document) {
@@ -1817,6 +1819,10 @@ function tourStage() {
   if (!state.tourBoot) { state.tourBoot = true; if (v !== '1') { v = '1'; tourGo('1'); } }
   return TOUR_STEPS[v] ? v : '1';
 }
+// 튜토리얼 안 아이콘: 이모지 대신 앱의 선 아이콘(MI 걷기 · 버스 · 지하철 · 자동차, ICON 잎 · 깃발 · 반짝)
+const TOUR_BIKE = '<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.6" cy="16.2" r="3.6"/><circle cx="18.4" cy="16.2" r="3.6"/><path d="M5.6 16.2 9.4 9h6.2l2.8 7.2M9.4 9l3.4 7.2h-7.2M14.6 6.4h2.4l-1.4 2.6M8.2 6.6h3"/></svg>';
+const TI = (svg) => `<i class="ti" aria-hidden="true">${svg}</i>`;
+const TOUR_IC = { walk: MI.walk, bus: MI.bus, subway: MI.subway, car: MI.car, bike: TOUR_BIKE };
 const TOUR_MODE = { walk: '걷기', bike: '자전거', bus: '버스', subway: '지하철', car: '자동차' };
 const tKm = (km) => `${(Math.round(km * 10) / 10).toLocaleString()}km`;
 const tG = (g) => formatG(Math.max(0, Math.round(g)));
@@ -1828,7 +1834,7 @@ function tourCalc() {
   const by = {};
   chosen.segments.forEach((s) => { by[s.mode] = (by[s.mode] || 0) + s.km; });
   const parts = Object.entries(by).filter(([, km]) => km >= 0.05).map(([m, km]) => `${TOUR_MODE[m] || m} ${tKm(km)} × ${FACTORS[m]}g`);
-  return { baseKm, car: ranked.baseline.emission, em: chosen.emission, saving: chosen.saving, parts, people: chosen.people || 1 };
+  return { baseKm, car: ranked.baseline.emission, em: chosen.emission, saving: chosen.saving, parts, people: chosen.people || 1, by };
 }
 const TOUR_NEXT = (t = '화면을 누르면 다음으로 ›') => `<span class="tour-next">${t}</span>`;
 const TOUR_STEPS = {
@@ -1844,7 +1850,7 @@ const TOUR_STEPS = {
   },
   '3-1': {
     screen: 'result', target: '.stabs-wrap', box: true, when: () => !state.loading && !!currentPlan().ranked,
-    text: () => '<b class="no">3-1.</b> 절약 강도는 혼자 자동차로 갈 때보다<br>탄소를 얼마나 줄이는지로 경로를 나눠요<span class="tour-f">☁️ 조금: 1% 절약 · ⛅ 중간: 70% 절약 · ☀️ 많이: 97% 절약<br>많이 줄일수록 하늘이 맑아져요</span><span class="tour-act">원하는 강도를 눌러 보세요</span>',
+    text: () => '<b class="no">3-1.</b> 절약 강도는 혼자 자동차로 갈 때보다<br>탄소를 얼마나 줄이는지로 경로를 나눠요<span class="tour-f">조금: 1% 절약 · 중간: 70% 절약 · 많이: 97% 절약<br>많이 줄일수록 하늘이 맑아져요</span><span class="tour-act">원하는 강도를 눌러 보세요</span>',
   },
   '3-2': {
     screen: 'result', target: '.rlist', box: true, at: 0.5, when: () => !state.loading && !!currentPlan().chosen,
@@ -1852,7 +1858,7 @@ const TOUR_STEPS = {
       const c = tourCalc();
       const yr = c ? (c.saving * 500) / TREE_YEAR_G : 0; // 1년 출퇴근 = 250일 × 왕복 2번
       const trees = yr >= 10 ? Math.round(yr).toLocaleString() : (Math.round(yr * 10) / 10).toString();
-      return `<b class="no">3-2.</b> 경로마다 탄소는 이렇게 계산해요<span class="tour-f">구간 거리 × 1인 1km 배출계수를 모두 더해요<br>자동차 210g · 버스 27.7g · 지하철 1.53g · 걷기 · 자전거 0g<br>아낀 양 = 혼자 자동차 배출 − 이 경로 배출</span><span class="tour-wow">💡 지하철은 1km에 1.53g으로 자동차의 약 1/137이에요. 지금 고른 경로로 1년 동안 출퇴근(250일 왕복)하면 <b>나무 ${trees}그루</b>를 심은 효과예요</span><span class="tour-act">경로를 하나 눌러 보세요</span>`;
+      return `<b class="no">3-2.</b> 경로마다 탄소는 이렇게 계산해요<span class="tour-f">구간 거리 × 1인 1km 배출계수를 모두 더해요<br>자동차 210g · 버스 27.7g · 지하철 1.53g · 걷기 · 자전거 0g<br>아낀 양 = 혼자 자동차 배출 − 이 경로 배출</span><span class="tour-wow">${TI(ICON.spark)} 지하철은 1km에 1.53g으로 자동차의 약 1/137이에요. 지금 고른 경로로 1년 동안 출퇴근(250일 왕복)하면 <b>나무 ${trees}그루</b>를 심은 효과예요</span><span class="tour-act">경로를 하나 눌러 보세요</span>`;
     },
   },
   '3-3': {
@@ -1870,27 +1876,37 @@ const TOUR_STEPS = {
   },
   '5-1': {
     screen: 'done', target: '.done', box: true, tap: true, place: 'below',
-    text: () => {
+    text: (first) => {
       const c = tourCalc();
       if (!c) return `<b class="no">5-1.</b> 이번 이동에서 아낀 탄소예요${TOUR_NEXT()}`;
-      return `<b class="no">5-1.</b> 이번 이동에서 아낀 탄소는<br>이렇게 계산했어요<span class="tour-f">🚗 혼자 자동차 ${tKm(c.baseKm)} × 210g = ${tG(c.car)}<br>🚌 이 경로 ${c.parts.join(' + ') || '0g'}${c.people > 1 ? ` ÷ ${c.people}명` : ''} = ${tG(c.em)}<br>🌱 아낀 양 ${tG(c.car)} − ${tG(c.em)} = <b>${tG(c.saving)}</b></span><span class="tour-sub">= ${esc(saveSense(c.saving).text)}</span>${TOUR_NEXT()}`;
+      // 수단별 절약량 = 그 구간을 자동차로 갔다면 나왔을 양(거리 비율로 나눈 자동차 배출) − 실제로 나온 양 → 모두 더하면 총 절약량
+      const kmSum = Object.values(c.by).reduce((x, y) => x + y, 0) || 1;
+      const ORDER = ['bus', 'subway', 'walk', 'bike', 'car'];
+      const NAME = { bus: `${TI(MI.bus)} 버스 절약량`, subway: `${TI(MI.subway)} 지하철 절약량`, walk: `${TI(MI.walk)} 도보 절약량`, bike: `${TI(TOUR_BIKE)} 자전거 절약량`, car: `${TI(MI.car)} 함께 탄 차 절약량` };
+      const rows = ORDER.filter((m) => c.by[m] >= 0.05).map((m) => ({ m, g: (c.by[m] / kmSum) * c.car - (c.by[m] * FACTORS[m]) / c.people }));
+      const fix = c.saving - rows.reduce((x, r) => x + r.g, 0); // 반올림 오차는 마지막 줄에 (합이 꼭 총 절약량이 되게)
+      if (rows.length) rows[rows.length - 1].g += fix;
+      let d = 0.35; const next = () => { const v = d.toFixed(2); d += 0.18; return v; };
+      const row = (label, g, cls = '', op = '') => { const t = next(); return `<span class="ts-row cas ${cls}" style="--d:${t}s"><span class="ts-op">${op}</span><span class="ts-l">${label}</span><b class="ts-v num" ${first ? `${countAttr(Math.round(Math.abs(g)), 'g')} data-delay="${Math.round(t * 1000)}"` : ''}>${g < 0 ? '−' : ''}${first ? formatG(0) : tG(Math.abs(g))}</b></span>`; };
+      const line = (cls = '') => `<span class="ts-line cas ${cls}" style="--d:${next()}s"></span>`;
+      return `<b class="no">5-1.</b> 이번 이동에서 아낀 탄소는<br>이렇게 계산했어요<span class="tour-sum">${row(`${TI(MI.car)} 자동차로 가면?`, c.car, 'ts-car')}${line()}${rows.map((r, i) => row(NAME[r.m] || r.m, r.g, '', i === rows.length - 1 && rows.length > 1 ? '+' : '')).join('')}${line('thick')}${row('총 절약량 :', c.saving, 'ts-total')}</span>${TOUR_NEXT()}`;
     },
   },
   '5-2': {
     screen: 'done', target: '.mf', tap: true, place: 'above',
-    text: () => {
+    text: (first) => {
       const g = Math.max(0, loadLog().g || 0);
-      return `<b class="no">5-2.</b> 나의 숲에는 지금까지 아낀 탄소가<br>모두 모여 있어요<span class="tour-f">🌳 소나무 1그루가 1년 동안 흡수하는 CO₂ 9.8kg이 모일 때마다 나무가 한 그루씩 늘어요<br>지금까지 ${mfKg(g)} → 나무 <b>${Math.floor(g / TREE_YEAR_G).toLocaleString()}그루</b></span><span class="tour-sub">시연으로 한 이동은 기록에 더하지 않았어요</span>${TOUR_NEXT()}`;
+      const trees = Math.floor(g / TREE_YEAR_G);
+      const num = (v, fmt, t) => `<b class="ts-v num" ${first ? `${countAttr(v, fmt)} data-delay="${Math.round(t * 1000)}"` : ''}>${first ? COUNT_FMT[fmt](0) : COUNT_FMT[fmt](v)}</b>`;
+      return `<b class="no">5-2.</b> 나의 숲에는 지금까지 아낀 탄소가<br>모두 모여 있어요<span class="tour-sum"><span class="ts-row cas ts-note" style="--d:.35s"><span class="ts-op"></span><span class="ts-l">${TI(ICON.leaf)} CO₂ 9.8kg이 모일 때마다 나무 한 그루</span></span><span class="ts-line cas" style="--d:.53s"></span><span class="ts-row cas" style="--d:.71s"><span class="ts-op"></span><span class="ts-l">지금까지 아낀 탄소</span>${num(Math.round(g), 'mfkg', 0.71)}</span><span class="ts-row cas ts-total" style="--d:.89s"><span class="ts-op"></span><span class="ts-l">심은 나무 :</span>${num(trees, 'trees', 0.89)}</span></span><span class="tour-sub">시연으로 한 이동은 기록에 더하지 않았어요</span>${TOUR_NEXT()}`;
     },
   },
   6: {
     screen: 'done', target: '#cta .btn', lift: '.cta', fixed: true, label: '홈으로 돌아가기',
-    text: () => '<b class="no">6.</b> 튜토리얼 끝! 🎉<br>홈으로 돌아가 직접 길을 찾아보세요',
+    text: () => '<b class="no">6.</b> 튜토리얼 끝!<br>홈으로 돌아가 직접 길을 찾아보세요',
   },
 };
 const TOUR_RIDE = { walk: '걷는 중', bike: '자전거 타는 중', bus: '버스 타는 중', subway: '지하철 타는 중', car: '차로 가는 중' };
-// 걷는 사람: 팔다리가 번갈아 흔들려요 (4-go 알림)
-const TOUR_WALKER = '<svg class="walker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="13" cy="4" r="2.2" fill="currentColor" stroke="none"/><path d="M12.6 7.4 11.2 13.4"/><path class="wk-a1" d="M12.3 8.6 9 11.6"/><path class="wk-a2" d="M12.3 8.6 15.2 11.8"/><path class="wk-l1" d="M11.2 13.4 8.6 20.4"/><path class="wk-l2" d="M11.2 13.4 14.6 20.2"/></svg>';
 const TOUR_ARROW = '<svg class="tour-arrow" viewBox="0 0 40 46" aria-hidden="true"><path d="M9 42 C 8 26 18 16 30 7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1 6"/><path d="M23 5 L31 5.5 L30 14" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 // 지금 단계를 화면에 칠해요: 어두운 막 + 밝힐 곳(빛나는 테두리) + 안내 문구 + "다음부터 보지 않기"
 function tourPaint() {
@@ -1911,8 +1927,8 @@ function tourPaint() {
       layer.className = 'tour-layer';
       layer.dataset.st = st;
       layer.innerHTML = `<div class="tour-chip" role="status">
-        <div class="tc-top"><span class="tc-badge"></span><span class="tc-txt"></span><span class="tc-save">🌱 <b class="num">0g</b> 아낌</span></div>
-        <div class="tc-track"><i class="tc-fill"></i><span class="tc-rider"></span><span class="tc-goal" aria-hidden="true">🏁</span></div>
+        <div class="tc-top"><span class="tc-badge"></span><span class="tc-txt"></span><span class="tc-save">${TI(ICON.leaf)} <b class="num">0g</b> 아낌</span></div>
+        <div class="tc-track"><i class="tc-fill"></i><span class="tc-rider"></span><span class="tc-goal" aria-hidden="true">${ICON.flag}</span></div>
         <small class="tc-sub">시연 중 · ${esc((state.from || TOUR_FROM).name)} → ${esc((state.to || TOUR_TO).name)}</small>
       </div>`;
       root.appendChild(layer);
@@ -1923,7 +1939,7 @@ function tourPaint() {
     chip.style.setProperty('--mc', (MODES[mode] || MODES.walk).color);
     if (chip.dataset.mode !== mode) { // 수단이 바뀔 때만 아이콘 · 문구를 바꾸고 톡 튀어요
       chip.dataset.mode = mode;
-      const ic = mode === 'walk' ? TOUR_WALKER : (MODES[mode] || MODES.walk).icon;
+      const ic = TOUR_IC[mode] || MI.walk;
       chip.querySelector('.tc-badge').innerHTML = ic;
       chip.querySelector('.tc-rider').innerHTML = ic;
       chip.querySelector('.tc-txt').textContent = TOUR_RIDE[mode] || '이동하는 중';
@@ -1960,9 +1976,10 @@ function tourPaint() {
   layer.className = `tour-layer${first ? ' tour-in' : ''}`;
   layer.dataset.st = st;
   layer.innerHTML = `<div class="tour-dim" data-act="${cfg.tap ? 'tour-next' : 'tour-nudge'}" aria-hidden="true"></div>
-    <div class="tour-tip tt" role="status">${target ? TOUR_ARROW : ''}<div class="tour-txt"><p>${cfg.text()}</p></div></div>
+    <div class="tour-tip tt" role="status">${target ? TOUR_ARROW : ''}<div class="tour-txt"><p>${cfg.text(first)}</p></div></div>
     <div class="tour-opt"><label class="tour-never"><input type="checkbox" id="tour-never" ${tourOff() ? 'checked' : ''}><span class="tour-box" aria-hidden="true"></span>다음부터 보지 않기</label></div>`;
   root.appendChild(layer);
+  if (first) layer.querySelectorAll('.tour-tip [data-count]').forEach((el) => setTimeout(() => runCounters({ querySelectorAll: () => [el] }), Number(el.dataset.delay) || 0)); // 줄이 나타날 때 숫자가 올라가요
   // 안내 문구 자리: 밝힌 곳의 위나 아래 중 넓은 쪽 (화면 가운데 줄 480px 안)
   const tip = layer.querySelector('.tour-tip');
   const side = Math.max(0, (vw - 480) / 2) + 16;
@@ -5671,7 +5688,7 @@ const actions = {
   restart: () => {
     if (tourStage() === '6') { // 튜토리얼 끝: 시연 출발지 · 도착지를 비우고 홈으로
       tourGo('done'); state.from = null; state.to = null; state.raw = null; state.chosenId = null; state.tourActive = false;
-      go('main'); toast('튜토리얼을 마쳤어요 🎉 이제 직접 길을 찾아보세요'); return;
+      go('main'); toast('튜토리얼을 마쳤어요. 이제 직접 길을 찾아보세요'); return;
     }
     state.to = null; state.raw = null; go('home');
   },

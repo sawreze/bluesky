@@ -2546,3 +2546,33 @@ body.kb-open .content { padding-bottom: max(60vh, 340px); }
 .walker .wk-l2, .walker .wk-a1 { animation-direction: alternate-reverse; }
 @keyframes wkSwing { from { transform: rotate(-22deg); } to { transform: rotate(22deg); } }
 @media (prefers-reduced-motion: reduce) { .tc-rider, .tc-rider.pop, .walker * { animation: none !important; } }
+
+/* ── 튜토리얼 5단계: 세로 덧셈 상자 (위에서 아래로 한 줄씩 떨어지며, 숫자는 0부터 올라가요) ── */
+.tt .tour-sum { display: grid; gap: 7px; width: 100%; margin: 12px 0 4px; padding: 14px 16px; border-radius: 18px; background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .22); text-shadow: none; text-align: left; }
+.tt .ts-row { display: grid; grid-template-columns: 18px 1fr auto; align-items: baseline; gap: 6px; font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, .92); }
+.tt .ts-op { font-size: 22px; font-weight: 400; line-height: 1; color: #fff; text-align: center; }
+.tt .ts-v { font-size: 19px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; text-align: right; letter-spacing: -.01em; }
+.tt .ts-car .ts-l { font-weight: 700; color: #FFD0C7; }
+.tt .ts-car .ts-v { color: #FFB4A6; }
+.tt .ts-note .ts-l { font-size: 13.5px; color: rgba(255, 255, 255, .8); }
+.tt .ts-line { display: block; height: 1px; margin: 2px 0; background: rgba(255, 255, 255, .35); }
+.tt .ts-line.thick { height: 2.5px; border-radius: 2px; background: #fff; margin: 4px 0 2px; }
+.tt .ts-total .ts-l { font-size: 16.5px; font-weight: 800; color: #fff; }
+.tt .ts-total .ts-v { font-size: 25px; color: #6FE3A2; }
+.tour-layer.tour-in .tt .cas { opacity: 0; animation: tsDrop .45s cubic-bezier(.2, .9, .3, 1.2) var(--d, 0s) both; }
+@keyframes tsDrop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+.tour-layer.tour-in .tt .ts-line.cas { animation-name: tsLine; transform-origin: left; }
+@keyframes tsLine { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: none; } }
+.tt .ts-v.counted { animation: cntPop .38s cubic-bezier(.2, .9, .3, 1.5); display: inline-block; }
+@media (prefers-reduced-motion: reduce) { .tour-layer.tour-in .tt .cas { animation: none; opacity: 1; } }
+.tour-tip.tt .tour-txt { align-self: stretch; }
+
+/* 튜토리얼 안 선 아이콘 (글자 크기에 맞춰) */
+.tt .ti, .tour-chip .ti { display: inline-flex; vertical-align: -.16em; width: 1.15em; height: 1.15em; margin-right: 2px; font-style: normal; }
+.tt .ti svg, .tour-chip .ti svg { width: 100%; height: 100%; }
+.tt .ts-l .ti { color: #fff; }
+.tt .ts-car .ti { color: #FFB4A6; }
+.tt .tour-wow .ti { color: #FFE58A; }
+.tc-save .ti { color: #6FE3A2; }
+.tc-goal { width: 18px; height: 18px; color: #fff; right: -20px; transform: translateY(-55%); }
+.tc-goal svg { width: 100%; height: 100%; }
