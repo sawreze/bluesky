@@ -199,6 +199,59 @@ BEGIN
   END LOOP;
 END
 $cal$`;
+// 관리자 캘린더 이어 채우기: 시연 기록이 있으면, 마지막 기록 다음 날부터 오늘까지 빈 날을 같은 방식(4단계 · 쉬는 날 섞기)으로 채워요.
+//  날짜마다 난수 씨앗을 고정해서, 여러 번 불려도 쉬는 날은 계속 쉬는 날이에요.
+//  client_key 'demo-cal-날짜-순번' 이 겹치면 건너뛰어서(유일 인덱스) 동시에 불려도 두 번 들어가지 않아요.
+const calTopSql = (uid) => `DO $caltop$
+DECLARE
+  pn text[] := ${arr(PLACES.map((p) => p[0]))};
+  plat float8[] := ${arr(PLACES.map((p) => p[1]), String)};
+  plng float8[] := ${arr(PLACES.map((p) => p[2]), String)};
+  d date; today date; last date; r float8; target numeric; n int; j int; part numeric;
+  kind text; fac numeric; km numeric; wkm numeric; saved numeric; pts int; at timestamptz; o int; dd int; tid int;
+BEGIN
+  today := (now() AT TIME ZONE 'Asia/Seoul')::date;
+  SELECT max((arrived_at AT TIME ZONE 'Asia/Seoul')::date) INTO last FROM trips
+    WHERE user_id = ${Number(uid)} AND client_key LIKE 'demo-cal-%';
+  IF last IS NULL OR last >= today THEN RETURN; END IF;
+  FOR d IN SELECT g::date FROM generate_series(last + 1, today, interval '1 day') g LOOP
+    PERFORM setseed(((extract(doy FROM d)::int * 37 + extract(year FROM d)::int) % 997) / 997.0 - 0.5);
+    IF random() < 0.3 THEN CONTINUE; END IF;              -- 쉬는 날
+    r := random();
+    target := CASE WHEN r < 0.24 THEN 150 + random() * 330
+                   WHEN r < 0.58 THEN 520 + random() * 1450
+                   WHEN r < 0.84 THEN 2050 + random() * 2900
+                   ELSE 5100 + random() * 3600 END;
+    n := 1 + floor(random() * 3)::int;
+    FOR j IN 1..n LOOP
+      part := target / n;
+      IF part < 600 THEN kind := CASE WHEN random() < 0.6 THEN 'walk' ELSE 'bike' END;
+      ELSIF part < 2200 THEN kind := CASE WHEN random() < 0.7 THEN 'bus' ELSE 'bike' END;
+      ELSE kind := CASE WHEN random() < 0.65 THEN 'subway' ELSE 'bus' END; END IF;
+      fac := CASE kind WHEN 'bus' THEN 27.7 WHEN 'subway' THEN 1.53 ELSE 0 END;
+      wkm := CASE WHEN kind IN ('bus', 'subway') THEN round((0.2 + random() * 0.5)::numeric, 1) ELSE 0 END;
+      km := round(GREATEST(0.3, (part - wkm * 235.2) / (235.2 - fac))::numeric, 1);
+      saved := round(((km + wkm) * 1.12 * 210 - km * fac)::numeric, 1);
+      pts := round(saved / 1000 * 10)::int + round(km + wkm)::int;
+      at := (d + make_interval(hours => 7 + floor(random() * 14)::int, mins => floor(random() * 60)::int)) AT TIME ZONE 'Asia/Seoul';
+      IF at > now() THEN at := now() - make_interval(mins => 5 + floor(random() * 50)::int); END IF;
+      o := 1 + floor(random() * array_length(pn, 1))::int;
+      dd := 1 + ((o + floor(random() * (array_length(pn, 1) - 1))::int) % array_length(pn, 1));
+      tid := NULL;
+      INSERT INTO trips (user_id, origin_name, origin_lat, origin_lng, dest_name, dest_lat, dest_lng, minutes, saved_g, arrived_at, client_key)
+      VALUES (${Number(uid)}, pn[o], plat[o], plng[o], pn[dd], plat[dd], plng[dd],
+              round(CASE kind WHEN 'walk' THEN km * 14 WHEN 'bike' THEN km * 4 ELSE km * 2.6 + 8 END)::int + 5, saved, at,
+              'demo-cal-' || to_char(d, 'YYYYMMDD') || '-' || j)
+      ON CONFLICT DO NOTHING
+      RETURNING id INTO tid;
+      IF tid IS NULL THEN CONTINUE; END IF;
+      IF wkm > 0 THEN INSERT INTO trip_segments (trip_id, seq, mode_code, km) VALUES (tid, 1, 'walk', wkm), (tid, 2, kind, km);
+      ELSE INSERT INTO trip_segments (trip_id, seq, mode_code, km) VALUES (tid, 1, kind, km); END IF;
+      IF pts > 0 THEN INSERT INTO point_transactions (user_id, amount, reason, trip_id, created_at) VALUES (${Number(uid)}, pts, 'trip', tid, at); END IF;
+    END LOOP;
+  END LOOP;
+END
+$caltop$`;
 const CAL_CLEAR = (uid) => `DELETE FROM trips WHERE user_id = ${Number(uid)} AND client_key LIKE 'demo-cal-%'`;
 
 // ── 사진이 있는 추천 캠페인 5개 (메인 화면 인기 캠페인 TOP 5 시연용) ──
@@ -288,4 +341,4 @@ BEGIN
 END
 $feat$`;
 
-module.exports = { SEED_SQL, CLEAR_SQL, NICKS, calSql, CAL_CLEAR, FEATURED, FEATURED_SQL };
+module.exports = { SEED_SQL, CLEAR_SQL, NICKS, calSql, calTopSql, CAL_CLEAR, FEATURED, FEATURED_SQL };

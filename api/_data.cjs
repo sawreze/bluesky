@@ -272,6 +272,7 @@ function makeData(db) {
   async function sync(me) {
     try { await settleCampaigns(); } catch (e) { console.error('[정산 오류]', e && e.message); }
     try { await awardLastMonth(); } catch (e) { console.error('[절약왕 보너스 오류]', e && e.message); }
+    if (isAdminRow(me)) { try { await sql().query(SEED.calTopSql(me.id)); } catch (e) { console.error('[캘린더 시연 기록 이어 채우기 오류]', e && e.message); } } // 시연 기록이 있을 때만, 빈 날을 오늘까지
     const soft = (p, fallback) => p.catch((e) => { console.error('[동기화 일부 오류]', e && e.message); return fallback; }); // 상점·보너스가 실패해도 나머지는 보여요
     const [s, camps, rank, shop, awards] = await Promise.all([summary(me.id), campaigns(me), monthRank(me.id),
       soft(shopData(me.id), { items: [], orders: [] }), soft(lastAwards(me.id), [])]);
