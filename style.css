@@ -763,9 +763,11 @@ body { font-family: var(--font-body); letter-spacing: -0.01em; background: var(-
 
 /* ── 화면 전환: 앞으로는 오른쪽에서, 뒤로는 왼쪽에서 ── */
 #app { position: relative; z-index: 1; }
-/* 화면 내용만 움직여요 (아래 고정 버튼·탭은 제자리) */
-#app.enter-fwd > :not(.cta):not(.m-tabs) { animation: enter-fwd .24s cubic-bezier(.2, .8, .2, 1) both; }
-#app.enter-back > :not(.cta):not(.m-tabs) { animation: enter-back .24s cubic-bezier(.2, .8, .2, 1) both; }
+/* 화면 내용만 움직여요 (아래 고정 버튼·탭 · 튜토리얼 막은 제자리)
+   튜토리얼 막까지 움직이면 그 안의 안내 문구(position: fixed)가 화면이 아니라 막을 기준으로 자리를 잡아서
+   넓은 화면(전체화면)에서 문구 크기를 잘못 재고 화면을 엉뚱하게 밀어 밝힌 곳 위쪽이 잘려요 */
+#app.enter-fwd > :not(.cta):not(.m-tabs):not(.tour-layer) { animation: enter-fwd .24s cubic-bezier(.2, .8, .2, 1) both; }
+#app.enter-back > :not(.cta):not(.m-tabs):not(.tour-layer) { animation: enter-back .24s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes enter-fwd { from { transform: translate3d(36px, 0, 0); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes enter-back { from { transform: translate3d(-36px, 0, 0); opacity: 0; } to { transform: none; opacity: 1; } }
 /* 손가락으로 미는 동안: 지금 화면이 오른쪽으로, 뒤에 이전 화면 */
