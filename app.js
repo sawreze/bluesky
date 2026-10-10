@@ -129,7 +129,7 @@ const SORTS = [
 
 const ROAD_FACTOR = 1.3; // 직선거리 → 도로 거리 추정 배수
 const ARRIVE_M = 30; // 길안내 단계: 목표 지점에서 이 거리(m) 안이면 다음 안내로
-const ARRIVE_BTN_M = 100; // 도착지에서 이 거리(m) 안이면 '도착' 버튼 표시 (GPS 오차 · 자동 도착이 안 될 때 대비)
+const ARRIVE_BTN_M = 50; // 도착지에서 이 거리(m) 안이면 '도착' 버튼 표시 (GPS 오차 · 자동 도착이 안 될 때 대비)
 const AUTO_ARRIVE_M = 10; // 도착지에서 이 거리(m) 안이면 자동 도착
 // GPS로 확인한 내 위치가 도착지에서 m 미터 안인지 (위치를 모르면 false)
 const nearDest = (m = ARRIVE_BTN_M) => !!(state.me && state.to && distM(state.me, state.to) <= m);
@@ -1895,7 +1895,7 @@ const TOUR_STEPS = {
   '4-go': { screen: 'nav', chip: true },
   '4-2': {
     screen: 'nav', target: '.navx-arrive', lift: '.navx-bottom', fixed: true,
-    text: () => '<b class="no">4-2.</b> 도착했어요! 도착지 100m 안에 오면<br>도착 버튼이 생겨요<span class="tour-act"><b>도착</b>을 눌러 아낀 탄소를 확인해 보세요</span>',
+    text: () => '<b class="no">4-2.</b> 도착했어요! 도착지 50m 안에 오면<br>도착 버튼이 생겨요<span class="tour-act"><b>도착</b>을 눌러 아낀 탄소를 확인해 보세요</span>',
   },
   '5-1': {
     screen: 'done', target: '.done', box: true, tap: true, place: 'below',
@@ -4911,7 +4911,7 @@ function updateNav() {
   const remKm = me && state.to ? formatM(distM(me, state.to) * ROAD_FACTOR) : '';
   const link = kakaoLink(chosen.kakaoMode, me ? { name: '내 위치', lat: me.lat, lng: me.lng } : state.from, state.to);
   const manual = !me; // GPS가 없을 때만 "다음" 버튼
-  const canArrive = nearDest(); // 도착지 100m 안에서만 도착 버튼
+  const canArrive = nearDest(); // 도착지 50m 안에서만 도착 버튼
 
   const top = document.getElementById('nav-top');
   if (top) {
@@ -5897,7 +5897,7 @@ const actions = {
   arrive: () => {
     if (tourStage() === '4-2') { tourGo('5-1'); tourDemoFinish(); return; } // 튜토리얼: 기록에 안 남기고 도착 화면만
     if (nearDest()) finishTrip();
-  }, // 도착 버튼 (도착지 100m 안에서만): 아낀 탄소를 저장하고 결과(나무 N그루) 화면으로
+  }, // 도착 버튼 (도착지 50m 안에서만): 아낀 탄소를 저장하고 결과(나무 N그루) 화면으로
   follow: () => { state.follow = !state.follow; if (mapCtl) mapCtl.setMe(state.me, state.follow); updateNav(); },
   restart: () => {
     if (tourStage() === '6') { // 길찾기 튜토리얼 끝: 시연 출발지 · 도착지를 비우고 홈으로 → 캠페인 튜토리얼(7) 이어서
