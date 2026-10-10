@@ -1451,8 +1451,16 @@ function campRanking(c) {
     let me = all.find((u) => u.me) || null;
     if (!me && rk && rk.me) me = { id: 'me', me: true, name: (state.user && state.user.name) || '나', g: rk.me.g, rank: rk.me.rank, photo: loadAvatar() };
     if (!me && rk && rk.loading && (c.joined || c.myG > 0)) me = { id: 'me', me: true, name: (state.user && state.user.name) || '나', g: c.myG || 0, rank: 1, photo: loadAvatar() };
+    const t = state.tourCampG; // 튜토리얼 시연 기여 (화면에만)
+    if (t && String(t.campId) === String(c.id) && !(rk && rk.loading)) {
+      const me2 = { ...(me || { id: 'me', me: true, name: (state.user && state.user.name) || '나', photo: loadAvatar() }), g: ((me && me.g) || 0) + t.g };
+      const list = all.filter((u) => !u.me).concat(me2).sort((a, b) => (b.g - a.g) || (a.me ? -1 : b.me ? 1 : 0));
+      list.forEach((u, i) => { u.rank = i + 1; });
+      return { all: list, me: me2 };
+    }
     return { all, me };
   }
+  c = tourCampView(c);
   const myG = Math.max(0, c.myG || 0);
   const meIn = !!(c.joined || myG > 0);
   const othersN = Math.max(0, Math.min(400, (c.participants || 0) - (meIn ? 1 : 0)));
@@ -1800,9 +1808,11 @@ function weekChartHTML(series, big) {
 const TOUR_KEY = 'pureun-tour'; // { 계정: 'off' }
 const TOUR_NOW = 'pureun-tour-now'; // { 계정: '1' … '6' | 'done' }
 const TOUR_FROM = { name: '안양역', lat: 37.40157, lng: 126.92272 };
-// 캠페인 튜토리얼 시연 글 (만들기 화면에 미리 채워요, 실제로 올라가지 않아요)
-const TOUR_CAMP = { tag: 'transit', mode: 'subway', goalKg: 300, cover: '', title: '출근은 지하철로 함께해요', sub: '자동차 대신 지하철로 하루 한 번',
-  body: '매일 아침 자동차 대신 지하철로 출근해요.\n\n지하철은 1km에 1.53g으로 자동차의 약 1/137만 배출해요. 하루 왕복 20km만 바꿔도 하루 4kg 넘게 줄일 수 있어요. 함께 300kg을 목표로 해요!' };
+// 캠페인 튜토리얼 시연 글 (만들기 화면에 미리 채워요 · 관리자 계정이면 진짜로 올라가서 1-7에서 직접 승인해요)
+const TOUR_CAMP = { tag: 'bike', mode: 'bike', goalKg: 100, cover: '', title: '주말 나들이는 자전거로 가요', sub: '자동차 대신 자전거 타고 공원 · 한강까지',
+  body: '주말에 가까운 공원이나 한강에 갈 때 자동차 대신 자전거를 타고 가 봐요.\n\n자전거는 달리는 동안 탄소가 나오지 않아요. 혼자 자동차로 10km를 가면 CO₂ 약 2.1kg이 나오는데, 자전거로 가면 그만큼을 그대로 아낄 수 있어요. 바람 맞으며 달리는 길 자체가 나들이가 돼요.\n\n자전거로 나들이 다녀온 날 기록해 주세요. 함께 100kg을 목표로 해요!' };
+// 캠페인 튜토리얼 길찾기: 참여한 캠페인의 수단으로 안양역 → 수원역
+const TOUR_CAMP_TO = { name: '수원역', lat: 37.26569, lng: 127.00008 };
 const TOUR_TO = { name: '강남역', lat: 37.49795, lng: 127.02762 };
 function tourMap(where, key) { try { return JSON.parse(window[where].getItem(key) || '{}'); } catch (e) { return {}; } }
 function tourPut(where, key, v) {
@@ -1935,7 +1945,7 @@ const TOUR_STEPS = {
     text: () => `<b class="no">7-1.</b> 날마다 아낀 탄소 → 달력<span class="tour-f">밝기 4단계: 500g 미만 · 500g~2kg · 2~5kg · 5kg 이상<br>날짜를 누르면 그날 아낀 양<br>위: 지난 7일 요약 · 이번 달 누적 절약량</span>${TOUR_NEXT('화면을 누르면 홈으로 ›')}`,
   },
   k1: {
-    screen: 'main', target: '#kg-card .kg-head', lift: '#kg-card', place: 'above',
+    screen: 'main', target: '#kg-card', place: 'above',
     text: () => '<b class="no">8.</b> 탄소량 쉽게 보기<span class="tour-act"><b>이산화탄소 1kg</b> 카드를 눌러 펼쳐 보세요</span>',
   },
   k2: {
@@ -1961,7 +1971,7 @@ const TOUR_STEPS = {
   },
   'c2-1': {
     screen: 'campaign-new', target: '.field:has(.cn-modes)', box: true, tap: true,
-    text: () => `<b class="no">1-2.</b> 분류 · 이동 수단<span class="tour-f">참여자는 고른 수단으로만 길찾기<br>이번엔 <b>지하철</b> 캠페인</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">1-2.</b> 분류 · 이동 수단<span class="tour-f">참여자는 고른 수단으로만 길찾기<br>이번엔 <b>자전거</b> 나들이 캠페인</span>${TOUR_NEXT()}`,
   },
   'c2-2': {
     screen: 'campaign-new', target: 'label.field:has(textarea[name="body"])', box: true, tap: true,
@@ -1977,11 +1987,23 @@ const TOUR_STEPS = {
   },
   c3: {
     screen: 'campaigns', tap: true,
-    text: () => `<b class="no">1-6.</b> 관리자 검토 후 게시<span class="tour-f">부적절한 캠페인 방지<br>관리자 승인 → 캠페인 목록에 올라가고 알림</span><span class="tour-sub">검토 상태: 계정정보 › 내 캠페인</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">1-6.</b> 관리자 검토 후 게시<span class="tour-f">부적절한 캠페인 방지<br>관리자 승인 → 캠페인 목록에 올라가고 알림</span><span class="tour-sub">검토 상태: 계정정보 › 내 캠페인</span>${TOUR_NEXT(isAdmin() && state.tourCampId ? '화면을 누르면 관리자 검토 화면으로 ›' : undefined)}`,
+  },
+  c3a: { // 관리자 계정만: 방금 진짜로 올린 캠페인을 검토 화면에서 직접 승인
+    screen: 'admin',
+    get target() { return state.tourCampId ? `.ad-item:has(.rv-ok[data-id="${state.tourCampId}"]) .rv-ok` : '.ad-item .rv-ok'; },
+    text: () => '<b class="no">1-7.</b> 관리자 검토<span class="tour-f">방금 올린 캠페인이 검토 대기에 들어왔어요<br>내용 확인 → 승인하면 바로 게시 · 반려하면 사유 전달</span><span class="tour-act"><b>승인</b>을 눌러 게시해 보세요</span>',
   },
   c4: {
-    screen: 'campaigns', target: '.c-list .c-card', place: 'above',
-    text: () => '<b class="no">2-1.</b> 다른 사람의 캠페인에 참여<span class="tour-act">캠페인을 눌러 보세요</span>',
+    screen: 'campaigns', place: 'above',
+    get target() { // 방금 올린 내 캠페인 말고, 진행 중인 다른 사람의 자전거 캠페인 (없으면 다른 수단)
+      const list = campStore.load();
+      const camp = (el) => list.find((x) => String(x.id) === el.dataset.id);
+      const ok = [...document.querySelectorAll('#app .c-list .c-card')].filter((el) => { const c = camp(el); return c && !isMine(c) && String(c.id) !== String(state.tourCampId) && !campEnded(c); });
+      const pick = ok.find((el) => campMode(camp(el)).id === 'bike') || ok[0];
+      return pick ? `.c-list .c-card[data-id="${pick.dataset.id}"]` : '.c-list .c-card';
+    },
+    text: () => '<b class="no">2-1.</b> 다른 사람의 캠페인에 참여<span class="tour-act"><b>자전거 캠페인</b>을 눌러 보세요</span>',
   },
   'c5-1': {
     screen: 'campaign', target: '.cd-goal', tap: true, place: 'below',
@@ -1999,8 +2021,34 @@ const TOUR_STEPS = {
     screen: 'home', target: '.float-top .camp-trip', lift: '.float-top', tap: true, place: 'below', when: () => !!state.campTrip,
     text: () => `<b class="no">2-5.</b> 참여 중 표시<span class="tour-f">길찾기 → 안내 → 도착<br>→ 캠페인에 기록 · 기여 랭킹 반영</span>${TOUR_NEXT()}`,
   },
+  c8: {
+    screen: 'home', target: '#go-result', lift: '.cta', fixed: true, when: () => !!state.campTrip && state.ready && !state.loading && !!currentPlan().chosen,
+    prep: () => { if (state.campTrip && state.ready && state.from && state.to && !state.raw && !state.loading && (state.tourRouteTry || 0) < 2) { state.tourRouteTry = (state.tourRouteTry || 0) + 1; findRoutes(); } },
+    text: () => `<b class="no">2-6.</b> 캠페인 길찾기<span class="tour-f">오늘: <b>${esc((state.from || TOUR_FROM).name)} → ${esc((state.to || TOUR_CAMP_TO).name)}</b><br>캠페인 수단(${esc(state.campTrip ? campModeOf(state.campTrip.mode).label : '')})으로 가는 길만 찾아요</span><span class="tour-act"><b>길찾기</b>를 눌러 보세요</span>`,
+  },
+  'c-res': {
+    screen: 'result', target: '.rcard.sel', place: 'above', when: () => !!state.campTrip && !state.loading && !!currentPlan().chosen,
+    text: () => '<b class="no">2-7.</b> 캠페인 수단 경로만<span class="tour-f">다른 수단 경로는 빠지고 이 캠페인 수단으로만</span><span class="tour-act"><b>안내 시작</b>을 눌러 출발해 보세요</span>',
+  },
+  'c-nav': {
+    screen: 'nav', tap: true,
+    text: () => `<b class="no">2-8.</b> 캠페인 참여 중 안내<span class="tour-sub"><b>${esc((state.from || TOUR_FROM).name)} → ${esc((state.to || TOUR_CAMP_TO).name)}</b></span>${TOUR_NEXT('화면을 누르면 출발 ›')}`,
+  },
+  'c-go': { screen: 'nav', chip: true },
+  'c-arr': {
+    screen: 'nav', target: '.navx-arrive', lift: '.navx-bottom', fixed: true,
+    text: () => '<b class="no">2-9.</b> 도착 → 참여 완료<span class="tour-f">도착지 50m 안 → 참여 완료 버튼</span><span class="tour-act"><b>참여 완료</b>를 눌러 보세요</span>',
+  },
+  'c-done': {
+    screen: 'campdone', target: '.cdone-goal', tap: true, place: 'above',
+    text: () => `<b class="no">2-10.</b> 아낀 탄소 → 캠페인 목표에 더해져요<span class="tour-f">내 누적 기여 · 참여자 중 순위</span>${TOUR_NEXT('화면을 누르면 기여 랭킹으로 ›')}`,
+  },
+  'c-rank': {
+    screen: 'campaign', target: '#camp-rank .cr-mine', tap: true, place: 'below',
+    text: () => `<b class="no">2-11.</b> 참여자 기여 랭킹에 내 이름<span class="tour-f">도착할 때마다 내 기여가 쌓여 순위가 올라가요<br>많이 기여할수록 보상도 함께</span>${TOUR_NEXT()}`,
+  },
   c7: {
-    screen: 'home', tap: true, when: () => !!state.campTrip,
+    screen: ['campaign', 'home'], tap: true,
     text: () => `<b class="no">3.</b> 캠페인 튜토리얼 끝<span class="tour-sub">다음: 랭킹</span>${TOUR_NEXT('화면을 누르면 홈으로 ›')}`,
   },
   // ── 랭킹 · 포인트 상점 튜토리얼: 그 화면을 이번에 처음 열 때 (tourSide) ──
@@ -2231,15 +2279,16 @@ function tourSimStart() {
     const t = Math.min(1, Math.max(0, (d - cum[i - 1]) / (cum[i] - cum[i - 1] || 1)));
     return { lat: pts[i - 1].lat + (pts[i].lat - pts[i - 1].lat) * t, lng: pts[i - 1].lng + (pts[i].lng - pts[i - 1].lng) * t, mode: pts[i].mode };
   };
+  const goSt = tourStage() === 'c-go' ? 'c-go' : '4-go'; // 길찾기 튜토리얼 · 캠페인 튜토리얼 둘 다
   const dur = 10800; // 출발지 → 도착지 약 11초
   const saving = Math.max(0, chosen.saving || 0);
   state.tourSimMode = m0; state.tourSimG = 0;
   const t0 = performance.now();
   clearInterval(tourSimStart.t);
   tourSimStart.t = setInterval(() => {
-    if (state.screen !== 'nav' || tourStage() !== '4-go') {
+    if (state.screen !== 'nav' || tourStage() !== goSt) {
       clearInterval(tourSimStart.t);
-      if (tourStage() === '4-go') { tourGo('3-3'); tourPaint(); } // 중간에 안내를 끝내면 경로 고르기부터 다시
+      if (tourStage() === goSt) { tourGo(goSt === 'c-go' ? 'c-res' : '3-3'); tourPaint(); } // 중간에 안내를 끝내면 경로 고르기부터 다시
       return;
     }
     const p = Math.min(1, (performance.now() - t0) / dur);
@@ -2251,7 +2300,7 @@ function tourSimStart() {
     state.me = p >= 1 ? { lat: state.to.lat, lng: state.to.lng } : { lat: here.lat, lng: here.lng };
     state.step = Math.min(chosen.steps.length - 1, Math.floor(e * chosen.steps.length));
     if (mapCtl) mapCtl.setMe(state.me, true);
-    if (p >= 1) { clearInterval(tourSimStart.t); state.step = chosen.steps.length - 1; tourGo('4-2'); }
+    if (p >= 1) { clearInterval(tourSimStart.t); state.step = chosen.steps.length - 1; tourGo(goSt === 'c-go' ? 'c-arr' : '4-2'); }
     updateNav();
   }, 100);
 }
@@ -2264,6 +2313,25 @@ function tourDemoFinish() {
   state.campResult = null;
   state.recorded = true;
   go('done');
+}
+// 캠페인 튜토리얼 도착: 시연 이동이라 서버 · 내 기록에는 안 남기고, 이 화면에서만 캠페인에 내 기여를 더해 보여 줘요
+function tourCampFinish() {
+  clearInterval(tourSimStart.t);
+  const { chosen } = currentPlan();
+  const ct = state.campTrip; const c = campTripCamp();
+  const g = Math.max(0, Math.round((chosen && chosen.saving) || 0));
+  state.lastLog = loadLog(); state.newTitle = null; state.lastEarn = null; state.recorded = true;
+  if (!ct || !c) { tourGo('c7'); go('home'); return; }
+  state.tourCampG = { campId: c.id, g };
+  state.campResult = { campId: c.id, mode: ct.mode, g, beforeG: c.progressG };
+  state.campId = c.id;
+  go('campdone');
+}
+// 튜토리얼에서 시연으로 더한 기여를 얹은 캠페인 (화면에만)
+function tourCampView(c) {
+  const t = state.tourCampG;
+  if (!c || !t || String(t.campId) !== String(c.id)) return c;
+  return { ...c, progressG: (c.progressG || 0) + t.g, myG: (c.myG || 0) + t.g, joined: true, participants: (c.participants || 0) + (c.joined ? 0 : 1) };
 }
 function mainHTML() {
   const log = loadLog();
@@ -2716,7 +2784,7 @@ function saveDraftFromForm() {
   const fd = new FormData(f);
   Object.assign(state.campDraft, { title: String(fd.get('title') || ''), sub: String(fd.get('sub') || ''), body: String(fd.get('body') || ''), goalKg: Number(fd.get('goalKg')) || '' });
 }
-function submitCampaign() {
+function submitCampaign(opt = {}) {
   saveDraftFromForm();
   const d = state.campDraft;
   const err = !d.title.trim() ? '캠페인 제목을 적어 주세요.'
@@ -2725,7 +2793,7 @@ function submitCampaign() {
   state.campErr = err;
   if (err) { render(); return; }
   const fields = { tag: d.tag, mode: d.mode || TAG_MODE[d.tag] || 'bus', title: d.title.trim(), sub: d.sub.trim(), body: d.body.trim(), goalKg: Math.round(d.goalKg), cover: d.cover || '' };
-  if (dbMode()) { submitCampaignDb(fields); return; }
+  if (dbMode()) { submitCampaignDb(fields, opt); return; }
   const list = campStore.load();
   const old = state.campEditId && list.find((x) => x.id === state.campEditId && isMine(x));
   let c;
@@ -2741,14 +2809,22 @@ function submitCampaign() {
   }
   if (!campStore.save(list)) { state.campErr = '저장 공간이 부족해요. 더 작은 사진으로 바꿔 주세요.'; render(); return; }
   state.campDraft = null; state.campErr = ''; state.campEditId = null;
+  if (opt.tour) { tourSubmitted(c.id); return; }
   state.campId = c.id;
   state.campReturn = 'account'; // 검토 상태는 계정정보 > 내 캠페인에서 봐요
   go('campaign');
   toast('검토 요청을 보냈어요! 승인되면 알려 드릴게요');
 }
 
+// 튜토리얼(관리자)에서 진짜로 올린 뒤: 캠페인 목록으로 돌아가 1-6 검토 설명 → 1-7 관리자 화면에서 승인
+function tourSubmitted(id) {
+  state.tourCampId = id;
+  tourGo('c3');
+  go('campaigns', 'back');
+  toast('검토 요청을 보냈어요! 관리자 검토를 기다려요');
+}
 // 서버 DB: 서버에 올리고 → 서버 기록으로 맞춘 뒤 → 올린 캠페인 화면으로
-async function submitCampaignDb(fields) {
+async function submitCampaignDb(fields, opt = {}) {
   if (state.campBusy) return;
   state.campBusy = true;
   const btn = document.querySelector('#camp-form [type="submit"]');
@@ -2759,6 +2835,7 @@ async function submitCampaignDb(fields) {
   if (r.status !== 200) { state.campErr = r.data.error || '올리지 못했어요. 잠시 후 다시 시도해 주세요.'; render(); return; }
   await syncFromServer({ quiet: true });
   state.campDraft = null; state.campErr = ''; state.campEditId = null;
+  if (opt.tour) { tourSubmitted(r.data.id); return; }
   state.campId = r.data.id;
   state.campReturn = 'account';
   go('campaign');
@@ -3005,9 +3082,8 @@ const admUser = (id) => ((state.adm && state.adm.users) || []).find((u) => u.id 
 function reviewCampaign(id, status, reason) {
   if (dbMode()) {
     if (!isAdmin()) return;
-    dbWrite('camp-review', { id, decision: status, reason }, status === 'approved' ? '승인했어요. 캠페인 목록에 올라갔어요' : '반려했어요. 만든 사람에게 사유가 전달돼요')
-      .then((ok) => { if (ok && state.screen === 'campaign') goBack(); });
-    return;
+    return dbWrite('camp-review', { id, decision: status, reason }, status === 'approved' ? '승인했어요. 캠페인 목록에 올라갔어요' : '반려했어요. 만든 사람에게 사유가 전달돼요')
+      .then((ok) => { if (ok && state.screen === 'campaign') goBack(); return ok; });
   }
   const list = campStore.load();
   const c = list.find((x) => x.id === id);
@@ -5162,7 +5238,7 @@ function doneHTML() {
 // ── 캠페인 참여 완료 ──
 function campDoneHTML() {
   const r = state.campResult;
-  const c = r && campStore.load().find((x) => x.id === r.campId);
+  const c = tourCampView(r && campStore.load().find((x) => x.id === r.campId));
   if (!r || !c) return `${appBar('캠페인')}<main class="content"><p class="empty">캠페인을 찾지 못했어요.</p></main>${cta('<button type="button" class="btn primary" data-act="go-main">홈으로 돌아가기</button>')}`;
   const m = campModeOf(r.mode);
   const goal = c.goalKg * 1000;
@@ -5649,8 +5725,24 @@ const actions = {
     if (st === '4-1') { tourGo('4-go'); tourPaint(); tourSimStart(); return; }
     if (st === 'g2') { tourGo('k1'); state.kgOpen = false; state.kgView = 'one'; go('main', 'back'); return; }
     if (st === 'k2') { tourGo('c0'); tourPaint(); return; }
-    if (st === 'c7') { tourGo('done'); state.campTrip = null; state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; go('main'); if (!state.sideTour) toast('튜토리얼을 모두 마쳤어요. 이제 직접 해 보세요'); return; }
-    const next = { '2-1': '2-2', '5-1': '5-2', '5-2': '6', 'c2-1': 'c2-2', 'c2-2': 'c2-3', 'c2-3': 'c2-4', c3: 'c4', 'c5-1': 'c5-2', 'c5-2': 'c5-3', c6: 'c7' }[st];
+    if (st === 'c3' && isAdmin() && state.tourCampId) { tourGo('c3a'); state.adminTab = 'pending'; go('admin'); return; }
+    if (st === 'c7') { tourGo('done'); state.campTrip = null; state.tourCampG = null; state.campResult = null; state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; go('main'); if (!state.sideTour) toast('튜토리얼을 모두 마쳤어요. 이제 직접 해 보세요'); return; }
+    if (st === 'c6') { // 2-5 → 2-6: 캠페인 수단으로 안양역 → 수원역 길찾기
+      tourGo('c8');
+      state.from = { ...TOUR_FROM }; state.to = { ...TOUR_CAMP_TO }; state.raw = null; state.chosenId = null; state.openDetail = null; state.tourRouteTry = 0; state.recorded = false;
+      render();
+      if (state.ready && !state.loading) { state.tourRouteTry = 1; findRoutes(); }
+      return;
+    }
+    if (st === 'c-nav') { tourGo('c-go'); tourPaint(); tourSimStart(); return; }
+    if (st === 'c-done') { // 2-10 → 2-11: 캠페인 화면의 기여 랭킹으로
+      const id = state.campResult && state.campResult.campId;
+      tourGo('c-rank'); state.campTrip = null; if (id) state.campId = id; state.campReturn = 'campaigns';
+      go('campaign', 'back');
+      return;
+    }
+    if (st === 'c-rank') { tourGo('c7'); tourPaint(); return; }
+    const next = { '2-1': '2-2', '5-1': '5-2', '5-2': '6', 'c2-1': 'c2-2', 'c2-2': 'c2-3', 'c2-3': 'c2-4', c3: 'c4', 'c5-1': 'c5-2', 'c5-2': 'c5-3' }[st];
     if (next) { tourGo(next); tourPaint(); }
   },
   'tour-nudge': () => { // 어두운 곳을 누르면 눌러야 할 곳이 살짝 흔들려요
@@ -5756,7 +5848,14 @@ const actions = {
     state.demoBusy = false; render();
     if (r) toast(`예시 회원 ${r.removed}명 · 내 캘린더 예시 ${r.calRemoved}번을 지웠어요`);
   }),
-  'camp-approve': (el) => reviewCampaign(el.dataset.id, 'approved'),
+  'camp-approve': (el) => {
+    if (tourStage() === 'c3a') { // 튜토리얼 1-7: 진짜로 승인하고 → 캠페인 목록에서 2-1 다른 캠페인 참여로
+      tourGo('c4');
+      Promise.resolve(reviewCampaign(el.dataset.id, 'approved')).then(() => go('campaigns'));
+      return;
+    }
+    reviewCampaign(el.dataset.id, 'approved');
+  },
   'camp-reject': (el) => {
     const c = campStore.load().find((x) => x.id === el.dataset.id);
     if (c) rejectSheet(c).then((reason) => { if (reason) reviewCampaign(c.id, 'rejected', reason); });
@@ -5888,7 +5987,7 @@ const actions = {
   'pick-recent': (el) => { const p = loadRecent()[Number(el.dataset.i)]; if (p) pickPlace({ name: p.name, address: p.address, lat: p.lat, lng: p.lng }); },
   mine: () => useMyLocation(),
   swap: () => { [state.from, state.to] = [state.to, state.from]; findRoutes(); render(); },
-  'to-result': () => { if (tourStage() === '2-2') tourGo('3-1'); go('result'); }, // 튜토리얼 2-2 → 경로 화면 3-1
+  'to-result': () => { if (tourStage() === '2-2') tourGo('3-1'); if (tourStage() === 'c8') tourGo('c-res'); go('result'); }, // 튜토리얼 2-2 → 경로 화면 3-1
   'eco-peek': () => openEcoPeek(),
   'peek-close': () => closeEcoPeek(),
   'peek-go': () => { closeEcoPeek(true); go('result'); },
@@ -5909,8 +6008,8 @@ const actions = {
   'start-nav': (el) => {
     if (el.dataset.id) state.chosenId = el.dataset.id;
     state.step = 0; state.me = null; state.follow = true; state.recorded = false;
-    const demo = ['3-2', '3-3'].includes(tourStage()) && state.from; // 튜토리얼(3-2에서 바로 눌러도): 진짜 GPS 대신 출발지에서 시연 이동
-    if (demo) { tourGo('4-1'); state.me = { lat: state.from.lat, lng: state.from.lng }; state.tourSimP = 0; }
+    const demo = ['3-2', '3-3', 'c-res'].includes(tourStage()) && state.from; // 튜토리얼(3-2에서 바로 눌러도): 진짜 GPS 대신 출발지에서 시연 이동
+    if (demo) { tourGo(tourStage() === 'c-res' ? 'c-nav' : '4-1'); state.me = { lat: state.from.lat, lng: state.from.lng }; state.tourSimP = 0; }
     go('nav'); if (!demo) startTracking(); updateNav();
     loadShapeFor(currentPlan().chosen); // 고른 경로의 실제 노선 모양 (하루 호출 수 절약)
   },
@@ -5922,6 +6021,7 @@ const actions = {
   },
   arrive: () => {
     if (tourStage() === '4-2') { tourGo('5-1'); tourDemoFinish(); return; } // 튜토리얼: 기록에 안 남기고 도착 화면만
+    if (tourStage() === 'c-arr') { tourGo('c-done'); tourCampFinish(); return; } // 캠페인 튜토리얼: 캠페인 완료 화면 (시연이라 기록은 안 남겨요)
     if (nearDest()) finishTrip();
   }, // 도착 버튼 (도착지 50m 안에서만): 아낀 탄소를 저장하고 결과(나무 N그루) 화면으로
   follow: () => { state.follow = !state.follow; if (mapCtl) mapCtl.setMe(state.me, state.follow); updateNav(); },
@@ -5983,7 +6083,11 @@ appEl.addEventListener('submit', (e) => {
   if (e.target.id === 'search-form') { e.preventDefault(); runSearch(); }
   if (e.target.id === 'camp-form') {
     e.preventDefault();
-    if (tourStage() === 'c2-4') { tourGo('c3'); state.campDraft = null; state.campErr = ''; go('campaigns', 'back'); return; } // 튜토리얼: 시연이라 실제로 안 올려요
+    if (tourStage() === 'c2-4') {
+      // 튜토리얼: 관리자 계정이면 진짜로 올려서 다음 단계(1-7)에서 직접 검토 · 승인해요. 일반 회원은 연습이라 올리지 않아요
+      if (isAdmin()) { submitCampaign({ tour: true }); return; }
+      tourGo('c3'); state.campDraft = null; state.campErr = ''; go('campaigns', 'back'); return;
+    }
     submitCampaign();
   }
   if (e.target.id === 'fb-form') { e.preventDefault(); sendFeedback(); return; }

@@ -2605,3 +2605,14 @@ body.kb-open .content { padding-bottom: max(60vh, 340px); }
 
 /* 푸름이 말풍선: 말이 길면 두 줄까지 */
 .mascot-say { white-space: normal; width: max-content; max-width: 210px; text-align: left; word-break: keep-all; }
+
+/* ── 튜토리얼을 밝게 (시연 화면에서 잘 보이게) ──
+   막은 옅게 · 흐림 없이, 밝힌 곳은 빛나는 테두리만, 안내 문구는 어두운 말풍선에 담아 어떤 바탕에서도 읽혀요 */
+.tour-dim, .tour-layer .tour-dim { background: rgba(10, 20, 40, .16); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.tour-lift > :not(.tour-hl):not(:has(.tour-hl)), .float-top.tour2 > :not(.trip-box):not(.tour-tip) { filter: none; opacity: .55; }
+.tour-tip.tt { text-shadow: none; }
+.tour-tip.tt .tour-txt { padding: 13px 16px 14px; border-radius: 18px; background: rgba(18, 28, 52, .94); box-shadow: 0 10px 28px rgba(10, 20, 45, .28); }
+.tour-tip.tt.mid .tour-txt { max-width: 100%; }
+.tour-layer .tour-arrow { filter: drop-shadow(0 0 2px #fff) drop-shadow(0 1px 3px rgba(255, 255, 255, .9)); }
+.tour-layer .tour-arrow path { stroke: #22355e; }
+.tour-never { padding: 0 14px 0 10px; border-radius: 999px; background: rgba(18, 28, 52, .88); color: #fff; text-shadow: none; box-shadow: 0 6px 16px rgba(10, 20, 45, .22); }
