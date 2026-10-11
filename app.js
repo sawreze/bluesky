@@ -2044,17 +2044,18 @@ const TOUR_STEPS = {
     text: () => `<b class="no">2-8.</b> 캠페인에 참여한 채로 안내해요<span class="tour-sub"><b>${esc((state.from || TOUR_FROM).name)} → ${esc((state.to || TOUR_CAMP_TO).name)}</b></span>${TOUR_NEXT('화면을 누르면 출발해요 ›')}`,
   },
   'c-go': { screen: 'nav', chip: true },
+  'c-find': { screen: ['home', 'nav'], when: () => false }, // 길 찾는 애니메이션이 떠 있는 동안 (안내 문구 없음)
   'c-arr': {
     screen: 'nav', target: '.navx-arrive', lift: '.navx-bottom', fixed: true,
-    text: () => '<b class="no">2-9.</b> 도착하면 참여 완료<span class="tour-f">도착지 50m 안에 들어오면 참여 완료 버튼이 나타나요.</span><span class="tour-act"><b>참여 완료</b>를 눌러 주세요</span>',
+    text: () => `<b class="no">2-6.</b> 도착지에 왔어요<span class="tour-f">${esc((state.from || TOUR_FROM).name)}에서 ${esc((state.to || TOUR_CAMP_TO).name)}까지 캠페인 수단으로 왔다고 생각해 볼게요.<br>도착지 50m 안에 들어오면 참여 완료 버튼이 나타나요.</span><span class="tour-act"><b>참여 완료</b>를 눌러 주세요</span>`,
   },
   'c-done': {
     screen: 'campdone', target: '.cdone-goal', tap: true, place: 'above',
-    text: () => `<b class="no">2-10.</b> 아낀 탄소가 캠페인 목표에 더해졌어요<span class="tour-f">지금까지 내가 기여한 양과 참여자 중 순위도 함께 볼 수 있어요.</span><span class="tour-sub">튜토리얼 이동이라 실제 기록에는 남지 않아요.</span>${TOUR_NEXT('화면을 누르면 기여 랭킹으로 ›')}`,
+    text: () => `<b class="no">2-7.</b> 아낀 탄소가 캠페인 목표에 더해졌어요<span class="tour-f">지금까지 내가 기여한 양과 참여자 중 순위도 함께 볼 수 있어요.</span><span class="tour-sub">튜토리얼 이동이라 실제 기록에는 남지 않아요.</span>${TOUR_NEXT('화면을 누르면 기여 랭킹으로 ›')}`,
   },
   'c-rank': {
     screen: 'campaign', target: '#camp-rank .cr-mine', tap: true, place: 'below',
-    text: () => `<b class="no">2-11.</b> 기여 랭킹에 내 이름이 올라갔어요<span class="tour-f">도착할 때마다 기여가 쌓이고 순위도 올라가요.<br>많이 기여할수록 받는 보상도 커져요.</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2-8.</b> 기여 랭킹에 내 이름이 올라갔어요<span class="tour-f">참여를 완료하면 아낀 탄소에 따라 순위가 기록돼요.<br>도착할 때마다 기여가 쌓이고, 많이 기여할수록 받는 보상도 커져요.</span>${TOUR_NEXT()}`,
   },
   c7: {
     screen: ['campaign', 'home'], tap: true,
@@ -2345,6 +2346,81 @@ function tourCampFinish() {
   state.campResult = { campId: c.id, mode: ct.mode, g, beforeG: c.progressG };
   state.campId = c.id;
   go('campdone');
+}
+// 튜토리얼 '길 찾는 중' 애니메이션: 동네 지도 위에 후보 길을 훑고 → 고른 길이 그려지며 수단 아이콘이 달리고 → 도착 핀이 떨어져요 (약 3.4초)
+//  화면 전체를 덮는 창이라 그동안 다른 곳은 눌리지 않아요. done 은 창이 사라진 뒤 불러요.
+const TF_PATH = 'M34 128 C 70 126, 82 92, 118 90 S 168 82, 186 66 S 222 46, 248 44';
+function tourFindAnim(o, done) {
+  document.querySelector('.tf-wrap')?.remove();
+  state.tourFinding = true;
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ic = TOUR_IC[o.mode] || MI.walk;
+  const color = (MODES[o.mode] || MODES.walk || {}).color || '#2563eb';
+  const w = document.createElement('div');
+  w.className = `tf-wrap${reduce ? ' tf-reduce' : ''}`;
+  w.setAttribute('role', 'status');
+  w.innerHTML = `<div class="tf-card" style="--mc:${color}">
+      <p class="tf-tag">${esc(o.tag || '길찾기')}</p>
+      <p class="tf-trip"><b>${esc(o.from.name)}</b><span class="tf-arw" aria-hidden="true"></span><b>${esc(o.to.name)}</b></p>
+      <div class="tf-map">
+        <svg viewBox="0 0 286 160" aria-hidden="true">
+          <defs>
+            <linearGradient id="tfRoute" x1="0" x2="1" y1="1" y2="0"><stop offset="0" stop-color="#22c55e"/><stop offset="1" stop-color="${color}"/></linearGradient>
+            <linearGradient id="tfScan" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+            <filter id="tfGlow" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="4"/></filter>
+            <clipPath id="tfClip"><rect width="286" height="160" rx="18"/></clipPath>
+          </defs>
+          <g clip-path="url(#tfClip)">
+            <rect width="286" height="160" fill="#e8f0f7"/>
+            <path d="M-10 52 C 60 40, 120 70, 190 44 S 260 18, 300 26" fill="none" stroke="#cfe3f7" stroke-width="16"/>
+            <ellipse cx="78" cy="40" rx="34" ry="18" fill="#d6ead7"/><ellipse cx="226" cy="118" rx="42" ry="22" fill="#d6ead7"/>
+            <g stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".95">
+              <path d="M0 110 H286"/><path d="M0 76 H286" opacity=".7"/><path d="M60 0 V160"/><path d="M150 0 V160"/><path d="M226 0 V160" opacity=".7"/>
+            </g>
+            <path class="tf-alt tf-alt1" d="M34 128 C 60 150, 130 150, 170 120 S 240 80, 248 44" pathLength="1"/>
+            <path class="tf-alt tf-alt2" d="M34 128 C 40 80, 90 30, 150 30 S 230 26, 248 44" pathLength="1"/>
+            <path class="tf-glow" d="${TF_PATH}" pathLength="1" filter="url(#tfGlow)"/>
+            <path class="tf-route" d="${TF_PATH}" pathLength="1"/>
+            <rect class="tf-scan" x="-90" y="0" width="90" height="160" fill="url(#tfScan)"/>
+            <g class="tf-start"><circle class="tf-ring" cx="34" cy="128" r="9"/><circle cx="34" cy="128" r="7" fill="#fff" stroke="#16a34a" stroke-width="3.5"/></g>
+            <g class="tf-end"><circle class="tf-ring tf-ring2" cx="248" cy="44" r="8"/><g transform="translate(-4 10)"><g class="tf-pin"><path d="M252 34c-1.4-6.6-13-12.4-13-21.2C239 5.6 244.8 0 252 0s13 5.6 13 12.8c0 8.8-11.6 14.6-13 21.2z" fill="#ef4444"/><circle cx="252" cy="12.6" r="4.8" fill="#fff"/></g></g></g>
+            <g class="tf-rider">
+              <circle r="13" fill="#fff" stroke="${color}" stroke-width="3"/>
+              <g transform="translate(-9 -9) scale(.75)" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ic.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '')}</g>
+              ${reduce ? '' : `<animateMotion dur="1.7s" begin="1.05s" fill="freeze" calcMode="spline" keyTimes="0;1" keyPoints="0;1" keySplines=".45 0 .25 1" path="${TF_PATH}"/>`}
+            </g>
+          </g>
+        </svg>
+      </div>
+      <div class="tf-lines">${o.lines.map((t, i) => `<p class="tf-l tf-l${i + 1}">${i === o.lines.length - 1 ? `<i class="tf-ok" aria-hidden="true"></i>` : '<i class="tf-dot" aria-hidden="true"></i>'}${esc(t)}</p>`).join('')}</div>
+      <p class="tf-save"></p>
+    </div>`;
+  document.body.appendChild(w);
+  if (reduce) { const r = w.querySelector('.tf-rider'); if (r) r.setAttribute('transform', 'translate(248 44)'); }
+  requestAnimationFrame(() => w.classList.add('on'));
+  setTimeout(() => { // 마지막에 실제 경로의 절약량을 보여 줘요 (아직 계산 전이면 비워 둬요)
+    const c = currentPlan().chosen; const el = w.querySelector('.tf-save');
+    if (c && el && c.saving > 0) { el.textContent = `혼자 자동차로 갈 때보다 CO₂ ${tG(c.saving)} 덜 나와요`; el.classList.add('on'); }
+  }, reduce ? 300 : 2700);
+  setTimeout(() => {
+    w.classList.remove('on'); w.classList.add('off');
+    setTimeout(() => { w.remove(); state.tourFinding = false; done && done(); }, 380);
+  }, reduce ? 1400 : 3900);
+}
+// 캠페인 튜토리얼: 길을 찾은 뒤 출발지부터 달리는 시연 없이 바로 도착지에 와 있는 안내 화면 → '참여 완료'를 눌러요
+function tourCampArrive(tries = 0) {
+  if (tourStage() !== 'c-find') return;
+  const { chosen } = currentPlan();
+  if (!chosen || state.loading) {
+    if (tries === 6 && !state.loading && !state.raw && state.ready) findRoutes();
+    if (tries < 40) { setTimeout(() => tourCampArrive(tries + 1), 250); return; }
+    tourGo('c7'); state.campTrip = null; go('main'); return; // 길을 못 찾으면 캠페인 안내 끝으로
+  }
+  state.chosenId = chosen.id; state.step = Math.max(0, chosen.steps.length - 1);
+  state.me = { lat: state.to.lat, lng: state.to.lng }; state.follow = true; state.recorded = false; state.tourSimP = 1;
+  tourGo('c-arr');
+  go('nav'); updateNav();
+  loadShapeFor(chosen);
 }
 // 튜토리얼에서 시연으로 더한 기여를 얹은 캠페인 (화면에만)
 function tourCampView(c) {
@@ -5745,7 +5821,16 @@ const actions = {
     if (st === 'k2') { tourGo('c0'); tourPaint(); return; }
     if (st === 'c3' && isAdmin() && tourCampId()) { tourGo('c3a'); state.adminTab = 'pending'; go('admin'); return; }
     if (st === 'c7') { tourGo('done'); state.campTrip = null; state.tourCampG = null; state.campResult = null; state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; go('main'); if (!state.sideTour) toast('튜토리얼을 모두 마쳤어요. 이제 직접 해 보세요'); return; }
-    if (st === 'c6') { tourGo('c7'); tourPaint(); return; } // 2-5 → 끝 (캠페인 길찾기 · 도착 시연은 생략, c8 ~ c-rank 단계는 쓰지 않아요)
+    if (st === 'c6') { // 2-5 → 길 찾는 애니메이션(안양역 → 수원역, 캠페인 수단) → 도착지에서 2-6 참여 완료
+      if (state.tourFinding) return;
+      tourGo('c-find');
+      state.from = { ...TOUR_FROM }; state.to = { ...TOUR_CAMP_TO }; state.raw = null; state.chosenId = null; state.openDetail = null; state.tourRouteTry = 1; state.recorded = false;
+      render();
+      if (state.ready && !state.loading) findRoutes();
+      const mode = state.campTrip ? state.campTrip.mode : 'bike';
+      tourFindAnim({ tag: '캠페인 길찾기', mode, from: state.from, to: state.to, lines: [`${campModeOf(mode).ro} 가는 길만 살펴보는 중이에요`, '탄소를 가장 아끼는 경로를 고르는 중이에요', '경로를 찾았어요'] }, () => tourCampArrive());
+      return;
+    }
     if (st === 'c-nav') { tourGo('c-go'); tourPaint(); tourSimStart(); return; }
     if (st === 'c-done') { // 2-10 → 2-11: 캠페인 화면의 기여 랭킹으로
       const id = state.campResult && state.campResult.campId;
@@ -5998,7 +6083,17 @@ const actions = {
   'pick-recent': (el) => { const p = loadRecent()[Number(el.dataset.i)]; if (p) pickPlace({ name: p.name, address: p.address, lat: p.lat, lng: p.lng }); },
   mine: () => useMyLocation(),
   swap: () => { [state.from, state.to] = [state.to, state.from]; findRoutes(); render(); },
-  'to-result': () => { if (tourStage() === '2-2') tourGo('3-1'); if (tourStage() === 'c8') tourGo('c-res'); go('result'); }, // 튜토리얼 2-2 → 경로 화면 3-1
+  'to-result': () => {
+    if (tourStage() === '2-2') { // 튜토리얼 2-2: 길 찾는 애니메이션을 보여 준 뒤 경로 화면 3-1로
+      if (state.tourFinding) return;
+      const { chosen } = currentPlan();
+      const seg = chosen && (chosen.segments || []).find((x) => x.mode && x.mode !== 'walk');
+      tourFindAnim({ tag: '길찾기', mode: seg ? seg.mode : 'walk', from: state.from || TOUR_FROM, to: state.to || TOUR_TO, lines: ['출발지와 도착지 사이의 길을 살펴보는 중이에요', '탄소가 적게 나오는 길을 비교하는 중이에요', '경로를 찾았어요'] }, () => { tourGo('3-1'); go('result'); });
+      return;
+    }
+    if (tourStage() === 'c8') tourGo('c-res');
+    go('result');
+  },
   'eco-peek': () => openEcoPeek(),
   'peek-close': () => closeEcoPeek(),
   'peek-go': () => { closeEcoPeek(true); go('result'); },
