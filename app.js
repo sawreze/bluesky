@@ -1802,7 +1802,7 @@ function weekChartHTML(series, big) {
 //   4-2 안내    도착 버튼 → 누르면 (시연 이동은 기록 · 포인트에 안 들어가요)
 //   5-1 도착    이번 이동 절약 계산식 → 화면을 누르면
 //   5-2 도착    나의 숲(지금까지 절약량) → 화면을 누르면
-//   6   도착    홈으로 돌아가기 → 누르면 그린 캘린더(g1 · g2) → CO₂ 1kg(k1 · k2) → 캠페인(c0~)
+//   6   도착    홈으로 돌아가기 → 누르면 CO₂ 1kg(k1 · k2) → 캠페인(c0~)
 //  밝은 곳(버튼)은 직접 눌러야 넘어가고, 설명만 있는 단계는 화면 아무 곳이나 누르면 다음으로 넘어가요.
 //  화면이 다시 그려질 때마다(tourPaint) 다시 칠해요. 진행 상황은 이 창(sessionStorage)에만 저장해요.
 const TOUR_KEY = 'pureun-tour'; // { 계정: 'off' }
@@ -1839,7 +1839,23 @@ function tourNextHint() {
   const seen = tourMap('sessionStorage', TOUR_SIDE)[userKey(state.user)] || {};
   return !seen.rank ? 'hr' : !seen.shop ? 'ha' : null;
 }
-function tourSideEnd() { state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; tourPaint(); }
+function tourSideEnd() { state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; tourPaint(); if (!state.sideTour) tourCampCleanup(); } // 랭킹 · 포인트 상점까지 끝나면 튜토리얼 캠페인 지우기
+// 튜토리얼(관리자)에서 진짜로 올린 캠페인: 랭킹 · 포인트 상점 튜토리얼까지 다 끝나면 지워요 (새로고침해도 잊지 않게 이 기기에 기억)
+const TOUR_CAMP_KEY = 'pureun-tour-camp'; // { 계정: 캠페인 id }
+function tourCampId() { return state.user ? tourMap('localStorage', TOUR_CAMP_KEY)[userKey(state.user)] || null : null; }
+function tourCampCleanup() {
+  const id = tourCampId();
+  if (!id || state.tourCampBusy) return;
+  state.tourCampBusy = true;
+  const done = () => { state.tourCampBusy = false; tourPut('localStorage', TOUR_CAMP_KEY, null); };
+  if (dbMode()) {
+    dataApi('camp-del', { id }).then((r) => { if (r.status === 200 || r.status === 403 || r.status === 404) done(); else state.tourCampBusy = false; syncFromServer({ quiet: true }); });
+    return;
+  }
+  campStore.save(campStore.load().filter((x) => String(x.id) !== String(id)));
+  done();
+  if (['campaigns', 'main', 'admin', 'account'].includes(state.screen)) render();
+}
 // 지금 단계 ('' = 없음). 보는 도중에 "보지 않기"를 체크해도 지금 튜토리얼은 끝까지 그대로예요.
 function tourStage() {
   if (!state.user || (tourOff() && !state.tourActive)) return '';
@@ -1868,22 +1884,22 @@ function tourCalc() {
   const parts = Object.entries(by).filter(([, km]) => km >= 0.05).map(([m, km]) => `${TOUR_MODE[m] || m} ${tKm(km)} × ${FACTORS[m]}g`);
   return { baseKm, car: ranked.baseline.emission, em: chosen.emission, saving: chosen.saving, parts, people: chosen.people || 1, by };
 }
-const TOUR_NEXT = (t = '화면을 누르면 다음으로 ›') => `<span class="tour-next">${t}</span>`;
+const TOUR_NEXT = (t = '화면을 누르면 다음으로 넘어가요 ›') => `<span class="tour-next">${t}</span>`;
 const TAB_SCREENS_TOUR = ['main', 'rank', 'campaigns', 'account']; // 하단바가 있는 화면
 const TOUR_STEPS = {
-  1: { screen: 'main', target: '.m-quick', text: () => '<b class="no">1.</b> 길찾기 시작<span class="tour-act">여기를 눌러 보세요</span>' },
+  1: { screen: 'main', target: '.m-quick', text: () => '<b class="no">1.</b> 길찾기부터 시작해 볼게요<span class="tour-act">여기를 눌러 주세요</span>' },
   '2-1': {
     screen: 'home', target: '.float-top .trip-box', lift: '.float-top', tap: true, when: () => state.ready,
     prep: () => { if (state.ready && state.from && state.to && !state.raw && !state.loading && (state.tourRouteTry || 0) < 2) { state.tourRouteTry = (state.tourRouteTry || 0) + 1; findRoutes(); } },
-    text: () => `<b class="no">2-1.</b> 출발지 · 도착지<span class="tour-f">이 칸을 눌러 장소 검색으로 입력<br>오늘: <b>${esc(TOUR_FROM.name)} → ${esc(TOUR_TO.name)}</b></span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2-1.</b> 출발지와 도착지<span class="tour-f">이 칸을 누르면 장소를 검색해서 넣을 수 있어요.<br>오늘은 <b>${esc(TOUR_FROM.name)}에서 ${esc(TOUR_TO.name)}</b>까지 가 볼게요.</span>${TOUR_NEXT()}`,
   },
   '2-2': {
     screen: 'home', target: '#go-result', lift: '.cta', fixed: true, when: () => state.ready && !state.loading && !!currentPlan().chosen,
-    text: () => '<b class="no">2-2.</b> 탄소를 아끼는 경로 찾기<span class="tour-act"><b>길찾기</b>를 눌러 보세요</span>',
+    text: () => '<b class="no">2-2.</b> 탄소를 아끼는 길 찾기<span class="tour-act"><b>길찾기</b>를 눌러 주세요</span>',
   },
   '3-1': {
     screen: 'result', target: '.stabs-wrap', box: true, when: () => !state.loading && !!currentPlan().ranked,
-    text: () => '<b class="no">3-1.</b> 절약 강도 3단계<span class="tour-f">혼자 자동차로 갈 때보다 줄이는 비율<br>조금 1% · 중간 70% · 많이 97% 이상</span><span class="tour-act">원하는 강도를 눌러 보세요</span>',
+    text: () => '<b class="no">3-1.</b> 절약 강도 고르기<span class="tour-f">혼자 자동차로 갈 때보다 탄소를 얼마나 줄일지 고를 수 있어요.<br>조금은 1% 이상, 중간은 70% 이상, 많이는 97% 이상 줄이는 경로예요.</span><span class="tour-act">원하는 강도를 눌러 보세요</span>',
   },
   '3-2': {
     screen: 'result', target: '.rlist', box: true, at: 0.5, when: () => !state.loading && !!currentPlan().chosen,
@@ -1891,27 +1907,27 @@ const TOUR_STEPS = {
       const c = tourCalc();
       const yr = c ? (c.saving * 500) / TREE_YEAR_G : 0; // 1년 출퇴근 = 250일 × 왕복 2번
       const trees = yr >= 10 ? Math.round(yr).toLocaleString() : (Math.round(yr * 10) / 10).toString();
-      return `<b class="no">3-2.</b> 탄소 계산<span class="tour-f">구간 거리 × 1km당 배출계수<br>자동차 210g · 버스 27.7g · 지하철 1.53g · 걷기 · 자전거 0g<br>아낀 탄소 = 자동차 배출 − 이 경로 배출</span><span class="tour-wow">${TI(ICON.spark)} 이 경로로 1년 출퇴근(250일 왕복) = <b>나무 ${trees}그루</b> 심은 효과</span><span class="tour-act">경로를 하나 눌러 보세요</span>`;
+      return `<b class="no">3-2.</b> 탄소는 이렇게 계산해요<span class="tour-f">구간마다 거리에 1km당 배출량을 곱해요.<br>자동차 210g, 버스 27.7g, 지하철 1.53g이고 걷기와 자전거는 0g이에요.<br>혼자 자동차로 갈 때 나오는 양에서 이 경로로 갈 때 나오는 양을 빼면 아낀 탄소가 돼요.</span><span class="tour-wow">${TI(ICON.spark)} 이 경로로 1년 동안 출퇴근하면(250일 왕복) <b>나무 ${trees}그루</b>를 심은 것과 비슷해요</span><span class="tour-act">경로를 하나 골라 주세요</span>`;
     },
   },
   '3-3': {
     screen: 'result', target: '.rcard.sel', place: 'above', when: () => !state.loading && !!currentPlan().chosen,
-    text: () => '<b class="no">3-3.</b> 생활 비유<span class="tour-f">아낀 탄소 → 나무 · 휴대폰 충전 횟수</span><span class="tour-act"><b>안내 시작</b>을 눌러 출발해 보세요</span>',
+    text: () => '<b class="no">3-3.</b> 생활 속 예로 보기<span class="tour-f">아낀 탄소가 어느 정도인지 휴대폰 충전 횟수 같은 익숙한 예로 보여 드려요.</span><span class="tour-act"><b>안내 시작</b>을 누르면 출발해요</span>',
   },
   '4-1': {
     screen: 'nav', tap: true,
-    text: () => `<b class="no">4-1.</b> 실시간 안내<span class="tour-f">GPS로 내 위치를 따라가며 다음 할 일 안내<br>실제로는 걸어가야 함 → 지금은 화면 속 이동</span><span class="tour-sub"><b>${esc((state.from || TOUR_FROM).name)} → ${esc((state.to || TOUR_TO).name)}</b></span>${TOUR_NEXT('화면을 누르면 출발 ›')}`,
+    text: () => `<b class="no">4-1.</b> 실시간 길 안내<span class="tour-f">GPS로 내 위치를 따라가면서 다음에 할 일을 알려 드려요.<br>원래는 직접 이동해야 하지만, 지금은 화면 속에서 대신 움직여 볼게요.</span><span class="tour-sub"><b>${esc((state.from || TOUR_FROM).name)} → ${esc((state.to || TOUR_TO).name)}</b></span>${TOUR_NEXT('화면을 누르면 출발해요 ›')}`,
   },
   '4-go': { screen: 'nav', chip: true },
   '4-2': {
     screen: 'nav', target: '.navx-arrive', lift: '.navx-bottom', fixed: true,
-    text: () => '<b class="no">4-2.</b> 도착<span class="tour-f">도착지 50m 안 → 도착 버튼</span><span class="tour-act"><b>도착</b>을 눌러 보세요</span>',
+    text: () => '<b class="no">4-2.</b> 도착<span class="tour-f">도착지 50m 안에 들어오면 도착 버튼이 나타나요.</span><span class="tour-act"><b>도착</b>을 눌러 주세요</span>',
   },
   '5-1': {
     screen: 'done', target: '.done', box: true, tap: true, place: 'below',
     text: (first) => {
       const c = tourCalc();
-      if (!c) return `<b class="no">5-1.</b> 이번 이동에서 아낀 탄소${TOUR_NEXT()}`;
+      if (!c) return `<b class="no">5-1.</b> 이번 이동에서 아낀 탄소예요${TOUR_NEXT()}`;
       // 수단별 절약량 = 그 구간을 자동차로 갔다면 나왔을 양(거리 비율로 나눈 자동차 배출) − 실제로 나온 양 → 모두 더하면 총 절약량
       const kmSum = Object.values(c.by).reduce((x, y) => x + y, 0) || 1;
       const ORDER = ['bus', 'subway', 'walk', 'bike', 'car'];
@@ -1922,7 +1938,7 @@ const TOUR_STEPS = {
       let d = 0.35; const next = () => { const v = d.toFixed(2); d += 0.18; return v; };
       const row = (label, g, cls = '', op = '') => { const t = next(); return `<span class="ts-row cas ${cls}" style="--d:${t}s"><span class="ts-op">${op}</span><span class="ts-l">${label}</span><b class="ts-v num" ${first ? `${countAttr(Math.round(Math.abs(g)), 'g')} data-delay="${Math.round(t * 1000)}"` : ''}>${g < 0 ? '−' : ''}${first ? formatG(0) : tG(Math.abs(g))}</b></span>`; };
       const line = (cls = '') => `<span class="ts-line cas ${cls}" style="--d:${next()}s"></span>`;
-      return `<b class="no">5-1.</b> 이번 이동에서 아낀 탄소<br>계산 과정까지 함께<span class="tour-sum">${row(`${TI(MI.car)} 자동차로 가면?`, c.car, 'ts-car')}${line()}${rows.map((r, i) => row(NAME[r.m] || r.m, r.g, '', i === rows.length - 1 && rows.length > 1 ? '+' : '')).join('')}${line('thick')}${row('총 절약량 :', c.saving, 'ts-total')}</span>${TOUR_NEXT()}`;
+      return `<b class="no">5-1.</b> 이번 이동에서 아낀 탄소예요<br>어떻게 계산했는지도 함께 보여 드려요<span class="tour-sum">${row(`${TI(MI.car)} 자동차로 가면?`, c.car, 'ts-car')}${line()}${rows.map((r, i) => row(NAME[r.m] || r.m, r.g, '', i === rows.length - 1 && rows.length > 1 ? '+' : '')).join('')}${line('thick')}${row('총 절약량 :', c.saving, 'ts-total')}</span>${TOUR_NEXT()}`;
     },
   },
   '5-2': {
@@ -1931,29 +1947,21 @@ const TOUR_STEPS = {
       const g = Math.max(0, loadLog().g || 0);
       const trees = Math.floor(g / TREE_YEAR_G);
       const num = (v, fmt, t) => `<b class="ts-v num" ${first ? `${countAttr(v, fmt)} data-delay="${Math.round(t * 1000)}"` : ''}>${first ? COUNT_FMT[fmt](0) : COUNT_FMT[fmt](v)}</b>`;
-      return `<b class="no">5-2.</b> 누적 절약량 → 나무로 비유<span class="tour-sum"><span class="ts-row cas ts-note" style="--d:.35s"><span class="ts-op"></span><span class="ts-l">${TI(ICON.leaf)} CO₂ 9.8kg이 모일 때마다 나무 한 그루</span></span><span class="ts-line cas" style="--d:.53s"></span><span class="ts-row cas" style="--d:.71s"><span class="ts-op"></span><span class="ts-l">지금까지 아낀 탄소</span>${num(Math.round(g), 'mfkg', 0.71)}</span><span class="ts-row cas ts-total" style="--d:.89s"><span class="ts-op"></span><span class="ts-l">심은 나무 :</span>${num(trees, 'trees', 0.89)}</span></span>${TOUR_NEXT()}`;
+      return `<b class="no">5-2.</b> 지금까지 아낀 탄소를 나무로 바꿔 봤어요<span class="tour-sum"><span class="ts-row cas ts-note" style="--d:.35s"><span class="ts-op"></span><span class="ts-l">${TI(ICON.leaf)} CO₂ 9.8kg을 아낄 때마다 나무 한 그루로 세어요</span></span><span class="ts-line cas" style="--d:.53s"></span><span class="ts-row cas" style="--d:.71s"><span class="ts-op"></span><span class="ts-l">지금까지 아낀 탄소</span>${num(Math.round(g), 'mfkg', 0.71)}</span><span class="ts-row cas ts-total" style="--d:.89s"><span class="ts-op"></span><span class="ts-l">심은 나무 :</span>${num(trees, 'trees', 0.89)}</span></span>${TOUR_NEXT()}`;
     },
   },
-  // ── 그린 캘린더 · CO₂ 1kg: 길찾기 튜토리얼(6) 다음, 캠페인 앞 ──
-  //  g1 메인 일주일 그래프 → 누르면 g2 캘린더(설명) → 화면을 누르면 메인으로 k1 탄소량 카드 → 펼치면 k2(1kg 비유) → c0 캠페인
-  g1: {
-    screen: 'main', target: '#wk-card', place: 'below',
-    text: () => '<b class="no">7.</b> 그린 캘린더<span class="tour-act"><b>일주일 그래프</b>를 눌러 보세요</span>',
-  },
-  g2: {
-    screen: 'calendar', target: '.cal-card', box: true, tap: true, place: 'above',
-    text: () => `<b class="no">7-1.</b> 날마다 아낀 탄소 → 달력<span class="tour-f">밝기 4단계: 500g 미만 · 500g~2kg · 2~5kg · 5kg 이상<br>날짜를 누르면 그날 아낀 양<br>위: 지난 7일 요약 · 이번 달 누적 절약량</span>${TOUR_NEXT('화면을 누르면 홈으로 ›')}`,
-  },
+  // ── CO₂ 1kg: 길찾기 튜토리얼(6) 다음, 캠페인 앞 (그린 캘린더는 발표자가 직접 보여 줘요) ──
+  //  k1 탄소량 카드 → 펼치면 k2(1kg 비유) → c0 캠페인
   k1: {
     screen: 'main', target: '#kg-card', place: 'above',
-    text: () => '<b class="no">8.</b> 탄소량 쉽게 보기<span class="tour-act"><b>이산화탄소 1kg</b> 카드를 눌러 펼쳐 보세요</span>',
+    text: () => '<b class="no">7.</b> 탄소량 쉽게 보기<span class="tour-act"><b>이산화탄소 1kg</b> 카드를 눌러서 펼쳐 보세요</span>',
   },
   k2: {
     screen: 'main', target: '#kg-card', box: true, tap: true, place: 'above', noOpt: true, // 카드가 길어서 '다음부터 보지 않기'와 겹치지 않게 이 단계만 숨겨요
     text: () => {
       const g = 1000;
       const n = (x) => (x >= 10 ? Math.round(x).toLocaleString() : x.toFixed(1).replace(/\.0$/, ''));
-      return `<b class="no">8-1.</b> 이산화탄소 1kg은?<span class="tour-f">나무 1그루가 1년 동안 흡수하는 양의 약 1/${Math.max(1, Math.round(TREE_YEAR_G / g))} (약 ${Math.round(365 * g / TREE_YEAR_G)}일 치)<br>풍선 ${n(g / EQUIV.balloonG)}개 · 스마트폰 ${n(g / EQUIV.phoneG)}번 충전<br>혼자 자동차로 약 ${(g / FACTORS.car).toFixed(1)}km</span>${TOUR_NEXT()}`;
+      return `<b class="no">7-1.</b> 이산화탄소 1kg은 어느 정도일까요?<span class="tour-f">나무 한 그루가 1년 동안 흡수하는 양의 약 1/${Math.max(1, Math.round(TREE_YEAR_G / g))}이에요. 약 ${Math.round(365 * g / TREE_YEAR_G)}일 동안 흡수하는 양이죠.<br>풍선 ${n(g / EQUIV.balloonG)}개를 가득 채울 수 있고, 스마트폰을 ${n(g / EQUIV.phoneG)}번 충전할 때 나오는 양이에요.<br>혼자 자동차로 약 ${(g / FACTORS.car).toFixed(1)}km를 달리면 이만큼 나와요.</span>${TOUR_NEXT()}`;
     },
   },
   // ── 캠페인 튜토리얼: 그린 캘린더 · CO₂ 1kg(8-1)을 마치면 이어서 ──
@@ -1963,132 +1971,132 @@ const TOUR_STEPS = {
   c0: {
     screen: 'main', target: '.m-tabs [data-act="open-camps"]', fixed: true,
     hint: true, // 막 없이 캠페인 탭만 빛나요 — 직접 눌러야 캠페인 튜토리얼이 시작돼요
-    text: () => '다음: 캠페인<span class="tour-act">아래 <b>캠페인</b>을 눌러 보세요</span>',
+    text: () => '다음은 캠페인이에요<span class="tour-act">아래 <b>캠페인</b>을 눌러 주세요</span>',
   },
   c1: {
     screen: 'campaigns', target: '.camps .m-new', place: 'below',
-    text: () => '<b class="no">1-1.</b> 캠페인<span class="tour-f">같은 이동 수단으로 여럿이 함께 탄소 줄이기</span><span class="tour-act"><b>만들기</b>로 직접 만들어 보세요</span>',
+    text: () => '<b class="no">1-1.</b> 캠페인<span class="tour-f">같은 이동 수단으로 여러 사람이 함께 탄소를 줄이는 활동이에요.</span><span class="tour-act"><b>만들기</b>를 눌러 직접 만들어 보세요</span>',
   },
   'c2-1': {
     screen: 'campaign-new', target: '.field:has(.cn-modes)', box: true, tap: true,
-    text: () => `<b class="no">1-2.</b> 분류 · 이동 수단<span class="tour-f">참여자는 고른 수단으로만 길찾기<br>이번엔 <b>자전거</b> 나들이 캠페인</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">1-2.</b> 분류와 이동 수단<span class="tour-f">참여한 사람은 여기서 고른 수단으로만 길을 찾게 돼요.<br>이번에는 <b>자전거</b> 나들이 캠페인을 만들어 볼게요.</span>${TOUR_NEXT()}`,
   },
   'c2-2': {
     screen: 'campaign-new', target: 'label.field:has(textarea[name="body"])', box: true, tap: true,
-    text: () => `<b class="no">1-3.</b> 제목 · 한 줄 소개 · 캠페인 글<span class="tour-sub">어떤 실천을 함께할지 알려요</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">1-3.</b> 제목과 소개, 캠페인 글<span class="tour-sub">어떤 실천을 함께하고 싶은지 적어 주세요.</span>${TOUR_NEXT()}`,
   },
   'c2-3': {
     screen: 'campaign-new', target: '.field:has(.cn-goal)', box: true, tap: true,
-    text: () => `<b class="no">1-4.</b> 목표 탄소 절약량<span class="tour-f">목표 100% 달성 → 인기 캠페인 (목표 ${POPULAR_MIN_KG}kg 이상)<br>달성 ${CAMP_END_DAYS}일 뒤 최종 달성률로 보상<br>만든 사람: 목표 1kg당 ${REWARD_TIERS[0].maker}~${REWARD_TIERS[REWARD_TIERS.length - 1].maker}P · 참여자: 아낀 1kg당 ${REWARD_TIERS[0].member}~${REWARD_TIERS[REWARD_TIERS.length - 1].member}P</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">1-4.</b> 목표 탄소 절약량<span class="tour-f">목표를 100% 채우면 인기 캠페인이 돼요. 목표가 ${POPULAR_MIN_KG}kg 이상인 캠페인만 해당돼요.<br>달성하고 ${CAMP_END_DAYS}일이 지나면 최종 달성률에 따라 보상을 드려요.<br>만든 사람은 목표 1kg당 ${REWARD_TIERS[0].maker}~${REWARD_TIERS[REWARD_TIERS.length - 1].maker}P, 참여한 사람은 아낀 1kg당 ${REWARD_TIERS[0].member}~${REWARD_TIERS[REWARD_TIERS.length - 1].member}P를 받아요.</span>${TOUR_NEXT()}`,
   },
   'c2-4': {
     screen: 'campaign-new', target: '#camp-form [type="submit"]', place: 'above',
-    text: () => '<b class="no">1-5.</b> <b>올리기</b> → 등록 요청',
+    text: () => '<b class="no">1-5.</b> 다 적었으면 <b>올리기</b>를 눌러 주세요',
   },
   c3: {
     screen: 'campaigns', tap: true,
-    text: () => `<b class="no">1-6.</b> 관리자 검토 후 게시<span class="tour-f">부적절한 캠페인 방지<br>관리자 승인 → 캠페인 목록에 올라가고 알림</span><span class="tour-sub">검토 상태: 계정정보 › 내 캠페인</span>${TOUR_NEXT(isAdmin() && state.tourCampId ? '화면을 누르면 관리자 검토 화면으로 ›' : undefined)}`,
+    text: () => `<b class="no">1-6.</b> 관리자가 확인한 뒤에 올라가요<span class="tour-f">부적절한 캠페인이 올라가지 않도록 관리자가 먼저 살펴봐요.<br>승인되면 캠페인 목록에 올라가고 알림으로 알려 드려요.</span><span class="tour-sub">검토 상태는 계정정보 › 내 캠페인에서 볼 수 있어요.</span>${TOUR_NEXT(isAdmin() && tourCampId() ? '화면을 누르면 관리자 화면으로 ›' : undefined)}`,
   },
   c3a: { // 관리자 계정만: 방금 진짜로 올린 캠페인을 검토 화면에서 직접 승인
     screen: 'admin',
-    get target() { return state.tourCampId ? `.ad-item:has(.rv-ok[data-id="${state.tourCampId}"]) .rv-ok` : '.ad-item .rv-ok'; },
-    text: () => '<b class="no">1-7.</b> 관리자 검토<span class="tour-f">방금 올린 캠페인이 검토 대기에 들어왔어요<br>내용 확인 → 승인하면 바로 게시 · 반려하면 사유 전달</span><span class="tour-act"><b>승인</b>을 눌러 게시해 보세요</span>',
+    get target() { const id = tourCampId(); return id ? `.ad-item:has(.rv-ok[data-id="${id}"]) .rv-ok` : '.ad-item .rv-ok'; },
+    text: () => '<b class="no">1-7.</b> 관리자 검토<span class="tour-f">방금 올린 캠페인이 검토 대기 목록에 들어왔어요.<br>승인하면 바로 게시되고, 반려하면 만든 사람에게 사유가 전달돼요.</span><span class="tour-sub">이 캠페인은 튜토리얼이 모두 끝나면 자동으로 지워져요.</span><span class="tour-act"><b>승인</b>을 눌러 게시해 보세요</span>',
   },
   c4: {
     screen: 'campaigns', place: 'above',
     get target() { // 방금 올린 내 캠페인 말고, 진행 중인 다른 사람의 자전거 캠페인 (없으면 다른 수단)
       const list = campStore.load();
       const camp = (el) => list.find((x) => String(x.id) === el.dataset.id);
-      const ok = [...document.querySelectorAll('#app .c-list .c-card')].filter((el) => { const c = camp(el); return c && !isMine(c) && String(c.id) !== String(state.tourCampId) && !campEnded(c); });
+      const ok = [...document.querySelectorAll('#app .c-list .c-card')].filter((el) => { const c = camp(el); return c && !isMine(c) && String(c.id) !== String(tourCampId()) && !campEnded(c); });
       const pick = ok.find((el) => campMode(camp(el)).id === 'bike') || ok[0];
       return pick ? `.c-list .c-card[data-id="${pick.dataset.id}"]` : '.c-list .c-card';
     },
-    text: () => '<b class="no">2-1.</b> 다른 사람의 캠페인에 참여<span class="tour-act"><b>자전거 캠페인</b>을 눌러 보세요</span>',
+    text: () => '<b class="no">2-1.</b> 다른 사람의 캠페인에 참여하기<span class="tour-act"><b>자전거 캠페인</b>을 눌러 보세요</span>',
   },
   'c5-1': {
     screen: 'campaign', target: '.cd-goal', tap: true, place: 'below',
-    text: () => `<b class="no">2-2.</b> 함께 아낀 탄소 · 목표 탄소량<span class="tour-sub">참여해서 도착할 때마다 내 절약량이 더해져요</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2-2.</b> 함께 아낀 탄소와 목표<span class="tour-sub">참여해서 도착할 때마다 내가 아낀 탄소가 여기에 더해져요.</span>${TOUR_NEXT()}`,
   },
   'c5-2': {
     screen: 'campaign', target: '.cd-reward', box: true, tap: true,
-    text: () => `<b class="no">2-3.</b> 목표 달성 보상<span class="tour-f">최종 달성률에 따라 참여자 모두 포인트<br>많이 기여할수록 기여 랭킹 위로</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2-3.</b> 목표 달성 보상<span class="tour-f">최종 달성률에 따라 참여한 사람 모두 포인트를 받아요.<br>많이 기여할수록 기여 랭킹에서 위로 올라가요.</span>${TOUR_NEXT()}`,
   },
   'c5-3': {
     screen: 'campaign', target: '.cd-bar .cd-join', lift: '.cd-bar', fixed: true,
-    text: () => '<b class="no">2-4.</b> 참여하기 → 이 캠페인의 수단으로 가는 길만<span class="tour-act"><b>캠페인 참여하기</b>를 눌러 보세요</span>',
+    text: () => '<b class="no">2-4.</b> 캠페인 참여하기<span class="tour-f">참여하면 이 캠페인의 이동 수단으로 가는 길만 찾아 드려요.</span><span class="tour-act"><b>캠페인 참여하기</b>를 눌러 주세요</span>',
   },
   c6: {
     screen: 'home', target: '.float-top .camp-trip', lift: '.float-top', tap: true, place: 'below', when: () => !!state.campTrip,
-    text: () => `<b class="no">2-5.</b> 참여 중 표시<span class="tour-f">길찾기 → 안내 → 도착<br>→ 캠페인에 기록 · 기여 랭킹 반영</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2-5.</b> 참여 중 표시<span class="tour-f">지금 참여 중인 캠페인이 위에 표시돼요.<br>이대로 길을 찾아 도착하면 캠페인에 기록되고 기여 랭킹에도 반영돼요.</span>${TOUR_NEXT()}`,
   },
   c8: {
     screen: 'home', target: '#go-result', lift: '.cta', fixed: true, when: () => !!state.campTrip && state.ready && !state.loading && !!currentPlan().chosen,
     prep: () => { if (state.campTrip && state.ready && state.from && state.to && !state.raw && !state.loading && (state.tourRouteTry || 0) < 2) { state.tourRouteTry = (state.tourRouteTry || 0) + 1; findRoutes(); } },
-    text: () => `<b class="no">2-6.</b> 캠페인 길찾기<span class="tour-f">오늘: <b>${esc((state.from || TOUR_FROM).name)} → ${esc((state.to || TOUR_CAMP_TO).name)}</b><br>캠페인 수단(${esc(state.campTrip ? campModeOf(state.campTrip.mode).label : '')})으로 가는 길만 찾아요</span><span class="tour-act"><b>길찾기</b>를 눌러 보세요</span>`,
+    text: () => `<b class="no">2-6.</b> 캠페인 길찾기<span class="tour-f">오늘은 <b>${esc((state.from || TOUR_FROM).name)}에서 ${esc((state.to || TOUR_CAMP_TO).name)}</b>까지 가 볼게요.<br>캠페인에서 정한 대로 ${esc(state.campTrip ? campModeOf(state.campTrip.mode).ro : '')} 가는 길만 찾아 드려요.</span><span class="tour-act"><b>길찾기</b>를 눌러 주세요</span>`,
   },
   'c-res': {
     screen: 'result', target: '.rcard.sel', place: 'above', when: () => !!state.campTrip && !state.loading && !!currentPlan().chosen,
-    text: () => '<b class="no">2-7.</b> 캠페인 수단 경로만<span class="tour-f">다른 수단 경로는 빠지고 이 캠페인 수단으로만</span><span class="tour-act"><b>안내 시작</b>을 눌러 출발해 보세요</span>',
+    text: () => '<b class="no">2-7.</b> 캠페인 수단으로 가는 경로<span class="tour-f">다른 수단은 빼고 이 캠페인 수단으로 가는 경로만 보여 드려요.</span><span class="tour-act"><b>안내 시작</b>을 누르면 출발해요</span>',
   },
   'c-nav': {
     screen: 'nav', tap: true,
-    text: () => `<b class="no">2-8.</b> 캠페인 참여 중 안내<span class="tour-sub"><b>${esc((state.from || TOUR_FROM).name)} → ${esc((state.to || TOUR_CAMP_TO).name)}</b></span>${TOUR_NEXT('화면을 누르면 출발 ›')}`,
+    text: () => `<b class="no">2-8.</b> 캠페인에 참여한 채로 안내해요<span class="tour-sub"><b>${esc((state.from || TOUR_FROM).name)} → ${esc((state.to || TOUR_CAMP_TO).name)}</b></span>${TOUR_NEXT('화면을 누르면 출발해요 ›')}`,
   },
   'c-go': { screen: 'nav', chip: true },
   'c-arr': {
     screen: 'nav', target: '.navx-arrive', lift: '.navx-bottom', fixed: true,
-    text: () => '<b class="no">2-9.</b> 도착 → 참여 완료<span class="tour-f">도착지 50m 안 → 참여 완료 버튼</span><span class="tour-act"><b>참여 완료</b>를 눌러 보세요</span>',
+    text: () => '<b class="no">2-9.</b> 도착하면 참여 완료<span class="tour-f">도착지 50m 안에 들어오면 참여 완료 버튼이 나타나요.</span><span class="tour-act"><b>참여 완료</b>를 눌러 주세요</span>',
   },
   'c-done': {
     screen: 'campdone', target: '.cdone-goal', tap: true, place: 'above',
-    text: () => `<b class="no">2-10.</b> 아낀 탄소 → 캠페인 목표에 더해져요<span class="tour-f">내 누적 기여 · 참여자 중 순위</span>${TOUR_NEXT('화면을 누르면 기여 랭킹으로 ›')}`,
+    text: () => `<b class="no">2-10.</b> 아낀 탄소가 캠페인 목표에 더해졌어요<span class="tour-f">지금까지 내가 기여한 양과 참여자 중 순위도 함께 볼 수 있어요.</span><span class="tour-sub">튜토리얼 이동이라 실제 기록에는 남지 않아요.</span>${TOUR_NEXT('화면을 누르면 기여 랭킹으로 ›')}`,
   },
   'c-rank': {
     screen: 'campaign', target: '#camp-rank .cr-mine', tap: true, place: 'below',
-    text: () => `<b class="no">2-11.</b> 참여자 기여 랭킹에 내 이름<span class="tour-f">도착할 때마다 내 기여가 쌓여 순위가 올라가요<br>많이 기여할수록 보상도 함께</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2-11.</b> 기여 랭킹에 내 이름이 올라갔어요<span class="tour-f">도착할 때마다 기여가 쌓이고 순위도 올라가요.<br>많이 기여할수록 받는 보상도 커져요.</span>${TOUR_NEXT()}`,
   },
   c7: {
     screen: ['campaign', 'home'], tap: true,
-    text: () => `<b class="no">3.</b> 캠페인 튜토리얼 끝<span class="tour-sub">다음: 랭킹</span>${TOUR_NEXT('화면을 누르면 홈으로 ›')}`,
+    text: () => `<b class="no">3.</b> 캠페인 안내는 여기까지예요<span class="tour-sub">다음은 랭킹이에요.</span>${TOUR_NEXT('화면을 누르면 홈으로 ›')}`,
   },
   // ── 랭킹 · 포인트 상점 튜토리얼: 그 화면을 이번에 처음 열 때 (tourSide) ──
   rk1: {
     screen: 'rank', target: '.podium', tap: true, place: 'below',
-    text: () => `<b class="no">1.</b> 이달의 절약왕 1~3위<span class="tour-sub">한 달 동안 포인트를 가장 많이 모은 순서</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">1.</b> 이달의 절약왕<span class="tour-sub">한 달 동안 포인트를 가장 많이 모은 1~3위예요.</span>${TOUR_NEXT()}`,
   },
   rk2: {
     screen: 'rank', target: '.rk-rule', tap: true, place: 'below',
-    text: () => `<b class="no">2.</b> 포인트 모으는 법<span class="tour-f">아낀 탄소 1kg당 ${PT_PER_KG}P<br>+ 버스 · 지하철 · 걷기 · 자전거 1km당 ${PT_PER_KM}P<br>+ 캠페인 보상</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2.</b> 포인트 모으는 방법<span class="tour-f">아낀 탄소 1kg마다 ${PT_PER_KG}P를 드려요.<br>버스, 지하철, 걷기, 자전거로 이동하면 1km마다 ${PT_PER_KM}P가 더해져요.<br>캠페인 보상으로도 포인트를 받을 수 있어요.</span>${TOUR_NEXT()}`,
   },
   rk3: {
     screen: 'rank', target: '.rk-me', fixed: true, tap: true, place: 'above',
-    text: () => `<b class="no">3.</b> 내 순위 · 월간 보너스<span class="tour-f">매월 1일 랭킹 갱신<br>1등 ${MONTH_AWARDS[0].toLocaleString()}P · 2등 ${MONTH_AWARDS[1].toLocaleString()}P · 3등 ${MONTH_AWARDS[2].toLocaleString()}P</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">3.</b> 내 순위와 월간 보너스<span class="tour-f">랭킹은 매월 1일에 새로 시작해요.<br>지난달 1등은 ${MONTH_AWARDS[0].toLocaleString()}P, 2등은 ${MONTH_AWARDS[1].toLocaleString()}P, 3등은 ${MONTH_AWARDS[2].toLocaleString()}P를 보너스로 받아요.</span>${TOUR_NEXT()}`,
   },
   rk4: {
     screen: 'rank', tap: true,
-    text: () => `<b class="no">4.</b> 랭킹 튜토리얼 끝<span class="tour-sub">다음: 포인트 상점</span>${TOUR_NEXT('화면을 누르면 닫혀요 ›')}`,
+    text: () => `<b class="no">4.</b> 랭킹 안내는 여기까지예요<span class="tour-sub">다음은 포인트 상점이에요.</span>${TOUR_NEXT('화면을 누르면 닫혀요 ›')}`,
   },
   // 하단바 힌트 (캠페인 힌트처럼 막 없이 탭만 빛나요): 캠페인 튜토리얼 끝 → 랭킹 → 계정정보(포인트 상점)
   hr: {
     screen: TAB_SCREENS_TOUR, target: '.m-tabs [data-act="open-rank"]', fixed: true, hint: true,
-    text: () => '다음: 랭킹<span class="tour-act">아래 <b>랭킹</b>을 눌러 보세요</span>',
+    text: () => '다음은 랭킹이에요<span class="tour-act">아래 <b>랭킹</b>을 눌러 주세요</span>',
   },
   ha: {
     screen: TAB_SCREENS_TOUR, target: '.m-tabs [data-act="open-account"]', fixed: true, hint: true,
-    text: () => '다음: 포인트 상점<span class="tour-act">아래 <b>계정정보</b>를 눌러 보세요</span>',
+    text: () => '다음은 포인트 상점이에요<span class="tour-act">아래 <b>계정정보</b>를 눌러 주세요</span>',
   },
   sh0: {
     screen: 'account', target: '.acc-shop', lift: '.acc-list', place: 'below',
-    text: () => '<b class="no">1.</b> 계정정보 › <b>포인트 상점</b><span class="tour-act">눌러 보세요</span>',
+    text: () => '<b class="no">1.</b> 계정정보 안의 <b>포인트 상점</b><span class="tour-act">눌러서 들어가 보세요</span>',
   },
   sh1: {
     screen: 'shop', target: '.shop-hero', tap: true, place: 'below',
-    text: () => `<b class="no">2.</b> 보유 탄소 포인트<span class="tour-f">앱 안에서 쓰는 가상 화폐 · 1P = 1원</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2.</b> 내가 가진 탄소 포인트<span class="tour-f">앱 안에서 쓰는 포인트예요. 1P는 1원으로 계산해요.</span>${TOUR_NEXT()}`,
   },
   sh2: {
     screen: 'shop', target: '.shop-cats [data-id="donate"]', place: 'below',
     prep: () => { const c = document.querySelector('.shop-cats'); if (c) c.scrollLeft = c.scrollWidth; }, // 맨 끝 '기부'가 보이게
-    text: () => '<b class="no">3.</b> 상품 구매 · 기부<span class="tour-act"><b>기부</b>를 눌러 보세요</span>',
+    text: () => '<b class="no">3.</b> 상품을 사거나 기부할 수 있어요<span class="tour-act"><b>기부</b>를 눌러 보세요</span>',
   },
   sh3: {
     screen: 'shop', target: '.shop-item[data-id="tree-donate"]', place: 'below',
@@ -2097,11 +2105,11 @@ const TOUR_STEPS = {
   sh4: { screen: 'shop', when: () => false }, // 구매 창 · 감사 화면 안에서 따로 안내해요 (5.)
   sh5: {
     screen: 'shop', tap: true,
-    text: () => `<b class="no">6.</b> 선순환<span class="tour-f">아낀 탄소 → 포인트 → 실제 나무</span><span class="tour-sub"><b>마무리</b> · 길찾기부터 도착 · 기록 · 보상 · 캠페인까지 하나로</span>${TOUR_NEXT('화면을 누르면 닫혀요 ›')}`,
+    text: () => `<b class="no">6.</b> 아낀 탄소가 나무로 이어져요<span class="tour-f">탄소를 아끼면 포인트가 쌓이고, 그 포인트로 나무 심기에 기부할 수 있어요.</span><span class="tour-sub"><b>마무리</b> · 길찾기부터 도착, 기록, 보상, 캠페인까지 한 앱에서 이어져요.</span>${TOUR_NEXT('화면을 누르면 튜토리얼이 끝나요 ›')}`,
   },
   6: {
     screen: 'done', target: '#cta .btn', lift: '.cta', fixed: true, label: '홈으로 돌아가기',
-    text: () => '<b class="no">6.</b> 길찾기 튜토리얼 끝<span class="tour-sub">다음: 그린 캘린더</span>',
+    text: () => '<b class="no">6.</b> 길찾기 안내는 여기까지예요<span class="tour-sub">이어서 탄소량을 쉽게 보는 방법을 알려 드릴게요.</span>',
   },
 };
 const TOUR_RIDE = { walk: '걷는 중', bike: '자전거 타는 중', bus: '버스 타는 중', subway: '지하철 타는 중', car: '차로 가는 중' };
@@ -2113,6 +2121,7 @@ function tourPaint() {
   root.querySelectorAll('.tour-hl, .tour-lift').forEach((el) => el.classList.remove('tour-hl', 'tour-lift', 'tour-pad', 'tour-look', 'nudge'));
   let layer = root.querySelector(':scope > .tour-layer');
   const st = tourStage();
+  if (st === '1' && tourCampId()) tourCampCleanup(); // 지난번 튜토리얼에서 남은 캠페인은 처음부터 다시 할 때 지워요
   const cfg = st ? TOUR_STEPS[st] : null;
   const onScreen = cfg && (Array.isArray(cfg.screen) ? cfg.screen.includes(state.screen) : cfg.screen === state.screen);
   if (onScreen && cfg.prep) cfg.prep();
@@ -2818,10 +2827,10 @@ function submitCampaign(opt = {}) {
 
 // 튜토리얼(관리자)에서 진짜로 올린 뒤: 캠페인 목록으로 돌아가 1-6 검토 설명 → 1-7 관리자 화면에서 승인
 function tourSubmitted(id) {
-  state.tourCampId = id;
+  tourPut('localStorage', TOUR_CAMP_KEY, id);
   tourGo('c3');
   go('campaigns', 'back');
-  toast('검토 요청을 보냈어요! 관리자 검토를 기다려요');
+  toast('검토를 요청했어요. 관리자가 확인하면 게시돼요');
 }
 // 서버 DB: 서버에 올리고 → 서버 기록으로 맞춘 뒤 → 올린 캠페인 화면으로
 async function submitCampaignDb(fields, opt = {}) {
@@ -3700,7 +3709,7 @@ function shopBuySheet(code, demo = false) { // demo: 포인트 상점 튜토리�
       </dl>
       <p class="ss-short" id="ss-short" role="alert" hidden></p>
       <p class="rj-err" id="ss-err" hidden></p>
-      ${demo ? '<p class="ss-tour"><b class="no">5.</b> 구매 확인 → <b>구매하기</b><small>기부 애니메이션 · 푸름이 · 튜토리얼에서는 포인트가 빠지지 않아요</small></p>' : ''}
+      ${demo ? '<p class="ss-tour"><b class="no">5.</b> <b>구매하기</b>를 눌러 주세요<small>기부가 끝나면 푸름이와 함께 감사 화면이 나와요. 튜토리얼에서는 포인트가 빠지지 않아요.</small></p>' : ''}
       <button type="button" class="btn primary${demo ? ' tour-glow' : ''}" data-yes>${it.price.toLocaleString()}P로 구매하기</button>
       <button type="button" class="btn sheet-cancel" data-no>취소</button>
     </section>`;
@@ -5723,9 +5732,8 @@ const actions = {
       return;
     }
     if (st === '4-1') { tourGo('4-go'); tourPaint(); tourSimStart(); return; }
-    if (st === 'g2') { tourGo('k1'); state.kgOpen = false; state.kgView = 'one'; go('main', 'back'); return; }
     if (st === 'k2') { tourGo('c0'); tourPaint(); return; }
-    if (st === 'c3' && isAdmin() && state.tourCampId) { tourGo('c3a'); state.adminTab = 'pending'; go('admin'); return; }
+    if (st === 'c3' && isAdmin() && tourCampId()) { tourGo('c3a'); state.adminTab = 'pending'; go('admin'); return; }
     if (st === 'c7') { tourGo('done'); state.campTrip = null; state.tourCampG = null; state.campResult = null; state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; go('main'); if (!state.sideTour) toast('튜토리얼을 모두 마쳤어요. 이제 직접 해 보세요'); return; }
     if (st === 'c6') { // 2-5 → 2-6: 캠페인 수단으로 안양역 → 수원역 길찾기
       tourGo('c8');
@@ -5941,7 +5949,6 @@ const actions = {
   'cn-tag': (el) => { saveDraftFromForm(); state.campDraft.tag = el.dataset.id; state.campDraft.mode = TAG_MODE[el.dataset.id] || state.campDraft.mode; render(); },
   'cn-goal': (el) => { saveDraftFromForm(); state.campDraft.goalKg = Number(el.dataset.id); render(); },
   'open-week': () => {
-    if (tourStage() === 'g1') tourGo('g2');
     const open = () => { state.calReturn = 'main'; state.calMonth = null; state.calSel = dayKey(new Date()); };
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (document.startViewTransition && !reduce) { open(); document.startViewTransition(() => go('calendar', null)); }
@@ -6027,8 +6034,8 @@ const actions = {
   follow: () => { state.follow = !state.follow; if (mapCtl) mapCtl.setMe(state.me, state.follow); updateNav(); },
   restart: () => {
     if (tourStage() === '6') { // 길찾기 튜토리얼 끝: 시연 출발지 · 도착지를 비우고 홈으로 → 캠페인 튜토리얼(7) 이어서
-      tourGo('g1'); state.from = null; state.to = null; state.raw = null; state.chosenId = null; state.kgOpen = false; state.kgView = 'one';
-      go('main'); return; // 다음: 그린 캘린더(7) → CO₂ 1kg(8) → 캠페인
+      tourGo('k1'); state.from = null; state.to = null; state.raw = null; state.chosenId = null; state.kgOpen = false; state.kgView = 'one';
+      go('main'); return; // 다음: CO₂ 1kg(7) → 캠페인
     }
     state.to = null; state.raw = null; go('home');
   },
