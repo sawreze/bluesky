@@ -14,11 +14,9 @@ body::before { content: ''; position: fixed; inset: 0; pointer-events: none;
 .bezel { width: 100%; height: 100%; border-radius: 65px; padding: 12px; background: #050507; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .06); }
 .screen { position: relative; width: 390px; height: 844px; border-radius: 54px; overflow: hidden; background: #F1F8FE; isolation: isolate; }
 .screen iframe { position: absolute; inset: 0; width: 390px; height: 844px; border: 0; display: block; background: #F1F8FE; }
-/* 상태 표시줄 · 다이내믹 아일랜드 (앱 위에 겹쳐요, 눌러도 앱으로 통과) */
+/* 상태 표시줄 (앱 위에 겹쳐요, 눌러도 앱으로 통과) */
 .status { position: absolute; z-index: 2; left: 0; right: 0; top: 0; height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 4px 30px 0 44px; pointer-events: none; color: #0B2A4A; }
 .time { font-size: 16.5px; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
-.island { position: absolute; left: 50%; top: 11px; width: 124px; height: 36px; margin-left: -62px; border-radius: 20px; background: #000; }
-.island::after { content: ''; position: absolute; right: 22px; top: 12px; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #2a3550, #0a0d16 70%); }
 .icons { display: flex; align-items: center; gap: 6px; }
 .icons svg { display: block; fill: currentColor; }
 .sig { width: 18px; height: 12px; }

@@ -2175,6 +2175,8 @@ function tourPaint() {
     else if (cfg.place === 'above') want = Math.min(vh * 0.46, Math.max(vh * 0.3, vh - r.height - 20));
     else if (cfg.place === 'below') want = r.height > vh * 0.5 ? vh * 0.5 - r.height : vh * 0.16;
     else want = vh * 0.18;
+    const top0 = safeArea().top + 12;
+    if (want < top0 && r.height <= vh - top0 - 140) want = top0; // 밝힌 곳이 화면에 들어갈 만하면 위쪽이 잘리지 않게
     window.scrollTo({ top: Math.max(0, window.scrollY + r.top - want), behavior: 'instant' }); // 부드러운 스크롤이면 위치를 잘못 재서 즉시
   }
   if (target) {
@@ -2197,6 +2199,15 @@ function tourPaint() {
   if (first) [250, 700, 1400].forEach((ms) => setTimeout(() => { if (layer.isConnected) tourPlace(cfg, target, layer, true); }, ms)); // 화면이 늦게 바뀌어도 다시 맞춰요
 }
 // 안내 문구 자리 잡기 (화면이 바뀌면 다시 불러요). fit: 문구가 잘리면 화면을 밀어도 되는지
+// 화면 위 · 아래 안전 영역(px): style.css 의 --sat / --sab 를 실제로 재요
+function safeArea() {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;padding-top:var(--sat,0px);padding-bottom:var(--sab,0px)';
+  document.body.appendChild(el);
+  const cs = getComputedStyle(el); const r = { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 };
+  el.remove();
+  return r;
+}
 function tourPlace(cfg, target, layer, fit) {
   const vh = window.innerHeight;
   const vw = window.innerWidth;
@@ -2225,7 +2236,8 @@ function tourPlace(cfg, target, layer, fit) {
   }
   // 휴대폰처럼 화면이 낮으면 안내 문구가 위·아래로 잘릴 수 있어요 → 화면을 밀어서 문구가 다 보이게
   //  (밝힌 곳이 너무 커서 둘 다 못 넣으면 문구를 먼저 보여 주고, 밝힌 곳은 일부만 보여요)
-  const TOP = 12; const BOT = 12;
+  const sa = safeArea(); // 상태 표시줄 · 홈 막대 자리 (시연용 휴대폰 틀 · 아이폰)
+  const TOP = 12 + sa.top; const BOT = 12 + sa.bottom;
   let tr = tip.getBoundingClientRect();
   if (fit && target && r2 && !cfg.fixed && !cfg.hint && (tr.top < TOP || tr.bottom > vh - BOT)) {
     let need = tr.top < TOP ? tr.top - TOP : tr.bottom - (vh - BOT); // +면 아래로(내용이 위로), -면 위로
@@ -2260,7 +2272,7 @@ function tourPlace(cfg, target, layer, fit) {
     const rt = target ? target.getBoundingClientRect() : null;
     const hit = (y0, y1, r) => r && r.top < y1 && r.bottom > y0;
     const ob = opt.getBoundingClientRect();
-    const low = [ob.top, ob.bottom]; const high = [10, 10 + ob.height];
+    const low = [ob.top, ob.bottom]; const high = [10 + sa.top, 10 + sa.top + ob.height];
     const score = ([y0, y1]) => (hit(y0, y1, tr) ? 2 : 0) + (hit(y0, y1, rt) ? 1 : 0);
     if (score(high) < score(low)) opt.classList.add('top');
   }
