@@ -6,6 +6,7 @@
     const pad = Math.max(16, Math.min(window.innerWidth, window.innerHeight) * 0.03);
     const s = Math.min((window.innerHeight - pad * 2) / H, (window.innerWidth - pad * 2) / W);
     phone.style.transform = `scale(${Math.max(0.3, s).toFixed(4)})`;
+    document.body.style.setProperty('--pw', `${Math.round(W * Math.max(0.3, s))}px`); // 양옆 글자 자리
   }
   fit();
   window.addEventListener('resize', fit);

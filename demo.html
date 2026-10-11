@@ -6,11 +6,13 @@
     <title>푸른하늘 · 시연</title>
     <link rel="icon" href="assets/favicon.png" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
-    <link rel="stylesheet" href="demo.css?v=2026.10.11-phone3" />
+    <link rel="stylesheet" href="demo.css?v=2026.10.11-phone4" />
   </head>
   <body>
     <!-- 시연 화면: 휴대폰 모양 틀 안에 실제 앱(/?phone)을 띄워요. 화면 높이에 맞춰 자동으로 크기를 맞춰요 -->
-    <p class="demo-title"><span class="dot" aria-hidden="true"></span>프로젝트 시연</p>
+    <!-- 휴대폰 양옆: 왼쪽 팀 이름 · 오른쪽 앱 이름과 로고 -->
+    <div class="side side-l"><p class="team">아우름</p></div>
+    <div class="side side-r"><p class="brand">푸른하늘</p><img class="logo" src="assets/icon-512.png" alt="푸른하늘 로고" /></div>
     <div class="stage">
       <div class="phone" id="phone">
         <span class="btn-side btn-action" aria-hidden="true"></span>
@@ -34,6 +36,6 @@
       </div>
     </div>
     <button type="button" class="fs-btn" id="fs">전체화면</button>
-    <script src="demo.js?v=2026.10.11-phone3"></script>
+    <script src="demo.js?v=2026.10.11-phone4"></script>
   </body>
 </html>
