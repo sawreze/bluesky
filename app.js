@@ -5745,13 +5745,7 @@ const actions = {
     if (st === 'k2') { tourGo('c0'); tourPaint(); return; }
     if (st === 'c3' && isAdmin() && tourCampId()) { tourGo('c3a'); state.adminTab = 'pending'; go('admin'); return; }
     if (st === 'c7') { tourGo('done'); state.campTrip = null; state.tourCampG = null; state.campResult = null; state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; go('main'); if (!state.sideTour) toast('튜토리얼을 모두 마쳤어요. 이제 직접 해 보세요'); return; }
-    if (st === 'c6') { // 2-5 → 2-6: 캠페인 수단으로 안양역 → 수원역 길찾기
-      tourGo('c8');
-      state.from = { ...TOUR_FROM }; state.to = { ...TOUR_CAMP_TO }; state.raw = null; state.chosenId = null; state.openDetail = null; state.tourRouteTry = 0; state.recorded = false;
-      render();
-      if (state.ready && !state.loading) { state.tourRouteTry = 1; findRoutes(); }
-      return;
-    }
+    if (st === 'c6') { tourGo('c7'); tourPaint(); return; } // 2-5 → 끝 (캠페인 길찾기 · 도착 시연은 생략, c8 ~ c-rank 단계는 쓰지 않아요)
     if (st === 'c-nav') { tourGo('c-go'); tourPaint(); tourSimStart(); return; }
     if (st === 'c-done') { // 2-10 → 2-11: 캠페인 화면의 기여 랭킹으로
       const id = state.campResult && state.campResult.campId;
