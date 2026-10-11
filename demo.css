@@ -35,3 +35,7 @@ body::before { content: ''; position: fixed; inset: 0; pointer-events: none;
 .fs-btn { position: fixed; right: 18px; top: 16px; padding: 9px 14px; border: 0; border-radius: 999px; background: rgba(18, 28, 52, .82); color: #fff; font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1; cursor: pointer; opacity: 0; transition: opacity .2s; }
 .fs-btn:hover, body:not(.fs):hover .fs-btn { opacity: 1; }
 body.fs .fs-btn { display: none; }
+/* 왼쪽 위 '프로젝트 시연' */
+.demo-title { position: fixed; z-index: 1; left: clamp(20px, 3.2vw, 56px); top: clamp(18px, 3vw, 48px); margin: 0; display: flex; align-items: center; gap: .55em;
+  font-size: clamp(22px, 2.6vw, 44px); font-weight: 800; letter-spacing: -.03em; color: #0B2A4A; }
+.demo-title .dot { width: .42em; height: .42em; border-radius: 50%; background: #2563eb; box-shadow: 0 0 0 .18em rgba(37, 99, 235, .18); }
