@@ -1811,8 +1811,9 @@ const TOUR_FROM = { name: '안양역', lat: 37.40157, lng: 126.92272 };
 // 캠페인 튜토리얼 시연 글 (만들기 화면에 미리 채워요 · 관리자 계정이면 진짜로 올라가서 1-7에서 직접 승인해요)
 const TOUR_CAMP = { tag: 'bike', mode: 'bike', goalKg: 100, cover: '', title: '주말 나들이는 자전거로 가요', sub: '자동차 대신 자전거 타고 공원 · 한강까지',
   body: '주말에 가까운 공원이나 한강에 갈 때 자동차 대신 자전거를 타고 가 봐요.\n\n자전거는 달리는 동안 탄소가 나오지 않아요. 혼자 자동차로 10km를 가면 CO₂ 약 2.1kg이 나오는데, 자전거로 가면 그만큼을 그대로 아낄 수 있어요. 바람 맞으며 달리는 길 자체가 나들이가 돼요.\n\n자전거로 나들이 다녀온 날 기록해 주세요. 함께 100kg을 목표로 해요!' };
-// 캠페인 튜토리얼 길찾기: 참여한 캠페인의 수단으로 안양역 → 수원역
-const TOUR_CAMP_TO = { name: '수원역', lat: 37.26569, lng: 127.00008 };
+// 캠페인 튜토리얼 길찾기: 참여한 캠페인의 수단으로 안양종합운동장 → 병목안시민공원
+const TOUR_CAMP_FROM = { name: '안양종합운동장', lat: 37.40554, lng: 126.94652 };
+const TOUR_CAMP_TO = { name: '병목안시민공원', lat: 37.38471, lng: 126.90895 };
 const TOUR_TO = { name: '강남역', lat: 37.49795, lng: 127.02762 };
 function tourMap(where, key) { try { return JSON.parse(window[where].getItem(key) || '{}'); } catch (e) { return {}; } }
 function tourPut(where, key, v) {
@@ -2033,7 +2034,7 @@ const TOUR_STEPS = {
   c8: {
     screen: 'home', target: '#go-result', lift: '.cta', fixed: true, when: () => !!state.campTrip && state.ready && !state.loading && !!currentPlan().chosen,
     prep: () => { if (state.campTrip && state.ready && state.from && state.to && !state.raw && !state.loading && (state.tourRouteTry || 0) < 2) { state.tourRouteTry = (state.tourRouteTry || 0) + 1; findRoutes(); } },
-    text: () => `<b class="no">2-6.</b> 캠페인 길찾기<span class="tour-f">오늘은 <b>${esc((state.from || TOUR_FROM).name)}에서 ${esc((state.to || TOUR_CAMP_TO).name)}</b>까지 가 볼게요.<br>캠페인에서 정한 대로 ${esc(state.campTrip ? campModeOf(state.campTrip.mode).ro : '')} 가는 길만 찾아 드려요.</span><span class="tour-act"><b>길찾기</b>를 눌러 주세요</span>`,
+    text: () => `<b class="no">2-6.</b> 캠페인 길찾기<span class="tour-f">오늘은 <b>${esc((state.from || TOUR_CAMP_FROM).name)}에서 ${esc((state.to || TOUR_CAMP_TO).name)}</b>까지 가 볼게요.<br>캠페인에서 정한 대로 ${esc(state.campTrip ? campModeOf(state.campTrip.mode).ro : '')} 가는 길만 찾아 드려요.</span><span class="tour-act"><b>길찾기</b>를 눌러 주세요</span>`,
   },
   'c-res': {
     screen: 'result', target: '.rcard.sel', place: 'above', when: () => !!state.campTrip && !state.loading && !!currentPlan().chosen,
@@ -2047,7 +2048,7 @@ const TOUR_STEPS = {
   'c-find': { screen: ['home', 'nav'], when: () => false }, // 길 찾는 애니메이션이 떠 있는 동안 (안내 문구 없음)
   'c-arr': {
     screen: 'nav', target: '.navx-arrive', lift: '.navx-bottom', fixed: true,
-    text: () => `<b class="no">2-6.</b> 도착지에 왔어요<span class="tour-f">${esc((state.from || TOUR_FROM).name)}에서 ${esc((state.to || TOUR_CAMP_TO).name)}까지 캠페인 수단으로 왔다고 생각해 볼게요.<br>도착지 50m 안에 들어오면 참여 완료 버튼이 나타나요.</span><span class="tour-act"><b>참여 완료</b>를 눌러 주세요</span>`,
+    text: () => `<b class="no">2-6.</b> 도착지에 왔어요<span class="tour-f">${esc((state.from || TOUR_CAMP_FROM).name)}에서 ${esc((state.to || TOUR_CAMP_TO).name)}까지 캠페인 수단으로 왔다고 생각해 볼게요.<br>도착지 50m 안에 들어오면 참여 완료 버튼이 나타나요.</span><span class="tour-act"><b>참여 완료</b>를 눌러 주세요</span>`,
   },
   'c-done': {
     screen: 'campdone', target: '.cdone-goal', tap: true, place: 'above',
@@ -5821,10 +5822,10 @@ const actions = {
     if (st === 'k2') { tourGo('c0'); tourPaint(); return; }
     if (st === 'c3' && isAdmin() && tourCampId()) { tourGo('c3a'); state.adminTab = 'pending'; go('admin'); return; }
     if (st === 'c7') { tourGo('done'); state.campTrip = null; state.tourCampG = null; state.campResult = null; state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; go('main'); if (!state.sideTour) toast('튜토리얼을 모두 마쳤어요. 이제 직접 해 보세요'); return; }
-    if (st === 'c6') { // 2-5 → 길 찾는 애니메이션(안양역 → 수원역, 캠페인 수단) → 도착지에서 2-6 참여 완료
+    if (st === 'c6') { // 2-5 → 길 찾는 애니메이션(안양종합운동장 → 병목안시민공원, 캠페인 수단) → 도착지에서 2-6 참여 완료
       if (state.tourFinding) return;
       tourGo('c-find');
-      state.from = { ...TOUR_FROM }; state.to = { ...TOUR_CAMP_TO }; state.raw = null; state.chosenId = null; state.openDetail = null; state.tourRouteTry = 1; state.recorded = false;
+      state.from = { ...TOUR_CAMP_FROM }; state.to = { ...TOUR_CAMP_TO }; state.raw = null; state.chosenId = null; state.openDetail = null; state.tourRouteTry = 1; state.recorded = false;
       render();
       if (state.ready && !state.loading) findRoutes();
       const mode = state.campTrip ? state.campTrip.mode : 'bike';
