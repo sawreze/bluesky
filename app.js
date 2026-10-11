@@ -1824,8 +1824,8 @@ function tourPut(where, key, v) {
 }
 const tourOff = () => tourMap('localStorage', TOUR_KEY)[userKey(state.user)] === 'off';
 const tourGo = (n) => tourPut('sessionStorage', TOUR_NOW, n);
-// CO₂ 1kg · 캠페인 · 랭킹 · 포인트 상점 튜토리얼: 그 기능을 이번에(앱을 열 때마다) 처음 누르면 시작해요
-const TOUR_SIDE = 'pureun-tour-side'; // { 계정: { kg: 1, camp: 1, rank: 1, shop: 1 } }
+// 랭킹 · 포인트 상점 튜토리얼: 그 화면을 이번에(앱을 열 때마다) 처음 누르면 시작해요
+const TOUR_SIDE = 'pureun-tour-side'; // { 계정: { rank: 1, shop: 1 } }
 function tourSide(kind, first) {
   if (!state.user || tourOff() || (state.sideTour && !(TOUR_STEPS[state.sideTour] || {}).hint)) return;
   const seen = tourMap('sessionStorage', TOUR_SIDE)[userKey(state.user)] || {};
@@ -1833,14 +1833,13 @@ function tourSide(kind, first) {
   tourPut('sessionStorage', TOUR_SIDE, { ...seen, [kind]: 1 });
   state.sideTour = first;
 }
-// 길찾기 튜토리얼 뒤의 안내(CO₂ 1kg · 캠페인 · 랭킹 · 포인트 상점)는 자동으로 띄우지 않고, 그 기능을 처음 누를 때만 보여 줘요
-function tourSideEnd() { state.sideTour = null; state.tourActive = false; tourPaint(); tourCampCheck(); }
-// 캠페인 · 랭킹 · 포인트 상점 튜토리얼을 다 보고 나면 튜토리얼에서 올린 캠페인을 지워요
-function tourCampCheck() {
-  if (!state.user || !tourCampId() || state.sideTour || tourStage()) return;
+// 다음에 빛낼 하단바 탭: 아직 안 본 랭킹 → 포인트 상점(계정정보)
+function tourNextHint() {
+  if (!state.user || tourOff()) return null;
   const seen = tourMap('sessionStorage', TOUR_SIDE)[userKey(state.user)] || {};
-  if (seen.camp && seen.rank && seen.shop) tourCampCleanup();
+  return !seen.rank ? 'hr' : !seen.shop ? 'ha' : null;
 }
+function tourSideEnd() { state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; tourPaint(); if (!state.sideTour) tourCampCleanup(); } // 랭킹 · 포인트 상점까지 끝나면 튜토리얼 캠페인 지우기
 // 튜토리얼(관리자)에서 진짜로 올린 캠페인: 랭킹 · 포인트 상점 튜토리얼까지 다 끝나면 지워요 (새로고침해도 잊지 않게 이 기기에 기억)
 const TOUR_CAMP_KEY = 'pureun-tour-camp'; // { 계정: 캠페인 id }
 function tourCampId() { return state.user ? tourMap('localStorage', TOUR_CAMP_KEY)[userKey(state.user)] || null : null; }
@@ -1951,18 +1950,30 @@ const TOUR_STEPS = {
       return `<b class="no">5-2.</b> 지금까지 아낀 탄소를 나무로 바꿔 봤어요<span class="tour-sum"><span class="ts-row cas ts-note" style="--d:.35s"><span class="ts-op"></span><span class="ts-l">${TI(ICON.leaf)} CO₂ 9.8kg을 아낄 때마다 나무 한 그루로 세어요</span></span><span class="ts-line cas" style="--d:.53s"></span><span class="ts-row cas" style="--d:.71s"><span class="ts-op"></span><span class="ts-l">지금까지 아낀 탄소</span>${num(Math.round(g), 'mfkg', 0.71)}</span><span class="ts-row cas ts-total" style="--d:.89s"><span class="ts-op"></span><span class="ts-l">심은 나무 :</span>${num(trees, 'trees', 0.89)}</span></span>${TOUR_NEXT()}`;
     },
   },
-  // ── CO₂ 1kg: 메인의 '이산화탄소 1kg' 카드를 처음 펼칠 때만 (tourSide 'kg') ──
+  // ── CO₂ 1kg: 길찾기 튜토리얼(6) 다음, 캠페인 앞 (그린 캘린더는 발표자가 직접 보여 줘요) ──
+  //  k1 탄소량 카드 → 펼치면 k2(1kg 비유) → c0 캠페인
+  k1: {
+    screen: 'main', target: '#kg-card', place: 'above',
+    hint: true, // 캠페인 탭처럼 막 없이 카드만 빛나요 — 직접 눌러 펼쳐야 1kg 비유(k2)로
+    text: () => '<b class="no">7.</b> 탄소량 쉽게 보기<span class="tour-act"><b>이산화탄소 1kg</b> 카드를 눌러서 펼쳐 보세요</span>',
+  },
   k2: {
     screen: 'main', target: '#kg-card', box: true, tap: true, place: 'above', noOpt: true, // 카드가 길어서 '다음부터 보지 않기'와 겹치지 않게 이 단계만 숨겨요
     text: () => {
       const g = 1000;
       const n = (x) => (x >= 10 ? Math.round(x).toLocaleString() : x.toFixed(1).replace(/\.0$/, ''));
-      return `이산화탄소 1kg은 어느 정도일까요?<span class="tour-f">나무 한 그루가 1년 동안 흡수하는 양의 약 1/${Math.max(1, Math.round(TREE_YEAR_G / g))}이에요. 약 ${Math.round(365 * g / TREE_YEAR_G)}일 동안 흡수하는 양이죠.<br>풍선 ${n(g / EQUIV.balloonG)}개를 가득 채울 수 있고, 스마트폰을 ${n(g / EQUIV.phoneG)}번 충전할 때 나오는 양이에요.<br>혼자 자동차로 약 ${(g / FACTORS.car).toFixed(1)}km를 달리면 이만큼 나와요.</span>${TOUR_NEXT()}`;
+      return `<b class="no">7-1.</b> 이산화탄소 1kg은 어느 정도일까요?<span class="tour-f">나무 한 그루가 1년 동안 흡수하는 양의 약 1/${Math.max(1, Math.round(TREE_YEAR_G / g))}이에요. 약 ${Math.round(365 * g / TREE_YEAR_G)}일 동안 흡수하는 양이죠.<br>풍선 ${n(g / EQUIV.balloonG)}개를 가득 채울 수 있고, 스마트폰을 ${n(g / EQUIV.phoneG)}번 충전할 때 나오는 양이에요.<br>혼자 자동차로 약 ${(g / FACTORS.car).toFixed(1)}km를 달리면 이만큼 나와요.</span>${TOUR_NEXT()}`;
     },
   },
-  // ── 캠페인 튜토리얼: 하단 '캠페인' 탭을 처음 누를 때만 시작해요 ──
-  //  c1 만들기 → c2-1~4 만들기 화면(시연 글 미리 채움) → c3 검토 설명 → (관리자) c3a 승인
-  //  → c4 다른 캠페인 → c5-1~3 상세 → c6 참여 중 → c8 ~ c-rank 길찾기 · 도착 · 기여 랭킹 → c7 끝
+  // ── 캠페인 튜토리얼: 그린 캘린더 · CO₂ 1kg(8-1)을 마치면 이어서 ──
+  //  번호는 캠페인 튜토리얼 안에서 1부터: 1 캠페인 탭 · 2-1~2-6 만들기 · 3-1~3-5 참여 · 4 끝
+  //  c0 메인 캠페인 탭 → c1 만들기 → c2-1~4 만들기 화면(시연 글 미리 채움, 올려도 실제로 안 올라가요)
+  //  → c3 검토 설명 → c4 다른 캠페인 → c5-1~3 상세(진행 · 보상 · 참여하기) → c6 참여 중 표시 → c7 끝
+  c0: {
+    screen: 'main', target: '.m-tabs [data-act="open-camps"]', fixed: true,
+    hint: true, // 막 없이 캠페인 탭만 빛나요 — 직접 눌러야 캠페인 튜토리얼이 시작돼요
+    text: () => '다음은 캠페인이에요<span class="tour-act">아래 <b>캠페인</b>을 눌러 주세요</span>',
+  },
   c1: {
     screen: 'campaigns', target: '.camps .m-new', place: 'below',
     text: () => '<b class="no">1-1.</b> 캠페인<span class="tour-f">같은 이동 수단으로 여러 사람이 함께 탄소를 줄이는 활동이에요.</span><span class="tour-act"><b>만들기</b>를 눌러 직접 만들어 보세요</span>',
@@ -2047,7 +2058,7 @@ const TOUR_STEPS = {
   },
   c7: {
     screen: ['campaign', 'home'], tap: true,
-    text: () => `<b class="no">3.</b> 캠페인 안내는 여기까지예요${TOUR_NEXT('화면을 누르면 홈으로 ›')}`,
+    text: () => `<b class="no">3.</b> 캠페인 안내는 여기까지예요<span class="tour-sub">다음은 랭킹이에요.</span>${TOUR_NEXT('화면을 누르면 홈으로 ›')}`,
   },
   // ── 랭킹 · 포인트 상점 튜토리얼: 그 화면을 이번에 처음 열 때 (tourSide) ──
   rk1: {
@@ -2064,7 +2075,16 @@ const TOUR_STEPS = {
   },
   rk4: {
     screen: 'rank', tap: true,
-    text: () => `<b class="no">4.</b> 랭킹 안내는 여기까지예요${TOUR_NEXT('화면을 누르면 닫혀요 ›')}`,
+    text: () => `<b class="no">4.</b> 랭킹 안내는 여기까지예요<span class="tour-sub">다음은 포인트 상점이에요.</span>${TOUR_NEXT('화면을 누르면 닫혀요 ›')}`,
+  },
+  // 하단바 힌트 (캠페인 힌트처럼 막 없이 탭만 빛나요): 캠페인 튜토리얼 끝 → 랭킹 → 계정정보(포인트 상점)
+  hr: {
+    screen: TAB_SCREENS_TOUR, target: '.m-tabs [data-act="open-rank"]', fixed: true, hint: true,
+    text: () => '다음은 랭킹이에요<span class="tour-act">아래 <b>랭킹</b>을 눌러 주세요</span>',
+  },
+  ha: {
+    screen: TAB_SCREENS_TOUR, target: '.m-tabs [data-act="open-account"]', fixed: true, hint: true,
+    text: () => '다음은 포인트 상점이에요<span class="tour-act">아래 <b>계정정보</b>를 눌러 주세요</span>',
   },
   sh0: {
     screen: 'account', target: '.acc-shop', lift: '.acc-list', place: 'below',
@@ -2090,7 +2110,7 @@ const TOUR_STEPS = {
   },
   6: {
     screen: 'done', target: '#cta .btn', lift: '.cta', fixed: true, label: '홈으로 돌아가기',
-    text: () => '<b class="no">6.</b> 길찾기 안내는 여기까지예요<span class="tour-sub">다른 기능은 처음 누를 때 그때그때 안내해 드릴게요.</span>',
+    text: () => '<b class="no">6.</b> 길찾기 안내는 여기까지예요<span class="tour-sub">이어서 탄소량을 쉽게 보는 방법을 알려 드릴게요.</span>',
   },
 };
 const TOUR_RIDE = { walk: '걷는 중', bike: '자전거 타는 중', bus: '버스 타는 중', subway: '지하철 타는 중', car: '차로 가는 중' };
@@ -2241,6 +2261,15 @@ function tourPlace(cfg, target, layer, fit) {
     if (score(high) < score(low)) opt.classList.add('top');
   }
 }
+// 막 없는 힌트(카드처럼 화면과 함께 움직이는 곳)는 스크롤하면 말풍선도 따라가요
+window.addEventListener('scroll', () => {
+  const cfg = TOUR_STEPS[tourStage()];
+  if (!cfg || !cfg.hint || cfg.fixed || !cfg.target) return;
+  const root = document.getElementById('app');
+  const layer = root && root.querySelector(':scope > .tour-layer');
+  const t = root && root.querySelector(cfg.target);
+  if (layer && t) tourPlace(cfg, t, layer, false);
+}, { passive: true });
 // 튜토리얼 막이 떠 있는 동안엔 화면 스크롤을 막아요 (휠 · 손가락) — 밝힌 곳과 안내 문구가 어긋나지 않게
 function tourBlockScroll(e) {
   if (!document.querySelector('#app > .tour-layer .tour-dim')) return;
@@ -5707,14 +5736,15 @@ const actions = {
   },
   'tour-next': () => { // 설명만 있는 단계: 화면을 누르면 다음으로
     const st = tourStage();
-    if (state.sideTour) { // CO₂ 1kg · 랭킹 · 포인트 상점
+    if (state.sideTour) { // 랭킹 · 포인트 상점
       const nx = { rk1: 'rk2', rk2: 'rk3', rk3: 'rk4', sh1: 'sh2' }[st];
-      if (nx) { state.sideTour = nx; tourPaint(); } else if (st === 'rk4' || st === 'sh5' || st === 'k2') tourSideEnd();
+      if (nx) { state.sideTour = nx; tourPaint(); } else if (st === 'rk4' || st === 'sh5') tourSideEnd();
       return;
     }
     if (st === '4-1') { tourGo('4-go'); tourPaint(); tourSimStart(); return; }
+    if (st === 'k2') { tourGo('c0'); tourPaint(); return; }
     if (st === 'c3' && isAdmin() && tourCampId()) { tourGo('c3a'); state.adminTab = 'pending'; go('admin'); return; }
-    if (st === 'c7') { tourGo('done'); state.campTrip = null; state.tourCampG = null; state.campResult = null; state.sideTour = null; state.tourActive = false; go('main'); tourCampCheck(); return; }
+    if (st === 'c7') { tourGo('done'); state.campTrip = null; state.tourCampG = null; state.campResult = null; state.sideTour = tourNextHint(); state.tourActive = !!state.sideTour; go('main'); if (!state.sideTour) toast('튜토리얼을 모두 마쳤어요. 이제 직접 해 보세요'); return; }
     if (st === 'c6') { // 2-5 → 2-6: 캠페인 수단으로 안양역 → 수원역 길찾기
       tourGo('c8');
       state.from = { ...TOUR_FROM }; state.to = { ...TOUR_CAMP_TO }; state.raw = null; state.chosenId = null; state.openDetail = null; state.tourRouteTry = 0; state.recorded = false;
@@ -5745,14 +5775,7 @@ const actions = {
   'open-account': () => { if (state.screen !== 'account') tourSide('shop', 'sh0'); goTab('account'); },
   logout: () => askLogout(),
   'avatar-reset': () => { if (dbMode()) { dbWrite('profile', { avatar: '' }, '기본 이미지로 바꿨어요'); return; } saveAvatar(''); render(); toast('기본 이미지로 바꿨어요'); },
-  'open-camps': () => { // 캠페인 탭을 처음 누를 때만 캠페인 튜토리얼 (길찾기 튜토리얼을 마친 뒤)
-    if (state.screen !== 'campaigns' && !tourStage() && state.user && !tourOff()) {
-      const key = userKey(state.user);
-      const seen = tourMap('sessionStorage', TOUR_SIDE)[key] || {};
-      if (!seen.camp && tourMap('sessionStorage', TOUR_NOW)[key] === 'done') { tourPut('sessionStorage', TOUR_SIDE, { ...seen, camp: 1 }); tourGo('c1'); }
-    }
-    goTab('campaigns');
-  },
+  'open-camps': () => { if (tourStage() === 'c0') tourGo('c1'); goTab('campaigns'); },
   'open-my-camps': () => { state.campReturn = 'my-camps'; go('my-camps'); },
   'open-camp': (el) => { if (tourStage() === 'c4') tourGo('c5-1'); state.campId = el.dataset.id; state.campReturn = ['main', 'account', 'admin', 'my-camps'].includes(state.screen) ? state.screen : 'campaigns'; go('campaign'); },
   'open-titles': () => { state.titlesReturn = ['account', 'done'].includes(state.screen) ? state.screen : 'main'; go('titles'); },
@@ -5954,10 +5977,7 @@ const actions = {
   },
   'kg-toggle': (el) => {
     state.kgOpen = !state.kgOpen;
-    if (state.kgOpen && !tourStage() && tourMap('sessionStorage', TOUR_NOW)[userKey(state.user)] === 'done') { // 처음 펼칠 때만 1kg 비유 안내
-      tourSide('kg', 'k2');
-      if (state.sideTour === 'k2') { state.tourActive = true; setTimeout(() => tourPaint(), 420); }
-    }
+    if (tourStage() === 'k1' && state.kgOpen) { tourGo('k2'); setTimeout(() => tourPaint(), 420); } // 펼쳐진 뒤 1kg 비유 안내
     const card = el.closest('#kg-card');
     if (!card) return;
     el.setAttribute('aria-expanded', String(state.kgOpen));
@@ -6023,9 +6043,9 @@ const actions = {
   }, // 도착 버튼 (도착지 50m 안에서만): 아낀 탄소를 저장하고 결과(나무 N그루) 화면으로
   follow: () => { state.follow = !state.follow; if (mapCtl) mapCtl.setMe(state.me, state.follow); updateNav(); },
   restart: () => {
-    if (tourStage() === '6') { // 길찾기 튜토리얼 끝: 시연 출발지 · 도착지를 비우고 홈으로 (다른 안내는 그 기능을 처음 누를 때)
-      tourGo('done'); state.from = null; state.to = null; state.raw = null; state.chosenId = null; state.kgOpen = false; state.kgView = 'one';
-      go('main'); return;
+    if (tourStage() === '6') { // 길찾기 튜토리얼 끝: 시연 출발지 · 도착지를 비우고 홈으로 → 캠페인 튜토리얼(7) 이어서
+      tourGo('k1'); state.from = null; state.to = null; state.raw = null; state.chosenId = null; state.kgOpen = false; state.kgView = 'one';
+      go('main'); return; // 다음: CO₂ 1kg(7) → 캠페인
     }
     state.to = null; state.raw = null; go('home');
   },
