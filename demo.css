@@ -1,0 +1,39 @@
+/* 시연용 휴대폰 틀 (demo.html) */
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { overflow: hidden; font-family: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
+  background: radial-gradient(1200px 700px at 50% 0%, #ffffff 0%, rgba(255, 255, 255, 0) 70%), linear-gradient(180deg, #dcebf8 0%, #c9def0 55%, #b9d1e8 100%); }
+body::before { content: ''; position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(420px 220px at 18% 30%, rgba(255, 255, 255, .55), transparent 70%), radial-gradient(520px 260px at 82% 62%, rgba(255, 255, 255, .45), transparent 70%); }
+.stage { position: fixed; inset: 0; display: grid; place-items: center; }
+/* 휴대폰 본체: 390 × 844 화면 + 베젤 12 + 테두리 3 */
+.phone { --w: 420px; --h: 874px; position: relative; width: var(--w); height: var(--h); flex: none; border-radius: 68px; padding: 3px;
+  background: linear-gradient(145deg, #5a3a4e 0%, #2c1b27 30%, #4a2f40 55%, #24151f 80%, #573849 100%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), inset 0 0 0 1px rgba(255, 255, 255, .18), 0 50px 90px rgba(20, 40, 80, .35), 0 18px 36px rgba(20, 40, 80, .25);
+  transform-origin: center center; }
+.bezel { width: 100%; height: 100%; border-radius: 65px; padding: 12px; background: #050507; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .06); }
+.screen { position: relative; width: 390px; height: 844px; border-radius: 54px; overflow: hidden; background: #F1F8FE; isolation: isolate; }
+.screen iframe { position: absolute; inset: 0; width: 390px; height: 844px; border: 0; display: block; background: #F1F8FE; }
+/* 상태 표시줄 · 다이내믹 아일랜드 (앱 위에 겹쳐요, 눌러도 앱으로 통과) */
+.status { position: absolute; z-index: 2; left: 0; right: 0; top: 0; height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 4px 30px 0 44px; pointer-events: none; color: #0B2A4A; }
+.time { font-size: 16.5px; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.island { position: absolute; left: 50%; top: 11px; width: 124px; height: 36px; margin-left: -62px; border-radius: 20px; background: #000; }
+.island::after { content: ''; position: absolute; right: 22px; top: 12px; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #2a3550, #0a0d16 70%); }
+.icons { display: flex; align-items: center; gap: 6px; }
+.icons svg { display: block; fill: currentColor; }
+.sig { width: 18px; height: 12px; }
+.wifi { width: 16px; height: 12px; }
+.batt { position: relative; width: 25px; height: 12px; border-radius: 4px; border: 1.2px solid currentColor; opacity: .95; }
+.batt::after { content: ''; position: absolute; right: -4px; top: 3.5px; width: 2px; height: 4px; border-radius: 0 2px 2px 0; background: currentColor; opacity: .5; }
+.batt i { position: absolute; left: 1.5px; top: 1.5px; bottom: 1.5px; width: 78%; border-radius: 2px; background: currentColor; }
+.home-bar { position: absolute; z-index: 2; left: 50%; bottom: 8px; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: #0B1220; opacity: .85; pointer-events: none; }
+/* 옆 버튼 */
+.btn-side { position: absolute; width: 4px; border-radius: 2px; background: linear-gradient(90deg, #2a1922, #5b3c4f); }
+.btn-action { left: -4px; top: 150px; height: 34px; }
+.btn-vol-up { left: -4px; top: 214px; height: 64px; }
+.btn-vol-down { left: -4px; top: 292px; height: 64px; }
+.btn-power { right: -4px; top: 250px; height: 102px; background: linear-gradient(270deg, #2a1922, #5b3c4f); }
+/* 전체화면 버튼: 마우스를 올릴 때만 보여요 · 전체화면에서는 숨겨요 */
+.fs-btn { position: fixed; right: 18px; top: 16px; padding: 9px 14px; border: 0; border-radius: 999px; background: rgba(18, 28, 52, .82); color: #fff; font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1; cursor: pointer; opacity: 0; transition: opacity .2s; }
+.fs-btn:hover, body:not(.fs):hover .fs-btn { opacity: 1; }
+body.fs .fs-btn { display: none; }

@@ -14,6 +14,8 @@
 //   7. 앱 상태          8. 화면(HTML) 만들기 9. 버튼·입력 처리
 // =====================================================================
 'use strict';
+// 시연용 휴대폰 틀(demo.html) 안에서 열리면: 상태 표시줄 · 홈 막대 자리를 비워요 (style.css html.in-phone)
+try { if (window.self !== window.top && /[?&]phone\b/.test(location.search)) document.documentElement.classList.add('in-phone'); } catch (e) { /* 무시 */ }
 // 앱 버전 — server.js 의 APP_VERSION 과 같아야 해요. (다르면 예전 서버가 켜져 있다는 뜻)
 const APP_VERSION = '2026.10.03-db';
 console.log('푸른하늘', APP_VERSION);
