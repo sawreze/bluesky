@@ -2058,7 +2058,7 @@ const TOUR_STEPS = {
   },
   'c-rank': {
     screen: 'campaign', target: '#camp-rank .cr-mine', tap: true, place: 'below',
-    text: () => `<b class="no">2-8.</b> 기여 랭킹에 내 이름이 올라갔어요<span class="tour-f">참여를 완료하면 아낀 탄소에 따라 순위가 기록돼요.<br>도착할 때마다 기여가 쌓이고, 많이 기여할수록 받는 보상도 커져요.</span>${TOUR_NEXT()}`,
+    text: () => `<b class="no">2-5.</b> 기여 랭킹에 내 이름이 올라갔어요<span class="tour-f">참여하고 도착하면 아낀 탄소에 따라 순위가 기록돼요.<br>도착할 때마다 기여가 쌓이고, 많이 기여할수록 받는 보상도 커져요.</span><span class="tour-sub">튜토리얼이라 한 번 다녀온 것처럼 보여 드려요. 실제 기록에는 남지 않아요.</span>${TOUR_NEXT()}`,
   },
   c7: {
     screen: ['campaign', 'home'], tap: true,
@@ -6008,9 +6008,12 @@ const actions = {
   // 캠페인 참여하기 → 그 캠페인 이동 수단으로만 길찾기
   'camp-join': (el) => {
     const c = campStore.load().find((x) => x.id === el.dataset.id); if (!c) return;
-    if (tourStage() === 'c5-3') { // 튜토리얼: 실제로 참여 등록은 안 하고 참여 중 화면만 보여 줘요
-      tourGo('c6'); state.campTrip = { campId: c.id, mode: campMode(c).id }; state.campResult = null;
-      state.to = null; state.raw = null; state.chosenId = null; state.openDetail = null; go('home'); return;
+    if (tourStage() === 'c5-3') { // 튜토리얼: 길찾기 · 안내는 건너뛰고, 한 번 다녀온 것처럼 내 기여를 더해 바로 기여 랭킹으로 (실제 기록은 안 남겨요)
+      const km = (distM(TOUR_CAMP_FROM, TOUR_CAMP_TO) / 1000) * ROAD_FACTOR;
+      state.tourCampG = { campId: c.id, g: Math.round(km * (FACTORS.car - (FACTORS[campMode(c).id] || 0))) };
+      state.campTrip = null; state.campResult = null; state.campId = c.id;
+      tourGo('c-rank'); go('campaign');
+      return;
     }
     if (campEnded(c)) { toast('종료된 캠페인이에요'); return; }
     // 누르는 순간 참여자로 등록해요 → "내가 참여한 캠페인"에 바로 보여요
