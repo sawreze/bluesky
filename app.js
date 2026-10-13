@@ -2197,6 +2197,17 @@ function tourPaint() {
   if (first) layer.querySelectorAll('.tour-tip [data-count]').forEach((el) => setTimeout(() => runCounters({ querySelectorAll: () => [el] }), Number(el.dataset.delay) || 0)); // 줄이 나타날 때 숫자가 올라가요
   tourPlace(cfg, target, layer, first);
   if (first) [250, 700, 1400].forEach((ms) => setTimeout(() => { if (layer.isConnected) tourPlace(cfg, target, layer, true); }, ms)); // 화면이 늦게 바뀌어도 다시 맞춰요
+  // 그 뒤에도 사진 · 기록이 늦게 들어오거나 창 크기가 바뀌어(시연 모니터 연결 등) 밝힌 곳이 움직이면 안내 문구를 다시 맞춰요
+  clearInterval(tourPaint.watch);
+  if (target && !cfg.hint) {
+    let last = '';
+    tourPaint.watch = setInterval(() => {
+      if (!layer.isConnected || !target.isConnected) { clearInterval(tourPaint.watch); return; }
+      const r = target.getBoundingClientRect();
+      const key = `${Math.round(r.top)},${Math.round(r.bottom)},${Math.round(r.left)},${window.innerWidth},${window.innerHeight}`;
+      if (key !== last) { if (last) tourPlace(cfg, target, layer, false); last = key; }
+    }, 300);
+  }
 }
 // 안내 문구 자리 잡기 (화면이 바뀌면 다시 불러요). fit: 문구가 잘리면 화면을 밀어도 되는지
 // 화면 위 · 아래 안전 영역(px): style.css 의 --sat / --sab 를 실제로 재요
