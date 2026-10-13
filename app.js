@@ -1795,7 +1795,7 @@ function weekChartHTML(series, big) {
 //  모든 사용자에게 앱을 새로 열 때마다 처음부터 짚어 줘요. "다음부터 보지 않기"를 체크하면 그 계정은 이 기기에서 그만.
 //  단계표(TOUR_STEPS): 화면 · 밝힐 곳(target) · 안내 문구 · 넘어가는 방법
 //   1   메인    빠른 길찾기 버튼 → 누르면
-//   2-1 길찾기  출발지 · 도착지 칸 (시연이라 안양역 → 강남역 자동 입력) → 화면을 누르면
+//   2-1 길찾기  출발지 · 도착지 칸 (시연이라 안양종합운동장 → 강남역 자동 입력) → 화면을 누르면
 //   2-2 길찾기  길찾기 버튼 → 누르면
 //   3-1 경로    절약 강도 → 강도를 누르면
 //   3-2 경로    경로 목록 (계산 방식 · 놀라운 사실) → 경로를 누르면
@@ -1809,7 +1809,7 @@ function weekChartHTML(series, big) {
 //  화면이 다시 그려질 때마다(tourPaint) 다시 칠해요. 진행 상황은 이 창(sessionStorage)에만 저장해요.
 const TOUR_KEY = 'pureun-tour'; // { 계정: 'off' }
 const TOUR_NOW = 'pureun-tour-now'; // { 계정: '1' … '6' | 'done' }
-const TOUR_FROM = { name: '안양역', lat: 37.40157, lng: 126.92272 };
+const TOUR_FROM = { name: '안양종합운동장', lat: 37.40554, lng: 126.94652 };
 // 캠페인 튜토리얼 시연 글 (만들기 화면에 미리 채워요 · 관리자 계정이면 진짜로 올라가서 1-7에서 직접 승인해요)
 const TOUR_CAMP = { tag: 'bike', mode: 'bike', goalKg: 100, cover: '', title: '주말 나들이는 자전거로 가요', sub: '자동차 대신 자전거 타고 공원 · 한강까지',
   body: '주말에 가까운 공원이나 한강에 갈 때 자동차 대신 자전거를 타고 가 봐요.\n\n자전거는 달리는 동안 탄소가 나오지 않아요. 혼자 자동차로 10km를 가면 CO₂ 약 2.1kg이 나오는데, 자전거로 가면 그만큼을 그대로 아낄 수 있어요. 바람 맞으며 달리는 길 자체가 나들이가 돼요.\n\n자전거로 나들이 다녀온 날 기록해 주세요. 함께 100kg을 목표로 해요!' };
@@ -5829,7 +5829,7 @@ const actions = {
   'shop-coupon': (el) => couponSheet(loadOrders().find((o) => String(o.id) === el.dataset.id)),
   'open-route': () => {
     const t = tourStage() === '1';
-    if (t) { // 튜토리얼 1 → 2-1: 시연이라 출발지 · 도착지를 안양역 → 강남역으로 넣어 둬요
+    if (t) { // 튜토리얼 1 → 2-1: 시연이라 출발지 · 도착지를 안양종합운동장 → 강남역으로 넣어 둬요
       state.from = { ...TOUR_FROM }; state.to = { ...TOUR_TO }; state.raw = null; state.chosenId = null; state.tourRouteTry = 0; state.campTrip = null;
       tourGo('2-1');
     }
